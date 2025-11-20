@@ -12,10 +12,21 @@ export type Owner = {
   id: string;
   name?: string;
   rating?: number;
+  location?: string;
+  languages?: string[];
+  since?: string;
 };
 
-// მარტივი demo ობიექტები (იმპორტისთვის: { owner, task })
-export const owner: Owner = { id: "demo-owner", name: "Demo Owner", rating: 5 };
+// demo ობიექტები, რომ build გაიაროს
+export const owner: Owner = {
+  id: "demo-owner",
+  name: "Demo Owner",
+  rating: 5,
+  location: "Tbilisi, GE",
+  languages: ["KA", "EN"],
+  since: "2024",
+};
+
 export const task: Task = {
   id: "demo-task",
   title: "Demo Task",
@@ -24,7 +35,6 @@ export const task: Task = {
   status: "PUBLISHED",
 };
 
-// სურვილისთვის თუ სადმე იყენებ მასივებს
 export const owners: Owner[] = [owner];
 export const tasks: Task[] = [task];
 export const categories: string[] = [];
