@@ -1,4 +1,5 @@
-// Minimal mock data so the build passes
+// src/data/mock.ts
+
 export type Task = {
   id: string;
   title: string;
@@ -13,10 +14,19 @@ export type Owner = {
   rating?: number;
 };
 
-export const tasks: Task[] = [];
-export const owners: Owner[] = [];
+// მარტივი demo ობიექტები (იმპორტისთვის: { owner, task })
+export const owner: Owner = { id: "demo-owner", name: "Demo Owner", rating: 5 };
+export const task: Task = {
+  id: "demo-task",
+  title: "Demo Task",
+  description: "Demo task for build",
+  ownerId: owner.id,
+  status: "PUBLISHED",
+};
+
+// სურვილისთვის თუ სადმე იყენებ მასივებს
+export const owners: Owner[] = [owner];
+export const tasks: Task[] = [task];
 export const categories: string[] = [];
 
-// fallback bundle
-const mock = { tasks, owners, categories };
-export default mock;
+export default { owner, task, owners, tasks, categories };
