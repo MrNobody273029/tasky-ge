@@ -1,0 +1,47 @@
+{
+  "nav": { "home": "Home", "tasky": "Tasky", "login": "Log In", "mypage": "My Page", "langKA": "KA", "langEN": "EN" },
+  "cta": { "getStarted": "Get Started", "browseTasks": "Browse Tasks" },
+  "home": {
+    "title": "Tasky.ge — Find tasks. Do the work. Get paid.",
+    "subtitle": "A clean, secure marketplace for real tasks and real payouts.",
+    "features": [
+      { "title": "Task Marketplace", "body": "Find real tasks by category and skill level. Browse, filter, and claim in seconds." },
+      { "title": "Secure Payouts", "body": "Get paid safely through integrated providers after successful delivery." },
+      { "title": "Clear Requirements", "body": "Each task includes scope, deadline, and reward so you know exactly what to do." }
+    ],
+    "howItWorks": {
+      "title": "How It Works",
+      "steps": [
+        { "t": "Sign Up", "d": "Create your account in a few clicks." },
+        { "t": "Choose Task", "d": "Pick a task that matches your skills and start work." },
+        { "t": "Earn Money", "d": "Deliver on time and receive your payout." }
+      ]
+    }
+  },
+  "tasky": { "title": "Browse Tasks", "search": "Search tasks (e.g., design, bug, delivery)", "viewClaim": "View & Claim", "loadMore": "Load More Tasks" },
+  "mypage": { "tabs": { "created": "My Created Tasks", "taken": "My Taken Tasks", "balance": "My Balance", "settings": "Settings" } },
+  "logout": "Exit",
+  "auth": {
+    "welcomeBack": "Welcome back",
+    "loginSubtitle": "Log in to continue to Tasky.ge.",
+    "email": "Email",
+    "password": "Password",
+    "forgot": "Forgot password?",
+    "loginBtn": "Log In",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create account",
+    "createTitle": "Create your account",
+    "createSubtitle": "Join Tasky.ge to find tasks and get paid securely.",
+    "username": "Username",
+    "mobile": "Mobile number",
+    "agree": "I agree to the",
+    "terms": "Terms",
+    "and": "and",
+    "privacy": "Privacy Policy.",
+    "createBtn": "Create Account",
+    "haveAccount": "Already have an account?",
+    "goLogin": "Log in",
+    "applications": "Applications"
+
+  }
+}

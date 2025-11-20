@@ -1,0 +1,627 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== Design tokens ========== */
+:root {
+  --bg: #0B0F14;
+  --fg: 220 13% 91%;
+  --muted: 215 14% 60%;
+  --card: rgba(255,255,255,.04);
+  --stroke: rgba(255,255,255,.08);
+  --cyan: #00E5FF;
+  --magenta: #FF1CF7;
+  --violet: #7C3AED;
+  --lime: #C8FF00;
+
+  /* Left navbar collapsed width — MUST match LeftNav (w-14 = 56px) */
+  --navw: 56px;
+}
+
+html { color-scheme: dark; }
+
+body {
+  color: hsl(var(--fg));
+  background:
+    radial-gradient(1200px 600px at 70% -10%, rgba(0,229,255,0.08), transparent 60%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle scanline texture */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 100% 3px;
+  opacity: .15;
+}
+
+/* Page container offset by the left navbar */
+.container-page {
+  padding-left: calc(var(--navw) + 12px);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Glass card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  backdrop-filter: blur(6px);
+}
+
+/* Neon shadow utility */
+.shadow-neon {
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,.28),
+    0 0 22px rgba(0,229,255,.15);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+/* Clean scrollbars */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
+
+/* Optional: hero decorative grid */
+.hero-grid { position: relative; }
+.hero-grid::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(0,229,255,.15), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(0,200,255,.12), transparent 35%),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: auto, auto, 36px 36px, 36px 36px;
+  opacity: .6;
+  pointer-events: none;
+  border-radius: 16px;
+}
+/* ამატე ერთ ქმნილ გლობალურ css-ში */
+[role="dialog"] {
+  animation: modal-pop .32s cubic-bezier(.2,.8,.2,1) both;
+  transform-origin: 50% 50%;
+}
+@keyframes modal-pop {
+  from { transform: scale(.85); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  to   { transform: scale(1); }
+}
+/* --- Chat modal panel (FAB-იდან ამოზრდა) --- */
+.chat-modal-panel[role="dialog"] {
+  animation: chat-from-fab .36s cubic-bezier(.2,.8,.2,1) both;
+  transform-origin: 100% 100%; /* ქვედა-მარჯვენა – ჩატის აიკონის მხარეს */
+}
+
+@keyframes chat-from-fab {
+  from {
+    opacity: 0;
+    transform: translate(40px, 60px) scale(0.25);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* --- Homepage hero buttons --- */
+
+.btn-hero-primary,
+.btn-hero-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem; /* დაახლოებით px-5 py-3 */
+  border-radius: 0.75rem;  /* rounded-xl */
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease-out,
+    box-shadow 0.25s ease-out,
+    color 0.25s ease-out,
+    border-color 0.25s ease-out;
+}
+.chat-fab {
+  position: fixed; /* გადაფარავს btn-hero-primary-ს relative-ს */
+}
+.btn-hero-primary span,
+.btn-hero-secondary span {
+  position: relative;
+  z-index: 1; /* რომ ზედ იყოს ფერად ფონზე */
+}
+
+/* — Primary (ცისფერი, „დაიწყე“) — */
+
+.btn-hero-primary {
+  color: #020617; /* მუქი თითქმის შავი */
+  background: var(--cyan);
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,.28),
+    0 0 22px rgba(0,229,255,.15);
+}
+
+.btn-hero-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--cyan) 20%,
+    var(--magenta) 50%,
+    var(--cyan) 80%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-hero-primary:hover::before {
+  opacity: 1;
+  background-position: 100% 50%; /* ფერები გვერდებიდან „შედის“ */
+}
+
+.btn-hero-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,.4),
+    0 0 30px rgba(0,229,255,.45);
+}
+
+/* — Secondary (outlined, „დაათვალიერე დავალებები“) — */
+
+.btn-hero-secondary {
+  color: var(--cyan);
+  border: 1px solid rgba(0,229,255,.4);
+  background: transparent;
+}
+
+.btn-hero-secondary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0,229,255,.30) 20%,
+    rgba(124,58,237,.35) 50%,
+    rgba(0,229,255,.30) 80%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-hero-secondary:hover::before {
+  opacity: 1;
+  background-position: 100% 50%;
+}
+
+.btn-hero-secondary:hover {
+  color: #020617;
+  transform: translateY(-1px);
+}
+/* --- MyPage top tabs: ACTIVE button --- */
+.btn-tab-active {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.1rem;      /* ცოტა პატარა, ვიდრე hero primary */
+  border-radius: 0.75rem;       /* rounded-xl სტილი */
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #020617;               /* მუქი ტექსტი */
+  background: var(--cyan);      /* ცისფერი, როგორც დანარჩენი ღილაკები */
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,.4),
+    0 0 24px rgba(0,229,255,.45);
+  transition:
+    transform 0.18s ease-out,
+    box-shadow 0.25s ease-out;
+}
+
+.btn-tab-active span {
+  position: relative;
+  z-index: 1; /* ტექსტი/ბეჯი იყოს ფერის ზემოთ */
+}
+
+.btn-tab-active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--cyan) 15%,
+    var(--magenta) 50%,
+    var(--cyan) 85%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-tab-active:hover::before {
+  opacity: 1;
+  background-position: 100% 50%; /* გვერდებიდან შემოსული გრადიენტი */
+}
+
+.btn-tab-active:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,.6),
+    0 0 30px rgba(0,229,255,.55);
+}
+
+/* --- Top tabs ghost button (My Page tabs) --- */
+.btn-hero-ghost {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;       /* დაახლოებით px-3 py-2 */
+  border-radius: 0.5rem;         /* rounded-lg */
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--cyan);                       /* ლურჯი ტექსტი, როგორც იმ ღილაკზე */
+  border: 1px solid rgba(0,229,255,.4);     /* ლურჯი ჩარჩო, იგივე вайბი */
+  background: transparent;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    color 0.25s ease-out,
+    border-color 0.25s ease-out,
+    box-shadow 0.25s ease-out,
+    transform 0.18s ease-out;
+}
+
+.btn-hero-ghost::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0,229,255,.35) 20%,
+    rgba(124,58,237,.42) 50%,
+    rgba(0,229,255,.35) 80%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-hero-ghost span {
+  position: relative;
+  z-index: 1; /* რომ ტექსტი/ბეჯი იყოს ფერადი ფონის ზემოთ */
+}
+
+.btn-hero-ghost:hover::before {
+  opacity: 1;
+  background-position: 100% 50%; /* გვერდებიდან შუაში შემოსული გრადიენტი */
+}
+
+.btn-hero-ghost:hover {
+  color: #020617; /* თითქმის შავი (როგორიც primary-ზეა) */
+  border-color: rgba(0,229,255,.75);
+  box-shadow: 0 0 18px rgba(0,229,255,.4);
+  transform: translateY(-1px);
+}
+/* --- Logout button (red ghost with gradient) --- */
+.btn-logout {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #fecaca; /* ღია წითელი ტექსტი */
+  border: 1px solid rgba(248,113,113,0.55); /* red-400-ish */
+  background: rgba(248,113,113,0.12);       /* გამჭვირვალე წითელი ფონდი */
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    color 0.2s ease-out,
+    border-color 0.2s ease-out,
+    box-shadow 0.25s ease-out,
+    transform 0.18s ease-out;
+}
+/* Proofs – დახარვეზება (ყვითელი) */
+.btn-evidence-warning {
+  @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+         border border-yellow-400/70 bg-yellow-400/10 text-yellow-300
+         shadow-[0_0_16px_rgba(250,204,21,0.35)]
+         hover:bg-yellow-400/15 hover:border-yellow-300/80
+         transition;
+}
+
+/* Proofs – უარყოფა (წითელი) */
+.btn-evidence-danger {
+  @apply inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+         border border-red-400/70 bg-red-500/10 text-red-300
+         shadow-[0_0_16px_rgba(248,113,113,0.35)]
+         hover:bg-red-500/15 hover:border-red-300/80
+         transition;
+}
+
+.btn-logout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(248,113,113,0.55) 15%,
+    rgba(239,68,68,0.9) 50%,
+    rgba(248,113,113,0.55) 85%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-logout span {
+  position: relative;
+  z-index: 1; /* ტექსტი + აიკონი ზემოთ იყოს გრადიენტზე */
+}
+
+.btn-logout:hover::before {
+  opacity: 1;
+  background-position: 100% 50%;
+}
+
+.btn-logout:hover {
+  color: #020617; /* მუქი ტექსტი hover-ზე */
+  border-color: rgba(248,113,113,0.9);
+  box-shadow: 0 0 20px rgba(248,113,113,0.45);
+  transform: translateY(-1px);
+}
+/* --- White ghost button (modal close/cancel) --- */
+.btn-modal-close {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: rgba(248,250,252,0.85);          /* თითქმის თეთრი ტექსტი */
+  border: 1px solid rgba(248,250,252,0.35);
+  background: transparent;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    color 0.25s ease-out,
+    border-color 0.25s ease-out,
+    box-shadow 0.25s ease-out,
+    transform 0.18s ease-out;
+}
+
+.btn-modal-close::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(248,250,252,.35) 20%,
+    rgba(226,232,240,.7) 50%,
+    rgba(248,250,252,.35) 80%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  opacity: 0;
+  transition:
+    opacity 0.35s ease-out,
+    background-position 0.35s ease-out;
+}
+
+.btn-modal-close span {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-modal-close:hover::before {
+  opacity: 1;
+  background-position: 100% 50%;
+}
+
+.btn-modal-close:hover {
+  color: #020617; /* მუქი ტექსტი hover-ზე */
+  border-color: rgba(248,250,252,.9);
+  box-shadow: 0 0 18px rgba(248,250,252,.35);
+  transform: translateY(-1px);
+}
+/* --- Requests page status pills --- */
+
+/* დადასტურებულია — მწვანე ნაზი ნეონი */
+.pill-status-approved {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #bbf7d0; /* emerald-200 */
+  background:
+    radial-gradient(circle at 0% 0%, rgba(16,185,129,0.45), transparent 60%),
+    rgba(16,185,129,0.16);
+  border: 1px solid rgba(16,185,129,0.7);
+  box-shadow: 0 0 18px rgba(16,185,129,0.45);
+}
+
+/* უარყოფილია — თეთრი/ნაცრისფერი, როგორც დახურვის ღილაკის вайბი */
+.pill-status-rejected {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(248,250,252,0.85);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(248,250,252,0.45), transparent 55%),
+    rgba(15,23,42,0.9);
+  border: 1px solid rgba(248,250,252,0.4);
+  box-shadow: 0 0 16px rgba(148,163,184,0.4);
+  opacity: 0.9;
+}
+/* --- Left navbar icon buttons --- */
+
+.leftnav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;  /* ~ w-11 */
+  height: 2.75rem; /* ~ h-11 */
+  border-radius: 0.85rem; /* rounded-xl вайბი */
+  background: rgba(15,23,42,0.9); /* მუქი გლასი */
+  border: 1px solid rgba(148,163,184,0.35);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    background 0.25s ease-out,
+    border-color 0.25s ease-out,
+    box-shadow 0.25s ease-out,
+    transform 0.18s ease-out,
+    opacity 0.2s ease-out;
+}
+
+/* შიგნით გრადიენტული overlay (აქტიურზე მეტია, hover-ზე ძლიერდება) */
+.leftnav-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    145deg,
+    rgba(0,229,255,0.55),
+    rgba(236,72,153,0.55),
+    rgba(200,255,0,0.5)
+  );
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 0.35s ease-out;
+}
+
+/* არააქტიური მდგომარეობა */
+.leftnav-item--idle {
+  background: rgba(15,23,42,0.9);
+}
+
+/* არააქტიურზე hover → მარტო აიკონი იღებს ფერს, ჩარჩო არა */
+.leftnav-item--idle:hover {
+  background: rgba(15,23,42,1);
+}
+
+/* აქტიური აითემი — ჩარჩოშიც, როგორც раньше, + ფერადი glow */
+.leftnav-item--active {
+  border-color: rgba(0,229,255,0.85);
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,0.4),
+    0 0 22px rgba(0,229,255,0.5);
+}
+
+.leftnav-item--active::before {
+  opacity: 0.3;
+}
+
+.leftnav-item--active:hover::before {
+  opacity: 0.6;
+}
+
+/* თვითონ აიკონი */
+.leftnav-icon {
+  position: relative;
+  z-index: 1;
+  color: rgba(248,250,252,0.82);
+  transition:
+    color 0.25s ease-out,
+    filter 0.35s ease-out,
+    transform 0.18s ease-out;
+}
+
+/* არააქტიურზე: hover-ისას მხოლოდ აიკონი ფერადდება */
+.leftnav-item--idle:hover .leftnav-icon {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 9px rgba(0,229,255,0.8));
+  transform: translateY(-1px);
+}
+
+/* აქტიურზე: ყოველთვის ფერადია + „გრადიენტული“ hue-rotate ანიმაცია */
+.leftnav-item--active .leftnav-icon {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 12px rgba(0,229,255,0.95));
+  animation: leftnav-icon-hue 6s linear infinite;
+}
+
+@keyframes leftnav-icon-hue {
+  0% {
+    filter:
+      drop-shadow(0 0 12px rgba(0,229,255,0.95))
+      hue-rotate(0deg);
+  }
+  33% {
+    filter:
+      drop-shadow(0 0 14px rgba(236,72,153,0.95))
+      hue-rotate(60deg);
+  }
+  66% {
+    filter:
+      drop-shadow(0 0 14px rgba(190,242,100,0.95))
+      hue-rotate(120deg);
+  }
+  100% {
+    filter:
+      drop-shadow(0 0 12px rgba(0,229,255,0.95))
+      hue-rotate(0deg);
+  }
+}

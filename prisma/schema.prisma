@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // dev-ზე OK; პროდზე "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?  @unique
+  phone        String?  @unique
+  image        String?
+  createdAt    DateTime @default(now())
+
+  // Evidence authored by this user (worker)
+  evidences        TaskEvidence[] @relation("EvidenceAuthor")
+  // Evidence where this user made decision (client)
+  evidencesDecided TaskEvidence[] @relation("EvidenceDecider")
+
+  // არსებული კავშირები
+  tasks  Task[]      @relation("UserTasks")
+  claims TaskClaim[]
+
+  // Applications (exclusive flow)
+  applications           TaskApplication[] // ← applicant(user) ↔ applications
+  // Chat
+  chatThreadsAsOwner     ChatThread[]      @relation("ChatThreadOwner")
+  chatThreadsAsApplicant ChatThread[]      @relation("ChatThreadApplicant")
+  messages               ChatMessage[]     // ← author(user) ↔ messages
+
+  // Wallet / balance
+  walletTransactions              WalletTransaction[] @relation("WalletTxOwner")
+  walletTransactionsAsCounterparty WalletTransaction[] @relation("WalletTxCounterparty")
+
+  // Reviews
+  reviewsGiven    Review[] @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+
+  // Cached rating aggregates (ჭრელი, მაგრამ life-ს გაგვიადვილებს)
+  ratingWorkerAvg   Float  @default(0)
+  ratingWorkerCount Int    @default(0)
+  ratingClientAvg   Float  @default(0)
+  ratingClientCount Int    @default(0)
+}
+
+model Task {
+  id       String @id @default(cuid())
+  authorId String
+  author   User   @relation("UserTasks", fields: [authorId], references: [id], onDelete: Cascade)
+
+  locale    String
+  title     String
+  desc      String
+  category  String
+  skill     String
+  reward    Int
+  deadline  DateTime?
+  where     TaskWhere
+  address   String?
+  exclusive Boolean    @default(false)
+  status    TaskStatus @default(DRAFT)
+  photos    String     @default("[]")
+  proof     String     @default("")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  evidences TaskEvidence[]
+
+  // არსებული
+  claims TaskClaim[]
+
+  // NEW: უკუპოლები
+  applications TaskApplication[] // ← task ↔ applications
+  chatThreads  ChatThread[]      // ← task ↔ chatThreads
+
+  // Reviews this task is related to (optional context)
+  reviews Review[]
+
+  // Wallet tx (publish fee, payout და ა.შ.)
+  walletTransactions WalletTransaction[] @relation("TaskWalletTx")
+}
+
+model TaskClaim {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+}
+
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum TaskWhere {
+  REMOTE
+  ONSITE
+}
+
+/**
+ * ---------------- Applications (მოთხოვნები) ----------------
+ */
+
+model TaskApplication {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  applicantId String
+  applicant   User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  message     String   @default("")
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  decidedAt   DateTime?
+
+  @@unique([taskId, applicantId])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/**
+ * ---------------- Evidence ----------------
+ */
+
+model TaskEvidence {
+  id       String   @id @default(cuid())
+
+  taskId   String
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Author (worker who submitted evidence)
+  authorId String
+  author   User     @relation("EvidenceAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Decision (client who confirms / rejects / requests fixes)
+  decidedById String?
+  decidedBy   User?        @relation("EvidenceDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  status      EvidenceStatus @default(PENDING)
+  decidedAt   DateTime?
+
+  // ორივე მხარის review-ების ტრეკინგი (QoL flags)
+  clientReviewed Boolean @default(false)
+  workerReviewed Boolean @default(false)
+
+  // ტექსტური აღწერა
+  text     String   @default("")
+
+  // JSON string-ებად ვინახავთ URL-ების array-ს
+  photos   String   @default("[]") // string[]
+  videos   String   @default("[]") // string[]
+  files    String   @default("[]") // string[] (ZIP-ები და ა.შ.)
+
+  createdAt DateTime @default(now())
+
+  // Reviews (ორივე მიმართულება)
+  reviews Review[]
+
+  // დაკავშირებული ტრანზაქციები (პირადად payout და სხვ.)
+  walletTransactions WalletTransaction[]
+}
+
+enum EvidenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_FIXES
+}
+
+/**
+ * ---------------- Chat (თრედი + მესიჯები) ----------------
+ */
+
+model ChatThread {
+  id String @id @default(cuid())
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // task-ის ავტორი (მფლობელი მხარე)
+  ownerId String
+  owner   User   @relation("ChatThreadOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // აპლიკანტი (შემსრულებელი)
+  applicantId String
+  applicant   User   @relation("ChatThreadApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  hasUnreadForOwner     Boolean @default(false)
+  hasUnreadForApplicant Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  // თითო ტასკზე თითო აპლიკანტთან ერთი თრედი
+  @@unique([taskId, applicantId])
+}
+
+model ChatMessage {
+  id String @id @default(cuid())
+
+  threadId String
+  thread   ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  body      String
+  createdAt DateTime @default(now())
+}
+
+/**
+ * ---------------- Reviews ----------------
+ */
+
+model Review {
+  id String @id @default(cuid())
+
+  // ვინ წერს შეფასებას
+  fromUserId String
+  fromUser   User   @relation("ReviewsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+
+  // ვის ვაფასებთ (როგორც დამკვეთს ან როგორც შემსრულებელს)
+  toUserId String
+  toUser   User   @relation("ReviewsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  // როლში ვაფასებთ ამ მომხმარებელს
+  role ReviewRole
+
+  // კონტექსტი (ალბათ evidence + task)
+  taskId     String?
+  task       Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  evidenceId String?
+  evidence   TaskEvidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+
+  stars   Int
+  comment String   @default("")
+
+  createdAt DateTime @default(now())
+
+  @@index([toUserId, role])
+}
+
+enum ReviewRole {
+  WORKER  // შეფასება როგორც შემსრულებლის
+  CLIENT  // შეფასება როგორც დამკვეთის
+}
+
+/**
+ * ---------------- Wallet / Balance ----------------
+ */
+
+model WalletTransaction {
+  id String @id @default(cuid())
+
+  userId String
+  user   User @relation("WalletTxOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  // optional counterparty (e.g. მეორე მხარე)
+  counterpartyId String?
+  counterparty   User? @relation("WalletTxCounterparty", fields: [counterpartyId], references: [id], onDelete: SetNull)
+
+  // optional task / evidence context
+  taskId     String?
+  task       Task?         @relation("TaskWalletTx", fields: [taskId], references: [id], onDelete: SetNull)
+  evidenceId String?
+  evidence   TaskEvidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  type   WalletTxType
+  status WalletTxStatus @default(COMPLETED)
+
+  // თანხა ლარებში; დადებითი = შემოსავალი, უარყოფითი = შემცირება
+  amount Int
+
+  // UI helpers
+  method      String @default("") // "balance" | "card" | ...
+  description String @default("")
+
+  @@index([userId, createdAt])
+  @@index([taskId])
+}
+
+enum WalletTxType {
+  EARNING
+  PUBLISH_FEE
+  WITHDRAWAL
+  OTHER
+}
+
+enum WalletTxStatus {
+  COMPLETED
+  PENDING
+  FAILED
+  ON_HOLD
+}
