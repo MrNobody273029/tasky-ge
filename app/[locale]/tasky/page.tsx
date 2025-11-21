@@ -75,11 +75,17 @@ export default async function Tasky({
     ],
   };
 
-  const tasks = await prisma.task.findMany({
-    where: prismaWhere,
-    orderBy: { createdAt: "desc" },
-  });
-
+  let tasks: any[] = [];
+  try {
+    tasks = await prisma.task.findMany({
+      where: prismaWhere,
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (err) {
+    console.error("tasky page db error:", err);
+    // fallback: ცარიელი სია, რომ გვერდი არ გადაყირავდეს
+    tasks = [];
+  }
   function toCardInput(db: any): TaskCardInput {
     return {
       id: db.id,
