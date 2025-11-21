@@ -271,6 +271,7 @@ export default function TaskModal({
   const [appStatus, setAppStatus] =
     useState<"NONE" | "PENDING" | "APPROVED" | "REJECTED">("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [evidenceApproved, setEvidenceApproved] = useState(false);
 
   // apply UI
   const [applyOpen, setApplyOpen] = useState(false);
@@ -300,6 +301,26 @@ export default function TaskModal({
     setThreadId(null);
     setHasTaken(false);
   }, [open, taskId]);
+// გავიგოთ, ამ ტასკზე ხომ არ არსებობს უკვე ჩემი (worker) ევიდენსი "APPROVED"
+useEffect(() => {
+  if (!open || !taskId) return;
+  let alive = true;
+
+  fetch(`/api/my/evidences?tab=outgoing`, { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : []))
+    .then((list: any[]) => {
+      if (!alive) return;
+      const ok =
+        Array.isArray(list) &&
+        list.some((ev) => ev?.task?.id === taskId && ev?.status === 'APPROVED');
+      setEvidenceApproved(!!ok);
+    })
+    .catch(() => setEvidenceApproved(false));
+
+  return () => {
+    alive = false;
+  };
+}, [open, taskId]);
 
   // load task
   useEffect(() => {
@@ -779,17 +800,35 @@ const handleSubmitProof = () => {
     <span>{t.close}</span>
   </button>
 
-  {data && !data.isMine && (
+
+{data && !data.isMine && (
+  evidenceApproved ? (
+    <>
+      {/* მწვანე ბეჯი: "დადასტურებულია" / "Approved" */}
+      <div className="px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/40 text-sm">
+        {locale === 'ka' ? 'დადასტურებულია' : 'Approved'}
+      </div>
+
+      {/* ჩატი დარჩეს ღილაკად, თუ თრედი არსებობს */}
+      {threadId ? (
+        <button
+          onClick={() => openFloatingChat(threadId)}
+          className="btn-hero-secondary text-sm"
+        >
+          <span>{t.openChat}</span>
+        </button>
+      ) : null}
+    </>
+  ) : (
     <>
       {data.exclusive ? (
         /* --- EXCLUSIVE ტასკები --- */
-        appStatus === "REJECTED" ? (
+        appStatus === 'REJECTED' ? (
           <div className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed">
             <span>{t.rejectedBadge}</span>
           </div>
-        ) : appStatus === "PENDING" ? (
+        ) : appStatus === 'PENDING' ? (
           <>
-            {/* „ელოდებით დამტკიცებას“ — ლურჯი გამჭვირვალე, მაგრამ გათეთრებული */}
             <button
               aria-disabled="true"
               className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
@@ -815,10 +854,8 @@ const handleSubmitProof = () => {
               </button>
             )}
           </>
-
-        ) : appStatus === "APPROVED" || hasTaken ? (
+        ) : appStatus === 'APPROVED' || hasTaken ? (
           <>
-            {/* თუ უკვე გაგზავნილია მტკიცებულება – არაკლიკებადი ღილაკი */}
             {hasEvidence ? (
               <button
                 type="button"
@@ -855,9 +892,6 @@ const handleSubmitProof = () => {
             )}
           </>
         ) : (
-
-
-          /* „მოთხოვნის გაგზავნის“ ღილაკი — ლურჯი გამჭვირვალე */
           <button
             onClick={() => setApplyOpen(true)}
             className="btn-hero-secondary text-sm"
@@ -865,11 +899,9 @@ const handleSubmitProof = () => {
             <span>{t.takeTask}</span>
           </button>
         )
-
       ) : hasTaken ? (
         /* --- არაექსკლუზიური, უკვე აღებული --- */
         <>
-          {/* თუ უკვე გაგზავნილია მტკიცებულება – არაკლიკებადი ტექსტური ღილაკი */}
           {hasEvidence ? (
             <button
               type="button"
@@ -888,15 +920,12 @@ const handleSubmitProof = () => {
             </button>
           )}
 
-          {/* დაბრუნება — SAME, მაგრამ ბლოკი რომ evidence უკვეაა */}
           <button
             onClick={handleReturnClick}
             disabled={returning}
             className={
-              "btn-logout inline-flex items-center gap-2 text-sm " +
-              (hasEvidence
-                ? "opacity-60 cursor-not-allowed"
-                : "disabled:opacity-60")
+              'btn-logout inline-flex items-center gap-2 text-sm ' +
+              (hasEvidence ? 'opacity-60 cursor-not-allowed' : 'disabled:opacity-60')
             }
             title={hasEvidence ? t.cannotReturnAfterEvidence : undefined}
           >
@@ -905,9 +934,6 @@ const handleSubmitProof = () => {
           </button>
         </>
       ) : (
-
-
-        
         /* --- არაექსკლუზიური, ჯერ არ არის აღებული --- */
         <button
           onClick={handleTake}
@@ -918,7 +944,10 @@ const handleSubmitProof = () => {
         </button>
       )}
     </>
-  )}
+  )
+)}
+
+
 </div>
 
           {/* Exclusive Apply Popup */}
