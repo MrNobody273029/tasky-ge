@@ -68,12 +68,22 @@ export default async function Tasky({
 
   // ❗️დამატებული ლოგიკა:
   // ექსკლუზიური ტასკი, რომელსაც უკვე APPROVED აპლიკაცია აქვს, tasky-ზე აღარ გამოჩნდეს
-  prismaWhere.NOT = {
-    AND: [
-      { exclusive: true },
-      { applications: { some: { status: "APPROVED" } } },
-    ],
-  };
+prismaWhere.NOT = {
+  OR: [
+    {
+      AND: [
+        { exclusive: true },
+        { applications: { some: { status: "APPROVED" } } },
+      ],
+    },
+    {
+      AND: [
+        { exclusive: false },
+        { evidences: { some: { status: "APPROVED" } } }, // 👈 იხილე შენიშვნა ქვემოთ
+      ],
+    },
+  ],
+};
 
   let tasks: any[] = [];
   try {

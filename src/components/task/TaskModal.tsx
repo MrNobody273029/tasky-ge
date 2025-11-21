@@ -308,13 +308,23 @@ useEffect(() => {
 
   fetch(`/api/my/evidences?tab=outgoing`, { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : []))
-    .then((list: any[]) => {
-      if (!alive) return;
-      const ok =
-        Array.isArray(list) &&
-        list.some((ev) => ev?.task?.id === taskId && ev?.status === 'APPROVED');
-      setEvidenceApproved(!!ok);
-    })
+.then((list: any[]) => {
+  if (!alive) return;
+  const ok =
+    Array.isArray(list) &&
+    list.some((ev) => ev?.task?.id === taskId && ev?.status === 'APPROVED');
+
+  setEvidenceApproved(!!ok);
+
+  // ⬇️ ახალი 3 ხაზი — დავალებას რომ დაამტკიცებენ, ადგილობრივ ფლაგსაც ვწმენდთ
+  if (ok) {
+    try {
+      localStorage.removeItem(`tasky:evidenceSent:${taskId}`);
+    } catch {}
+    setHasEvidence(false);
+  }
+})
+
     .catch(() => setEvidenceApproved(false));
 
   return () => {
@@ -777,20 +787,7 @@ const handleSubmitProof = () => {
 
 
 
-          {(err || msg) && (
-            <div className="px-5 md:px-6 pb-2">
-              {err && (
-                <div className="p-3 rounded-xl bg-red-500/10 text-red-300 text-sm">
-                  {err}
-                </div>
-              )}
-              {msg && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-300 text-sm">
-                  {msg}
-                </div>
-              )}
-            </div>
-          )}
+
 
           {/* Actions */}
    {/* Actions */}
