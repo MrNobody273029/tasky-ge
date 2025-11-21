@@ -23,6 +23,53 @@ export async function POST(
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     const taskId = task.id;
+
+    const contentType = req.headers.get('content-type') || '';
+
+    /* =========================================================
+       BRANCH A: JSON body (Cloudinary URLs უკვე ატვირთულია)
+       ========================================================= */
+    if (contentType.includes('application/json')) {
+      const body = await req.json().catch(() => ({} as any));
+      const text = String(body?.text || '').trim();
+
+      const photos = Array.isArray(body?.photos)
+        ? body.photos.filter((x: any) => typeof x === 'string')
+        : [];
+      const videos = Array.isArray(body?.videos)
+        ? body.videos.filter((x: any) => typeof x === 'string')
+        : [];
+      const files = Array.isArray(body?.files)
+        ? body.files.filter((x: any) => typeof x === 'string')
+        : [];
+
+      const hasSomething =
+        text.length > 0 ||
+        photos.length > 0 ||
+        videos.length > 0 ||
+        files.length > 0;
+
+      if (!hasSomething) {
+        return NextResponse.json({ error: 'empty_evidence' }, { status: 400 });
+      }
+
+      const ev = await prisma.taskEvidence.create({
+        data: {
+          taskId,
+          authorId: user.id,
+          text,
+          photos: JSON.stringify(photos),
+          videos: JSON.stringify(videos),
+          files: JSON.stringify(files),
+        },
+      });
+
+      return NextResponse.json({ ok: true, id: ev.id });
+    }
+
+    /* =========================================================
+       BRANCH B: multipart/form-data (ძველი გზა, ლოკალურად ვინახავთ)
+       ========================================================= */
     const form = await req.formData();
     const rawText = (form.get('text') ?? '').toString();
     const text = rawText.trim();
@@ -34,7 +81,7 @@ export async function POST(
     );
     const photosLimited = photoFiles.slice(0, 6);
 
-    // ვიდეო (max 1 UI-ს მხრივ, ბექზე მაინც array)
+    // ვიდეო (max 1)
     const videoRaw = form.get('video');
     const videoFile =
       videoRaw instanceof File && videoRaw.size > 0 ? videoRaw : null;
@@ -52,47 +99,36 @@ export async function POST(
       zipFiles.length > 0;
 
     if (!hasSomething) {
-      return NextResponse.json(
-        { error: 'empty_evidence' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'empty_evidence' }, { status: 400 });
     }
 
-// ---- ფაილების შენახვა (dev: public/uploads/evidence/{taskId}/...) ----
-const uploadDir = path.join(
-  process.cwd(),
-  'public',
-  'uploads',
-  'evidence',
-  taskId,            // აქ task.id-ს მაგივრად taskId
-);
+    // ---- ფაილების შენახვა (dev: public/uploads/evidence/{taskId}/...) ----
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'evidence', taskId);
+    await fs.mkdir(uploadDir, { recursive: true });
 
-await fs.mkdir(uploadDir, { recursive: true });
+    const photoUrls: string[] = [];
+    const videoUrls: string[] = [];
+    const fileUrls: string[] = [];
 
-const photoUrls: string[] = [];
-const videoUrls: string[] = [];
-const fileUrls: string[] = [];
+    async function saveOne(file: File, prefix: string): Promise<string> {
+      const arrayBuf = await file.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
 
-async function saveOne(file: File, prefix: string): Promise<string> {
-  const arrayBuf = await file.arrayBuffer();
-  const buf = Buffer.from(arrayBuf);
+      const orig = file.name || 'file';
+      const parts = orig.split('.');
+      const ext =
+        parts.length > 1 ? `.${parts[parts.length - 1].toLowerCase()}` : '';
 
-  const orig = file.name || 'file';
-  const parts = orig.split('.');
-  const ext =
-    parts.length > 1 ? `.${parts[parts.length - 1].toLowerCase()}` : '';
+      const name = `${prefix}-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}${ext || '.bin'}`;
 
-  const name = `${prefix}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}${ext || '.bin'}`;
+      const fullPath = path.join(uploadDir, name);
+      await fs.writeFile(fullPath, buf);
 
-  const fullPath = path.join(uploadDir, name);
-  await fs.writeFile(fullPath, buf);
-
-  // PUBLIC URL
-  return `/uploads/evidence/${taskId}/${name}`; // აქაც taskId
-}
-
+      // PUBLIC URL
+      return `/uploads/evidence/${taskId}/${name}`;
+    }
 
     for (const f of photosLimited) {
       const url = await saveOne(f, 'photo');
@@ -111,7 +147,7 @@ async function saveOne(file: File, prefix: string): Promise<string> {
 
     const ev = await prisma.taskEvidence.create({
       data: {
-        taskId: task.id,
+        taskId,
         authorId: user.id,
         text,
         photos: JSON.stringify(photoUrls),
@@ -123,9 +159,6 @@ async function saveOne(file: File, prefix: string): Promise<string> {
     return NextResponse.json({ ok: true, id: ev.id });
   } catch (err) {
     console.error('evidence_post_error', err);
-    return NextResponse.json(
-      { error: 'server_error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'server_error' }, { status: 500 });
   }
 }

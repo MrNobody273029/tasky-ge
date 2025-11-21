@@ -24,6 +24,47 @@ const getEmailFromCookie = () => {
   return m ? decodeURIComponent(m[1]) : '';
 };
 
+/* ---------- Cloudinary upload helper ---------- */
+type ResourceKind = 'image' | 'video' | 'raw';
+
+/** იღებს ხელმოწერას ბექიდან (route.ts ზემოთ) */
+async function getSignature(kind: ResourceKind, folder: string) {
+  const res = await fetch(`/api/cloudinary/sign?type=${kind}&folder=${encodeURIComponent(folder)}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('sign_failed');
+  return (await res.json()) as {
+    cloudName: string;
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    folder: string;
+    resourceType: ResourceKind;
+  };
+}
+
+/** ატვირთავს ერთ ფაილს Cloudinary-ში და აბრუნებს secure_url-ს */
+async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string) {
+  const sig = await getSignature(kind, folder);
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloudName}/${sig.resourceType}/upload`;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('api_key', sig.apiKey);
+  fd.append('timestamp', String(sig.timestamp));
+  fd.append('signature', sig.signature);
+  fd.append('folder', sig.folder);
+
+
+
+  const up = await fetch(endpoint, { method: 'POST', body: fd });
+  const j = await up.json();
+  if (!up.ok || !j?.secure_url) {
+    throw new Error(j?.error?.message || 'upload_failed');
+  }
+  return j.secure_url as string;
+}
+
 export default function ProofSubmitPage({
   params,
 }: {
@@ -43,8 +84,6 @@ export default function ProofSubmitPage({
     }
     return '';
   });
-
-  console.log('proof submit taskId =', taskId);
 
   const t = {
     title: isKa ? 'მტკიცებულებების გაგზავნა' : 'Submit evidence',
@@ -91,10 +130,7 @@ export default function ProofSubmitPage({
     if (!list.length) return;
     setPhotos((prev) => {
       const map = new Map(prev.map((f) => [keyFor(f), f]));
-      for (const f of list) {
-        map.set(keyFor(f), f);
-      }
-      // მაქსიმუმ 6
+      for (const f of list) map.set(keyFor(f), f);
       return Array.from(map.values()).slice(0, 6);
     });
     e.target.value = '';
@@ -117,9 +153,7 @@ export default function ProofSubmitPage({
     if (!list.length) return;
     setFiles((prev) => {
       const map = new Map(prev.map((f) => [keyFor(f), f]));
-      for (const f of list) {
-        map.set(keyFor(f), f);
-      }
+      for (const f of list) map.set(keyFor(f), f);
       return Array.from(map.values());
     });
     e.target.value = '';
@@ -133,6 +167,11 @@ export default function ProofSubmitPage({
     router.back();
   };
 
+  /** მთავარი submit:
+   * 1) ვამოწმებთ ველებს
+   * 2) ვტვირთავთ Cloudinary-ში (images/video/raw)
+   * 3) ვაგზავნით ჩვენს ევიდენსის API-ზე უკვე URL-ებს JSON-ად
+   */
   const onSubmit = async () => {
     if (!taskId) {
       setError(t.errorNoTask);
@@ -153,21 +192,45 @@ export default function ProofSubmitPage({
     setError(null);
 
     try {
-      const fd = new FormData();
-      fd.append('text', text);
-      photos.forEach((f) => fd.append('photos', f));
-      if (video) fd.append('video', video);
-      files.forEach((f) => fd.append('files', f));
+      const folder = `tasky/evidences/${taskId}`;
 
+      // 1) ატვირთვები Cloudinary-ზე
+      const photoUrls: string[] = [];
+      for (const f of photos) {
+        // images
+        const url = await uploadToCloudinary(f, 'image', folder);
+        photoUrls.push(url);
+      }
+
+      let videoUrl: string | null = null;
+      if (video) {
+        // videos
+        videoUrl = await uploadToCloudinary(video, 'video', folder);
+      }
+
+      const fileUrls: string[] = [];
+      for (const f of files) {
+        // zip/rar/etc -> raw
+        const url = await uploadToCloudinary(f, 'raw', folder);
+        fileUrls.push(url);
+      }
+
+      // 2) ახლა უკვე გავაგზავნოთ ჩვენს API-ზე URL-ები JSON-ად
       const uid = getUidFromCookie();
-
       const res = await fetch(`/api/tasks/${taskId}/evidence`, {
         method: 'POST',
         headers: {
+          'content-type': 'application/json',
           'x-user-id': uid,
           'x-email': getEmailFromCookie(),
         },
-        body: fd,
+        body: JSON.stringify({
+          text,
+          photos: photoUrls,
+          videos: videoUrl ? [videoUrl] : [],
+          files: fileUrls,
+          // სურვილისამებრ: შეგიძლია ჩაწერო original filenames-ც, თუ სერვერს ჭირდება
+        }),
       });
 
       const j = await res.json().catch(() => ({} as any));
@@ -177,7 +240,7 @@ export default function ProofSubmitPage({
         return;
       }
 
-      // დავიმახსოვროთ რომ ამ task-ზე უკვე გავაგზავნეთ მტკიცებულება
+      // ჩავნიშნოთ localStorage-ში რომ ამ task-ზე უკვე გაგზავნილია
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(`tasky:evidenceSent:${taskId}`, '1');
@@ -185,7 +248,6 @@ export default function ProofSubmitPage({
         }
       } catch {}
 
-      // წარმატების შემდეგ – "ჩემი გაგზავნილი"
       router.push(`/${locale}/mypage/proofs?tab=outgoing`);
     } catch (e: any) {
       setError(e?.message || 'Network error');

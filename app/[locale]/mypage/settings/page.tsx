@@ -30,7 +30,6 @@ export default function SettingsPage({
       username: 'მომხმარებელი',
       email: 'მეილი',
       mobile: 'მობილური',
-      readOnly: 'სხვა ველები ამ გვერდზე მხოლოდ სანახავია.',
       reviewsTitle: 'შეფასებები და კომენტარები',
       tabClient: 'დამკვეთი',
       tabWorker: 'შემსრულებელი',
@@ -64,7 +63,6 @@ export default function SettingsPage({
       username: 'Username',
       email: 'Email',
       mobile: 'Mobile',
-      readOnly: 'Other fields are read-only on this page.',
       reviewsTitle: 'Reviews & comments',
       tabClient: 'Client',
       tabWorker: 'Worker',
@@ -167,22 +165,60 @@ export default function SettingsPage({
     return (await res.json()) as Me;
   };
 
-  const onFile = (ev: React.ChangeEvent<HTMLInputElement>) => {
+  // Cloudinary upload for avatar
+  async function uploadAvatarToCloudinary(file: File): Promise<string> {
+    // მოვითხოვოთ ხელმოწერა
+    const signRes = await fetch('/api/upload/sign', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'avatar' }),
+    });
+    if (!signRes.ok) {
+      const j = await signRes.json().catch(() => ({}));
+      throw new Error(j?.error || 'sign_failed');
+    }
+    const raw = await signRes.json();
+    const signature = raw.signature;
+    const timestamp = raw.timestamp;
+    const folder = raw.folder;
+    const cloudName = raw?.cloud?.cloudName ?? raw?.cloudName;
+    const apiKey = raw?.cloud?.apiKey ?? raw?.apiKey;
+    if (!cloudName || !apiKey) throw new Error('cloud_conf_missing');
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('api_key', String(apiKey));
+    fd.append('timestamp', String(timestamp));
+    fd.append('signature', String(signature));
+    fd.append('folder', folder);
+
+    const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+    const r = await fetch(endpoint, { method: 'POST', body: fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error?.message || 'upload_failed');
+    return String(j.secure_url);
+  }
+
+  const onFile = async (ev: React.ChangeEvent<HTMLInputElement>) => {
     const f = ev.target.files?.[0];
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const data = String(reader.result || '');
-      try {
-        setAvatar(data); // ოპტიმისტური UI
-        const u = await patchMe({ image: data });
-        setAvatar(u.image || null); // დამაჯერებლად სერვერის პასუხით
-      } catch {
-        setAvatar((prev) => prev); // დარჩეს ძველი
-        alert(t.saveError);
-      }
-    };
-    reader.readAsDataURL(f);
+
+    // ოპტიმისტური thumbnail preview
+    const tempUrl = URL.createObjectURL(f);
+    setAvatar(tempUrl);
+
+    try {
+      const url = await uploadAvatarToCloudinary(f);
+      const u = await patchMe({ image: url });
+      setAvatar(u.image || url);
+    } catch {
+      alert(t.saveError);
+      // თუ ჩაინგრა, ძველს ვტოვებთ (თუ იყო), თორემ გავთიშოთ დროებითი
+      setAvatar((prev) => (prev === tempUrl ? null : prev));
+    } finally {
+      ev.target.value = '';
+      URL.revokeObjectURL(tempUrl);
+    }
   };
 
   const onRemoveAvatar = async () => {
@@ -362,8 +398,6 @@ export default function SettingsPage({
               <div className="font-medium">{phone || '—'}</div>
             </div>
           </div>
-
-          <div className="text-sm text-white/60">{t.readOnly}</div>
         </div>
 
         {/* REVIEWS (read-only list) */}
@@ -380,9 +414,9 @@ export default function SettingsPage({
                 onClick={() => setTab(tt.k as Role)}
                 className={clsx(
                   'px-3 py-2 rounded-lg',
-                  tab === tt.k
+                  tab === (tt.k as Role)
                     ? 'bg-white/10 shadow-neon'
-                    : 'text白ite/70 hover:text-white',
+                    : 'text-white/70 hover:text-white',
                 )}
               >
                 {tt.label}
@@ -465,7 +499,10 @@ export default function SettingsPage({
         {pwdMsg.ok && (
           <div className="text-green-400 text-sm">{pwdMsg.ok}</div>
         )}
-        <button className="px-4 py-2 rounded-lg bg-cyan text-black font-semibold">
+        <button
+          className="btn-hero-secondary text-sm"
+          type="submit"
+        >
           {t.pwdUpdate}
         </button>
       </form>
