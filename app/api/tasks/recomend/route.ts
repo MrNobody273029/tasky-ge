@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client';
 
 /** ამოიკითხოს viewer-ის userId: cookie → header → cookie(email)→DB lookup */
 async function resolveUserIdFromReq(req: Request): Promise<string | null> {
-  // cookie: x-user-id
+  // cookie: x-user-id (Next.js-ის cookies() სერვერზე უსაფრთხოა)
   const cUid = cookies().get('x-user-id')?.value?.trim();
   if (cUid) return cUid;
 
@@ -24,10 +24,15 @@ async function resolveUserIdFromReq(req: Request): Promise<string | null> {
     })();
 
   if (hxEmail) {
-    const u = await prisma.user
-      .findUnique({ where: { email: hxEmail.toLowerCase() }, select: { id: true } })
-      .catch(() => null);
-    if (u?.id) return u.id;
+    try {
+      const u = await prisma.user.findUnique({
+        where: { email: hxEmail.toLowerCase() },
+        select: { id: true },
+      });
+      if (u?.id) return u.id;
+    } catch {
+      // ჩუმად ჩავუვლით — guest-ად გავაგრძელებთ
+    }
   }
   return null;
 }
@@ -36,6 +41,7 @@ async function resolveUserIdFromReq(req: Request): Promise<string | null> {
 async function pickRandomTaskId(where: Prisma.TaskWhereInput) {
   const count = await prisma.task.count({ where });
   if (!count) return null;
+
   const skip = Math.floor(Math.random() * count);
   const rows = await prisma.task.findMany({
     where,
@@ -58,7 +64,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ id });
     }
 
-    // ── Auth: ვპოვოთ იუზერის ყველაზე ხშირი კატეგორია taken-ებიდან
+    // ── Auth: იუზერის ყველაზე ხშირი კატეგორია taken-ებიდან
     const claims = await prisma.taskClaim.findMany({
       where: { userId },
       select: { task: { select: { category: true } } },
@@ -73,32 +79,33 @@ export async function GET(req: Request) {
     }
 
     // საწყისი where — ყოველთვის ვრიცხავთ საკუთარს და უკვე შენს მიერ აღებულს
-    const baseNot: Prisma.TaskWhereInput['NOT'] = [
-      { authorId: userId },                  // შენი დადებული არ უნდა იყოს
-      { claims: { some: { userId } } },      // უკვე შენ მიერ აღებული არ უნდა იყოს
+    const baseNot: Prisma.TaskWhereInput[] = [
+      { authorId: userId },             // შენი დადებული არ უნდა იყოს
+      { claims: { some: { userId } } }, // უკვე შენ მიერ აღებული არ უნდა იყოს
     ];
 
     let id: string | null = null;
 
     if (freq.size > 0) {
-      // ავირჩიოთ ყველაზე ხშირ(ებ)ი კატეგორია და ერთ-აერთი რენდომი
+      // ავირჩიოთ ყველაზე ხშირად ნაპოვნი კატეგორია(ები)
       let max = 0;
-      for (const n of freq.values()) max = Math.max(max, n);
+      for (const n of freq.values()) if (n > max) max = n;
+
       const topCats = [...freq.entries()]
         .filter(([, n]) => n === max)
         .map(([k]) => k);
 
-      const pickedCat = topCats[Math.floor(Math.random() * topCats.length)];
-
-      // ჯერ ვცადოთ ამ top კატეგორიაში
-      id = await pickRandomTaskId({
-        status: 'PUBLISHED',
-        category: pickedCat,
-        NOT: baseNot,
-      });
+      if (topCats.length > 0) {
+        const pickedCat = topCats[Math.floor(Math.random() * topCats.length)];
+        id = await pickRandomTaskId({
+          status: 'PUBLISHED',
+          category: pickedCat,
+          NOT: baseNot,
+        });
+      }
     }
 
-    // თუ top კატეგორიაში ვერ ვიპოვეთ, ვცადოთ ნებისმიერი კატეგორია, მაგრამ იგივე შეზღუდვებით
+    // თუ top კატეგორიაში ვერ ვიპოვეთ, ვცადოთ ნებისმიერი PUBLISHED იგივე შეზღუდვებით
     if (!id) {
       id = await pickRandomTaskId({
         status: 'PUBLISHED',
@@ -106,9 +113,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // თუ მაინც ვერ მოიძებნა — საერთოდ არაფერს ვაბრუნებთ (404)
     if (!id) return NextResponse.json({ error: 'No tasks' }, { status: 404 });
-
     return NextResponse.json({ id });
   } catch (e) {
     console.error(e);
