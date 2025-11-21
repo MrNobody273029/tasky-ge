@@ -170,7 +170,6 @@ function calcDueLabel(dateStr:string|null, t:Dict){
   return t.previewDueIn({hours: Math.ceil(ms/3600000)});
 }
 
-
 /* =============== Component =============== */
 export default function FormClient({
   locale,
@@ -188,6 +187,7 @@ export default function FormClient({
     address?: string | null;
     exclusive?: boolean;
     proof?: string;
+    photos?: string[];            // ✅ ფოტოების ველი დრაფტიდან
   } | null;
 }) {
   const t = locale === "ka" ? KA : EN;
@@ -213,11 +213,8 @@ export default function FormClient({
       }
     }
     loadBalance();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
-
 
   // ---- initial (prefilled) values ----
   const [title, setTitle]       = React.useState<string>(initialDraft?.title ?? "");
@@ -230,6 +227,9 @@ export default function FormClient({
   const [exclusive, setExclusive] = React.useState<boolean>(Boolean(initialDraft?.exclusive));
   const [where, setWhere]       = React.useState<"remote"|"onsite">(initialDraft?.where==="ONSITE" ? "onsite" : "remote");
   const [address, setAddress]   = React.useState<string>(initialDraft?.address ?? "");
+  const [existingPhotos, setExistingPhotos] = React.useState<string[]>(
+    Array.isArray(initialDraft?.photos) ? initialDraft!.photos! : []
+  );
 
   React.useEffect(()=>{
     setCategory((prev)=> mapCategoryToLocale(prev, locale));
@@ -239,6 +239,7 @@ export default function FormClient({
   const [files, setFiles] = React.useState<File[]>([]);
   const [saving, setSaving] = React.useState<"idle"|"draft"|"publish">("idle");
   const [errorMsg, setErrorMsg] = React.useState<string|null>(null);
+  const [uploadingPhotos, setUploadingPhotos] = React.useState(false);
 
   // payment modal state
   const [payOpen, setPayOpen] = React.useState(false);
@@ -260,6 +261,52 @@ export default function FormClient({
     });
     e.target.value = "";
   }
+
+  async function uploadAllTaskPhotos(files: File[]): Promise<string[]> {
+    if (!files?.length) return [];
+
+    // მოვითხოვოთ სერვერიდან ხელმოწერა + cloud info
+    const signRes = await fetch("/api/upload/sign", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "task" }),
+    });
+    if (!signRes.ok) {
+      const j = await signRes.json().catch(() => ({}));
+      throw new Error(j?.error || "Signing failed");
+    }
+    const raw = await signRes.json();
+
+    // მხარს ვუჭერთ ორივე ფორმატს (nested თუ flat)
+    const signature = raw.signature;
+    const timestamp = raw.timestamp;
+    const folder    = raw.folder;
+    const cloudName = raw?.cloud?.cloudName ?? raw?.cloudName;
+    const apiKey    = raw?.cloud?.apiKey    ?? raw?.apiKey;
+
+    if (!cloudName || !apiKey) {
+      throw new Error("Cloudinary info missing from /api/upload/sign response");
+    }
+
+    const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+
+    const uploads = files.map(async (file) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("api_key", String(apiKey));
+      fd.append("timestamp", String(timestamp));
+      fd.append("signature", String(signature));
+      fd.append("folder", folder);
+
+      const r = await fetch(endpoint, { method: "POST", body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error?.message || "Upload failed");
+      return j.secure_url as string;
+    });
+
+    return Promise.all(uploads);
+  }
+
   function removeFile(idx:number){
     setFiles(prev=>prev.filter((_,i)=>i!==idx));
   }
@@ -271,6 +318,17 @@ export default function FormClient({
       setErrorMsg(null);
       setSaving(status === "draft" ? "draft" : "publish");
 
+      // 1) ფოტოების ატვირთვა (თუ არის არჩეული)
+      setUploadingPhotos(true);
+      const newPhotoUrls = await uploadAllTaskPhotos(files).catch((e) => {
+        throw new Error(e?.message || "Photo upload failed");
+      });
+      setUploadingPhotos(false);
+
+      // 2) დავტოვოთ უკვე არსებული + ახალთან ერთად
+      const allPhotos = [...existingPhotos, ...newPhotoUrls];
+
+      // 3) შევკრიბოთ payload (დანარჩენი ლოგიკა უცვლელია)
       const payload = {
         locale, title, desc, category, skill,
         reward: Number(reward),
@@ -280,6 +338,7 @@ export default function FormClient({
         exclusive,
         status,
         proof,
+        photos: JSON.stringify(allPhotos),
       };
 
       let id = "";
@@ -300,8 +359,7 @@ export default function FormClient({
         // create new task
         const res = await fetch("/api/tasks", {
           method: "POST",
-         headers: { "Content-Type": "application/json" },
-
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
@@ -314,15 +372,13 @@ export default function FormClient({
 
       alert(status === "draft" ? t.savedDraftOk : t.publishedOk);
 
-// saveTask-ის ბოლოში
+      // saveTask-ის ბოლოში — არსებულ ლოგიკას არ ვცვლი
       if (status === "draft") {
         router.push(`/${locale}/mypage/created?tab=drafts`);
       } else {
-        // -> პაბლიშის შემდეგ გადავდივართ ჰომზე და ვხსნით ამავე ტასკის მოდალს
         try { localStorage.setItem("tasky.openTask", id); } catch {}
         router.push(`/${locale}?task=${id}`);
       }
-
     } catch (err: any) {
       setErrorMsg(err?.message || "Something went wrong");
       setSaving("idle");
@@ -338,7 +394,6 @@ export default function FormClient({
   async function payWithBalance() {
     setPayErr(null);
 
-    // client-side სწრაფი ჩეკი
     if (balance < totalToPay) {
       setPayErr(t.notEnoughBalance);
       return;
@@ -369,7 +424,6 @@ export default function FormClient({
         return;
       }
 
-      // სერვერის მიერ დათვლილი ახალი ბალანსი
       if (typeof data?.available === "number") {
         setBalance(Number(data.available) || 0);
       }
@@ -381,7 +435,6 @@ export default function FormClient({
       setSaving("idle");
     }
   }
-
 
   async function payWithCard() {
     setPayErr(null);
@@ -406,7 +459,6 @@ export default function FormClient({
         return;
       }
 
-      // card-ს ბალანსი რეალურად არ ეცვლება, მაგრამ თუ სერვერი რაღაცას დაგვიწერს –
       if (typeof data?.available === "number") {
         setBalance(Number(data.available) || 0);
       }
@@ -418,7 +470,6 @@ export default function FormClient({
       setSaving("idle");
     }
   }
-
 
   return (
     <div className="space-y-6">
@@ -555,22 +606,61 @@ export default function FormClient({
             </div>
           </div>
 
-
           <div>
             <label className="block text-sm text-white/70 mb-1">{t.photos}</label>
-            <input type="file" accept="image/*" multiple onChange={onFileChange}
-              className="block w-full px-3 py-2 rounded-lg bg-white/5" disabled={saving!=="idle"} />
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={onFileChange}
+              className="block w-full px-3 py-2 rounded-lg bg-white/5"
+              disabled={saving!=="idle"}
+            />
             <div className="text-xs text-white/50 mt-1">{t.photosHint}</div>
 
+            {/* არსებული (DB-დან მოტანილი) ფოტოები */}
+            {existingPhotos.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                {existingPhotos.map((url, i) => (
+                  <div
+                    key={`exist-${i}`}
+                    className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
+                    style={{ height: 120 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (saving !== "idle") return;
+                        setExistingPhotos(prev => prev.filter((_, idx) => idx !== i));
+                      }}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
+                      aria-label="Remove"
+                      title={locale==="ka" ? "წაშლა" : "Remove"}
+                      disabled={saving !== "idle"}
+                    >
+                      ✕
+                    </button>
+                    <img src={url} alt={`photo-${i+1}`} className="max-h-full max-w-full object-contain" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ახლად არჩეული ფაილები (ადგილობრივიდან) */}
             {files.length>0 && (
               <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
                 {files.map((f,i)=>{
                   const src = URL.createObjectURL(f);
                   return (
-                    <div key={i} className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center" style={{height:120}}>
-                      <button type="button" onClick={()=>removeFile(i)}
+                    <div key={i} className="relative rounded-lg bg:white/5 p-2 flex items-center justify-center" style={{height:120}}>
+                      <button
+                        type="button"
+                        onClick={()=>removeFile(i)}
                         className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
-                        aria-label="Remove" title={locale==="ka"?"წაშლა":"Remove"} disabled={saving!=="idle"}>
+                        aria-label="Remove"
+                        title={locale==="ka"?"წაშლა":"Remove"}
+                        disabled={saving!=="idle"}
+                      >
                         ✕
                       </button>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -583,53 +673,61 @@ export default function FormClient({
           </div>
 
           <div>
-            <label className="block text-sm text-white/70 mb-1">{t.proof}</label>
-            <textarea className="w-full px-3 py-2 rounded-lg bg-white/5 min-h-[110px]"
-              placeholder={t.proofPh} value={proof} onChange={(e)=>setProof(e.target.value)}
-              required disabled={saving!=="idle"} />
+            <label className="block text-sm text:white/70 mb-1">{t.proof}</label>
+            <textarea
+              className="w-full px-3 py-2 rounded-lg bg-white/5 min-h-[110px]"
+              placeholder={t.proofPh}
+              value={proof}
+              onChange={(e)=>setProof(e.target.value)}
+              required
+              disabled={saving!=="idle"}
+            />
           </div>
 
           {errorMsg && <div className="text-red-400 text-sm">{errorMsg}</div>}
 
-      <div className="flex gap-3 pt-2">
-        {/* Draft – გამჭვირვალე ლურჯი გრადიენტი */}
-        <button
-          type="button"
-          onClick={() => saveTask("draft")}
-          className="btn-hero-secondary text-sm disabled:opacity-60"
-          disabled={saving !== "idle"}
-        >
-          <span>
-            {saving === "draft"
-              ? (locale === "ka" ? "შენახვა..." : "Saving...")
-              : t.saveDraft}
-          </span>
-        </button>
+          <div className="flex gap-3 pt-2">
+            {/* Draft */}
+            <button
+              type="button"
+              onClick={() => saveTask("draft")}
+              className="btn-hero-secondary text-sm disabled:opacity-60"
+              disabled={saving !== "idle"}
+            >
+              <span>
+                {saving === "draft" ? (locale === "ka" ? "შენახვა..." : "Saving...") : t.saveDraft}
+              </span>
+            </button>
 
-        {/* Publish – სავსე ლურჯი გრადიენტი */}
-        <button
-          type="submit"
-          className="btn-hero-primary text-sm disabled:opacity-60"
-          disabled={saving !== "idle"}
-        >
-          <span>
-            {saving === "publish"
-              ? (locale === "ka" ? "გამოქვეყნება..." : "Publishing...")
-              : t.publish}
-          </span>
-        </button>
-        </div>
+            {/* Publish */}
+            <button
+              type="submit"
+              className="btn-hero-primary text-sm disabled:opacity-60"
+              disabled={saving !== "idle"}
+            >
+              <span>
+                {saving === "publish" ? (locale === "ka" ? "გამოქვეყნება..." : "Publishing...") : t.publish}
+              </span>
+            </button>
+          </div>
 
+          {uploadingPhotos && (
+            <div className="text-white/60 text-sm mt-2">
+              {locale === "ka" ? "იტვირთება ფოტოები…" : "Uploading photos…"}
+            </div>
+          )}
         </form>
 
         {/* RIGHT: live preview */}
         <aside className="card p-6 lg:sticky lg:top-1/2 lg:-translate-y-1/2 self-start">
           <div className="font-semibold mb-3">{t.preview}</div>
           <div className="relative rounded-2xl bg-white/5 p-4">
-            <div className="absolute right-4 top-4 rounded-full px-4 py-1.5 text-base leading-none font-semibold
-                            bg-[#17230a]/80 backdrop-blur-sm ring-1 ring-[#b6ff2e]/50 text-[#d9ff66]
-                            shadow-[0_0_20px_rgba(182,255,46,0.35)]"
-                 style={{textShadow:"0 0 8px #b6ff2e, 0 0 18px rgba(182,255,46,.8)"}}>
+            <div
+              className="absolute right-4 top-4 rounded-full px-4 py-1.5 text-base leading-none font-semibold
+                          bg-[#17230a]/80 backdrop-blur-sm ring-1 ring-[#b6ff2e]/50 text-[#d9ff66]
+                          shadow-[0_0_20px_rgba(182,255,46,0.35)]"
+              style={{textShadow:"0 0 8px #b6ff2e, 0 0 18px rgba(182,255,46,.8)"}}
+            >
               ₾{isNaN(rewardNum) ? 0 : rewardNum}
             </div>
 
@@ -643,7 +741,7 @@ export default function FormClient({
 
             <div className="mt-4 flex flex-wrap gap-4 text-sm items-center">
               <div className="flex items-center gap-2"><IconClock className="w-4 h-4 text-sky-400"/><span>{dueLabel}</span></div>
-              <div className="flex items-center gap-2"><IconMapPin className="w-4 h-4 text-rose-400"/><span>{where==="remote"?t.remote:t.onsite}</span></div>
+              <div className="flex items:center gap-2"><IconMapPin className="w-4 h-4 text-rose-400"/><span>{where==="remote"?t.remote:t.onsite}</span></div>
               <div className="flex items-center gap-2"><IconMedal className="w-4 h-4 text-amber-400"/><span>{skill}</span></div>
               <div className="flex items-center gap-2"><IconSpark className="w-4 h-4 text-fuchsia-400"/><span>{category}</span></div>
               <div className="flex items-center gap-2">
@@ -659,24 +757,19 @@ export default function FormClient({
               </div>
             </div>
 
-            {files.length>0 && (
+            {(existingPhotos.length + files.length) > 0 && (
               <div className="mt-3 text-xs text-white/70">
                 {locale==="ka"
-                  ? `მიმაგრებულია ${files.length} ფოტო`
-                  : `${files.length} photo(s) attached`}
+                  ? `მიმაგრებულია ${(existingPhotos.length + files.length)} ფოტო`
+                  : `${(existingPhotos.length + files.length)} photo(s) attached`}
               </div>
             )}
 
             <div className="mt-4">
-            <button
-              className="btn-hero-secondary text-sm"
-              type="button"
-              aria-disabled="true"
-            >
-              <span>{t.viewClaim}</span>
-            </button>
-          </div>
-
+              <button className="btn-hero-secondary text-sm" type="button" aria-disabled="true">
+                <span>{t.viewClaim}</span>
+              </button>
+            </div>
           </div>
         </aside>
       </div>

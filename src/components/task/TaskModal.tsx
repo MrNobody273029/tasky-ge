@@ -539,12 +539,13 @@ const handleSubmitProof = () => {
         onClick={onClose}
       />
       <div className="absolute inset-x-0 top-8 mx-auto w-[min(100%,1100px)]">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="tasky-modal-title"
-          className="relative rounded-2xl ring-1 ring-cyan/30 bg-[#0b0f16]/95 shadow-[0_0_40px_rgba(0,255,255,.15)] tasky-modal"
-        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tasky-modal-title"
+            className="relative rounded-2xl ring-1 ring-cyan/30 bg-[#0b0f16]/95 shadow-[0_0_40px_rgba(0,255,255,.15)] tasky-modal
+                      max-h-[90vh] flex flex-col"
+          >
           {/* Header */}
           <div className="p-5 md:p-6 border-b border-white/10">
             <div className="flex items-start gap-4">
@@ -575,178 +576,185 @@ const handleSubmitProof = () => {
             </div>
           </div>
 
-          {/* Body */}
-          <div className="p-5 md:p-6 grid lg:grid-cols-[1.65fr,1fr] gap-6">
-            {/* Left column */}
-            <div className="space-y-4">
-              {!!data?.photos?.length && (
-                <div className="card p-0 bg-white/5 ring-1 ring-white/10 rounded-2xl">
-                  <div className="px-4 py-3 flex items-center gap-2 border-b border-white/10">
-                    <ImageIcon className="w-4 h-4 text-cyan" />
-                    <div className="font-semibold">{t.attachments}</div>
-                  </div>
-                  <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {data.photos.map((src, i) => (
-                      <a
-                        key={i}
-                        href={src}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block group relative w-full aspect-video overflow-hidden rounded-xl ring-1 ring-white/10"
-                        title={`photo-${i + 1}`}
-                      >
-                        <img
-                          src={src}
-                          alt={`photo-${i + 1}`}
-                          className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-[1.03]"
-                          loading="lazy"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
-                <div className="font-semibold mb-2">{t.description}</div>
-                <div className="text-white/80 whitespace-pre-wrap leading-relaxed">
-                  {data?.desc || "—"}
-                </div>
-              </div>
 
-              <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
-                <div className="font-semibold mb-2">{t.deliverables}</div>
-                <div className="text-white/80 text-sm">
-                  {data?.proof ? (
-                    <ul className="list-disc list-inside space-y-1">
-                      {data.proof.split("\n").map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div>—</div>
-                  )}
-                </div>
+{/* Body */}
+<div className="flex-1 min-h-0 overflow-y-auto">
+  <div className="p-5 md:p-6 grid lg:grid-cols-[1.65fr,1fr] gap-6">
+    {/* Left column */}
+    <div className="space-y-4">
+      {/* აღწერა */}
+      <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
+        <div className="font-semibold mb-2">{t.description}</div>
+        <div className="text-white/80 whitespace-pre-wrap leading-relaxed">
+          {data?.desc || "—"}
+        </div>
+      </div>
+
+      {/* დელივერებლები */}
+      <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
+        <div className="font-semibold mb-2">{t.deliverables}</div>
+        <div className="text-white/80 text-sm">
+          {data?.proof ? (
+            <ul className="list-disc list-inside space-y-1">
+              {data.proof.split("\n").map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          ) : (
+            <div>—</div>
+          )}
+        </div>
+      </div>
+
+      {/* ფოტოები — გადმოტანილია ბოლოში და დაპატარავებულია */}
+      {!!data?.photos?.length && (
+        <div className="card p-0 bg-white/5 ring-1 ring-white/10 rounded-2xl">
+          <div className="px-4 py-3 flex items-center gap-2 border-b border-white/10">
+            <ImageIcon className="w-4 h-4 text-cyan" />
+            <div className="font-semibold">{t.attachments}</div>
+          </div>
+          <div className="p-3 grid grid-cols-3 md:grid-cols-4 gap-3">
+            {data.photos.map((src, i) => (
+              <a
+                key={i}
+                href={src}
+                target="_blank"
+                rel="noreferrer"
+                className="block group relative w-full rounded-lg ring-1 ring-white/10 bg-black/30 p-2 h-20 md:h-24"
+                title={`photo-${i + 1}`}
+              >
+                <img
+                  src={src}
+                  alt={`photo-${i + 1}`}
+                  className="block w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Right column (უცვლელად) */}
+    <aside className="space-y-4">
+      <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center ring-1 ring-white/15 overflow-hidden">
+            {owner?.avatar ? (
+              <img src={owner.avatar} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User2 className="w-6 h-6 text-white/70" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold truncate">
+              {owner?.name || data?.authorId}
+            </div>
+            {owner?.email && (
+              <div className="text-white/60 text-sm truncate flex items-center gap-1">
+                <Mail className="w-3.5 h-3.5" /> {owner.email}
               </div>
+            )}
+            {owner?.phone && (
+              <div className="text-white/60 text-sm truncate flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5" /> {owner.phone}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <div className="text-sm text-white/70">{t.rating}</div>
+          <div className="flex items-center gap-2">
+            <StarRow value={owner?.ratingAvg || 0} />
+            <div className="text-white/70 text-sm">
+              {(owner?.ratingAvg ?? 0)} / 5 • {(owner?.ratingCount ?? 0)} {t.of}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {data && (
+        <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-fuchsia-400" />
+              <div className="text-white/60">{t.category}</div>
+            </div>
+            <div className="text-white/80">{categoryLabel(data.category, locale)}</div>
+
+            <div className="flex items-center gap-2">
+              <Medal className="w-4 h-4 text-amber-400" />
+              <div className="text-white/60">{t.skill}</div>
+            </div>
+            <div className="text-white/80">{skillLabel(data.skill, locale)}</div>
+
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-rose-400" />
+              <div className="text-white/60">{locale === "ka" ? "ლოკაცია" : "Location"}</div>
+            </div>
+            <div className="text-white/80">{data.where === "REMOTE" ? t.remote : t.onsite}</div>
+
+            {data.where === "ONSITE" && (
+              <>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-rose-400" />
+                  <div className="text-white/60">{t.address}</div>
+                </div>
+                <div className="text-white/80">{data.address || "—"}</div>
+              </>
+            )}
+
+            <div className="flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-sky-400" />
+              <div className="text-white/60">{t.deadline}</div>
+            </div>
+            <div className="text-white/80">
+              {data.deadline
+                ? new Date(data.deadline).toLocaleDateString(locale === "ka" ? "ka-GE" : "en-US")
+                : "—"}
             </div>
 
-            {/* Right column */}
-            <aside className="space-y-4">
-              <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center ring-1 ring-white/15 overflow-hidden">
-                    {owner?.avatar ? (
-                      <img
-                        src={owner.avatar}
-                        alt="avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User2 className="w-6 h-6 text-white/70" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">
-                      {owner?.name || data?.authorId}
-                    </div>
-                    {owner?.email && (
-                      <div className="text-white/60 text-sm truncate flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5" /> {owner.email}
-                      </div>
-                    )}
-                    {owner?.phone && (
-                      <div className="text-white/60 text-sm truncate flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5" /> {owner.phone}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="text-sm text-white/70">{t.rating}</div>
-                  <div className="flex items-center gap-2">
-                    <StarRow value={owner?.ratingAvg || 0} />
-                    <div className="text-white/70 text-sm">
-                      {(owner?.ratingAvg ?? 0)} / 5 •{" "}
-                      {(owner?.ratingCount ?? 0)} {t.of}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {data && (
-                <div className="card p-4 rounded-2xl bg-white/5 ring-1 ring-white/10">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-fuchsia-400" />
-                      <div className="text-white/60">{t.category}</div>
-                    </div>
-                    <div className="text-white/80">
-                      {categoryLabel(data.category, locale)}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Medal className="w-4 h-4 text-amber-400" />
-                      <div className="text-white/60">{t.skill}</div>
-                    </div>
-                    <div className="text-white/80">
-                      {skillLabel(data.skill, locale)}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-rose-400" />
-                      <div className="text-white/60">
-                        {locale === "ka" ? "ლოკაცია" : "Location"}
-                      </div>
-                    </div>
-                    <div className="text-white/80">
-                      {data.where === "REMOTE" ? t.remote : t.onsite}
-                    </div>
-
-                    {data.where === "ONSITE" && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-rose-400" />
-                          <div className="text-white/60">{t.address}</div>
-                        </div>
-                        <div className="text-white/80">
-                          {data.address || "—"}
-                        </div>
-                      </>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <CalendarClock className="w-4 h-4 text-sky-400" />
-                      <div className="text-white/60">{t.deadline}</div>
-                    </div>
-                    <div className="text-white/80">
-                      {data.deadline
-                        ? new Date(data.deadline).toLocaleDateString(
-                            locale === "ka" ? "ka-GE" : "en-US"
-                          )
-                        : "—"}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-yellow-300" />
-                      <div className="text-white/60">{t.type}</div>
-                    </div>
-                    <div className="text-white/80">
-                      {data.exclusive ? (
-                        <span className="px-2 py-0.5 rounded-md border border-yellow-400/70 bg-yellow-400/10 text-yellow-300 shadow-[0_0_12px_rgba(250,204,21,0.2)]">
-                          {locale === "ka" ? "ექსკლუზიური" : "Exclusive"}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md border border-white/15 text-white/70 bg-white/5">
-                          {locale === "ka" ? "არაექსკლუზიური" : "Multi"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-yellow-300" />
+              <div className="text-white/60">{t.type}</div>
+            </div>
+            <div className="text-white/80">
+              {data.exclusive ? (
+                <span className="px-2 py-0.5 rounded-md border border-yellow-400/70 bg-yellow-400/10 text-yellow-300 shadow-[0_0_12px_rgba(250,204,21,0.2)]">
+                  {locale === "ka" ? "ექსკლუზიური" : "Exclusive"}
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-md border border-white/15 text-white/70 bg-white/5">
+                  {locale === "ka" ? "არაექსკლუზიური" : "Multi"}
+                </span>
               )}
-            </aside>
+            </div>
           </div>
+        </div>
+      )}
+    </aside>
+  </div>
+
+  {(err || msg) && (
+    <div className="px-5 md:px-6 pb-4">
+      {err && (
+        <div className="p-3 rounded-xl bg-red-500/10 text-red-300 text-sm">
+          {err}
+        </div>
+      )}
+      {msg && (
+        <div className="mt-2 p-3 rounded-xl bg-emerald-500/10 text-emerald-300 text-sm">
+          {msg}
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+
 
           {(err || msg) && (
             <div className="px-5 md:px-6 pb-2">
@@ -765,7 +773,7 @@ const handleSubmitProof = () => {
 
           {/* Actions */}
    {/* Actions */}
-<div className="p-5 md:p-6 pt-2 flex justify-end gap-3">
+<div className="sticky bottom-0 p-5 md:p-6 pt-3 flex justify-end gap-3 border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
   {/* დახურვა — თეთრი გრადიენტიანი */}
   <button onClick={onClose} className="btn-modal-close text-sm">
     <span>{t.close}</span>

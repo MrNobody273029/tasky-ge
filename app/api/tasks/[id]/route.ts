@@ -35,28 +35,25 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const viewerId = await resolveViewerId(req);
 
     const task = await prisma.task.findUnique({ where: { id: params.id } });
-    if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     // UI-სთვის საჭირო derived ველები DB-დან (თუ viewer ცნობილია)
     let hasTakenByMe = false as boolean;
-    let myAppStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED" = "NONE";
+    let myAppStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED' = 'NONE';
     let myThreadId: string | null = null;
 
     if (viewerId) {
       const [claim, app, thread] = await Promise.all([
-        // Claim არსებობს?
         prisma.taskClaim.findUnique({
           where: { taskId_userId: { taskId: params.id, userId: viewerId } },
           select: { id: true },
         }).catch(() => null),
 
-        // ჩემი აპლიკაცია ამ ტასკზე
         prisma.taskApplication.findUnique({
           where: { taskId_applicantId: { taskId: params.id, applicantId: viewerId } },
           select: { status: true },
         }).catch(() => null),
 
-        // ჩატის თრედი (ტასკი × აპლიკანტი)
         prisma.chatThread.findUnique({
           where: { taskId_applicantId: { taskId: params.id, applicantId: viewerId } },
           select: { id: true },
@@ -66,27 +63,30 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       if (app?.status) myAppStatus = app.status as any;
       if (thread?.id) myThreadId = thread.id;
 
-      // ✅ სტაბილური: აღებულად ჩავთვალოთ თუ არსებობს claim ან აპლიკაცია დამტკიცებულია
+      // აღებულად ჩავთვალოთ თუ არსებობს claim ან აპლიკაცია დამტკიცებულია
       hasTakenByMe = Boolean(claim) || myAppStatus === 'APPROVED';
     }
 
+    // DB-ში photos ინახება JSON string-ად → ვპარსავთ
     let photos: string[] = [];
-    try { photos = JSON.parse(task.photos ?? "[]") as string[]; } catch {}
+    try {
+      photos = JSON.parse(task.photos ?? '[]') as string[];
+    } catch {
+      photos = [];
+    }
 
-    const isMine = !!viewerId && (task.authorId || "").toLowerCase() === viewerId.toLowerCase();
+    const isMine =
+      !!viewerId && (task.authorId || '').toLowerCase() === viewerId.toLowerCase();
 
     return NextResponse.json({
-      // core
       id: task.id,
       authorId: task.authorId,
       isMine,
 
-      // 👇 მუშტის მხარის სნეფშოტი — STABLE, DB-დან
       hasTakenByMe,
-      myAppStatus,   // "NONE" | "PENDING" | "APPROVED" | "REJECTED"
-      myThreadId,    // string | null
+      myAppStatus,
+      myThreadId,
 
-      // task data
       locale: task.locale,
       title: task.title,
       desc: task.desc,
@@ -94,18 +94,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       skill: task.skill,
       reward: task.reward,
       deadline: task.deadline ? task.deadline.toISOString() : null,
-      where: task.where, // 'REMOTE' | 'ONSITE'
+      where: task.where,
       address: task.address ?? null,
       exclusive: task.exclusive,
       status: task.status,
       photos,
-      proof: task.proof ?? "",
+      proof: task.proof ?? '',
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
     });
   } catch (e) {
-    console.error("GET /api/tasks/[id] error:", e);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    console.error('GET /api/tasks/[id] error:', e);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
@@ -122,12 +122,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const updates: Record<string, any> = {};
 
     if (body.locale) updates.locale = String(body.locale);
-    if (body.title)  updates.title  = String(body.title).trim();
-    if (body.desc)   updates.desc   = String(body.desc).trim();
-    if (body.category) updates.category = String(body.category).trim(); // String
-    if (body.skill)    updates.skill    = String(body.skill).trim();    // String
+    if (body.title) updates.title = String(body.title).trim();
+    if (body.desc) updates.desc = String(body.desc).trim();
+    if (body.category) updates.category = String(body.category).trim();
+    if (body.skill) updates.skill = String(body.skill).trim();
 
-    // reward (Int, ≥0)
     if (body.reward !== undefined) {
       const r = Number(body.reward);
       if (!Number.isFinite(r) || r < 0) {
@@ -136,7 +135,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       updates.reward = Math.round(r);
     }
 
-    // deadline — Invalid Date დაცვა
     if (body.deadline !== undefined) {
       if (!body.deadline) {
         updates.deadline = null;
@@ -153,7 +151,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (body.status) updates.status = mapStatus(body.status);
     if (body.proof !== undefined) updates.proof = String(body.proof ?? '');
 
-    // where/address ლოგიკა
     if (body.where !== undefined) {
       const w = mapWhere(body.where);
       if (w) updates.where = w;
@@ -167,7 +164,24 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       updates.address = body.address ?? null;
     }
 
-    // Ownership check + update ერთ ქუერიაში
+    // photos — მოსალოდნელია ან string(JSON), ან string[]
+    if (body.photos !== undefined) {
+      if (Array.isArray(body.photos)) {
+        updates.photos = JSON.stringify(
+          (body.photos as any[])
+            .map((s: any) => String(s))
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+            .filter((s: string) => /^https?:\/\/\S+/i.test(s))
+            .slice(0, 20)
+        );
+      } else if (typeof body.photos === 'string') {
+        updates.photos = body.photos;
+      } else if (body.photos === null) {
+        updates.photos = '[]';
+      }
+    }
+
     const res = await prisma.task.updateMany({
       where: { id, authorId: user.id },
       data: updates,
