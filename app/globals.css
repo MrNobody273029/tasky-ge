@@ -1175,3 +1175,414 @@ body::before {
   stroke-dasharray: 45.16 0 45.16 54.19;
   transition-timing-function: steps(1, start), var(--trans-timing);
 }
+/* From Uiverse.io by pharmacist-sabot */ 
+/* --- Root Variables & Wrapper --- */
+.glitch-input-wrapper {
+  --bg-color: #0d0d0d;
+  --primary-color: #00f2ea;
+  --secondary-color: #a855f7;
+  --text-color: #e5e5e5;
+  --font-family: "Fira Code", Consolas, "Courier New", Courier, monospace;
+  --glitch-anim-duration: 0.4s;
+
+  display: block;      /* flex-ის ნაცვლად */
+  width: 100%;         /* ფორმის სიგანე დაიკავოს */
+  font-family: var(--font-family);
+  font-size: 16px;
+  padding: 0;          /* აღარ გვინდა 3rem padding */
+}
+
+
+/* --- Container  --- */
+.input-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+
+/* --- Input --- */
+.holo-input {
+  width: 100%;
+  height: 3.5rem;
+  background: rgba(13, 13, 13, 0.7);
+  border: none;
+  border-bottom: 2px solid #333;
+  outline: none;
+  padding: 0 1rem;
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 1.1rem;
+  caret-color: var(--primary-color);
+  z-index: 10;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* --- Floating Label --- */
+.input-label {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  color: var(--text-color);
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 11;
+}
+.holo-input:focus + .input-label,
+.holo-input:not(:placeholder-shown) + .input-label {
+  top: -1.5rem;
+  left: 0;
+  font-size: 0.8rem;
+  opacity: 1;
+  color: var(--primary-color);
+}
+
+.holo-input:focus + .input-label::before,
+.holo-input:focus + .input-label::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #212121;
+}
+.holo-input:focus + .input-label::before {
+  color: var(--secondary-color);
+  animation: glitch-label var(--glitch-anim-duration)
+    cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.holo-input:focus + .input-label::after {
+  color: var(--primary-color);
+  animation: glitch-label var(--glitch-anim-duration)
+    cubic-bezier(0.25, 0.46, 0.45, 0.94) reverse both;
+}
+
+/* --- Decorative Layers --- */
+.input-border,
+.input-scanline,
+.input-glow,
+.input-corners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.input-border {
+  border: 1px solid rgba(0, 242, 234, 0.2);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+.corner {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--primary-color);
+  transition: all 0.3s ease;
+  opacity: 0.5;
+}
+.corner-tl {
+  top: -0.3rem;
+  left: -0.3rem;
+  border-right: none;
+  border-bottom: none;
+}
+.corner-tr {
+  top: -0.3rem;
+  right: -0.3rem;
+  border-left: none;
+  border-bottom: none;
+}
+.corner-bl {
+  bottom: -0.3rem;
+  left: -0.3rem;
+  border-right: none;
+  border-top: none;
+}
+.corner-br {
+  bottom: -0.3rem;
+  right: -0.3rem;
+  border-left: none;
+  border-top: none;
+}
+
+.input-glow {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 242, 234, 0.2) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.input-scanline {
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 242, 234, 0.1) 48%,
+    rgba(0, 242, 234, 0.3) 50%,
+    rgba(0, 242, 234, 0.1) 52%,
+    transparent 100%
+  );
+  opacity: 0;
+}
+
+/* --- Data Visualization --- */
+.input-data-stream {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  width: 100%;
+  height: 0.3rem;
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.3s ease 0.1s;
+}
+.stream-bar {
+  flex-grow: 1;
+  background-color: var(--primary-color);
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+
+.holo-input:focus {
+  border-color: transparent;
+}
+.holo-input:focus ~ .input-border {
+  opacity: 1;
+  border-color: rgba(0, 242, 234, 0.5);
+}
+.holo-input:focus ~ .input-corners .corner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-width: 3px;
+  opacity: 1;
+}
+.holo-input:focus ~ .input-glow {
+  opacity: 1;
+}
+.holo-input:focus ~ .input-scanline {
+  animation: scan-vertical 4s linear infinite;
+}
+.holo-input:focus ~ .input-data-stream {
+  opacity: 1;
+}
+.holo-input:focus ~ .input-data-stream .stream-bar {
+  animation: data-pulse 2s infinite;
+  animation-delay: calc(var(--i) * 0.1s);
+}
+
+/* --- Keyframes --- */
+@keyframes glitch-label {
+  0% {
+    transform: translate(0);
+    clip-path: inset(0 0 0 0);
+  }
+  20% {
+    transform: translate(-0.2rem, 0.1rem);
+    clip-path: inset(50% 0 20% 0);
+  }
+  40% {
+    transform: translate(0.1rem, -0.1rem);
+    clip-path: inset(20% 0 60% 0);
+  }
+  60% {
+    transform: translate(-0.15rem, 0.1rem);
+    clip-path: inset(80% 0 5% 0);
+  }
+  80% {
+    transform: translate(0.15rem, -0.15rem);
+    clip-path: inset(30% 0 45% 0);
+  }
+  100% {
+    transform: translate(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes scan-vertical {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  25% {
+    opacity: 0.5;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes data-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.2);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 0.8;
+  }
+}
+/* From Uiverse.io by 3HugaDa3 */ 
+.checkbox-wrapper {
+  --checkbox-size: 25px;
+  --checkbox-color: #00ff88;
+  --checkbox-shadow: rgba(0, 255, 136, 0.3);
+  --checkbox-border: rgba(0, 255, 136, 0.7);
+  display: flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.checkbox-wrapper input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-wrapper .checkmark {
+  position: relative;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  border: 2px solid var(--checkbox-border);
+  border-radius: 8px;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 15px var(--checkbox-shadow);
+  overflow: hidden;
+}
+
+.checkbox-wrapper .checkmark::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, var(--checkbox-color), #00ffcc);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform: scale(0) rotate(-45deg);
+}
+
+.checkbox-wrapper input:checked ~ .checkmark::before {
+  opacity: 1;
+  transform: scale(1) rotate(0);
+}
+
+.checkbox-wrapper .checkmark svg {
+  width: 0;
+  height: 0;
+  color: #1a1a1a;
+  z-index: 1;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+.checkbox-wrapper input:checked ~ .checkmark svg {
+  width: 18px;
+  height: 18px;
+  transform: rotate(360deg);
+}
+
+.checkbox-wrapper:hover .checkmark {
+  border-color: var(--checkbox-color);
+  transform: scale(1.1);
+  box-shadow:
+    0 0 20px var(--checkbox-shadow),
+    0 0 40px var(--checkbox-shadow),
+    inset 0 0 10px var(--checkbox-shadow);
+}
+
+.checkbox-wrapper input:checked ~ .checkmark {
+  animation: pulse 1s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 20px var(--checkbox-shadow);
+  }
+  50% {
+    transform: scale(0.9);
+    box-shadow:
+      0 0 30px var(--checkbox-shadow),
+      0 0 50px var(--checkbox-shadow);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px var(--checkbox-shadow);
+  }
+}
+
+.checkbox-wrapper .label {
+  margin-left: 15px;
+  font-family: "Segoe UI", sans-serif;
+  color: var(--checkbox-color);
+  font-size: 18px;
+  text-shadow: 0 0 10px var(--checkbox-shadow);
+  opacity: 0.9;
+  transition: all 0.3s;
+}
+
+.checkbox-wrapper:hover .label {
+  opacity: 1;
+  transform: translateX(5px);
+}
+
+/* Glowing dots animation */
+.checkbox-wrapper::after,
+.checkbox-wrapper::before {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--checkbox-color);
+  opacity: 0;
+  transition: all 0.5s;
+}
+
+.checkbox-wrapper::before {
+  left: -10px;
+  top: 50%;
+}
+
+.checkbox-wrapper::after {
+  right: -10px;
+  top: 50%;
+}
+
+.checkbox-wrapper:hover::before {
+  opacity: 1;
+  transform: translateX(-10px);
+  box-shadow: 0 0 10px var(--checkbox-color);
+}
+
+.checkbox-wrapper:hover::after {
+  opacity: 1;
+  transform: translateX(10px);
+  box-shadow: 0 0 10px var(--checkbox-color);
+}

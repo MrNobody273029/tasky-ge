@@ -30,7 +30,7 @@ const COUNTRY_CODES: Array<{ code: string; label: string }> = [
   { code: '+52', label: 'Mexico (+52)' },
   { code: '+212', label: 'Morocco (+212)' },
   { code: '+20', label: 'Egypt (+20)' },
-  { code: '+27', label: 'South Africa (+27)' }
+  { code: '+27', label: 'South Africa (+27)' },
 ];
 
 function PhoneCodeSelect({
@@ -44,12 +44,13 @@ function PhoneCodeSelect({
   const current = COUNTRY_CODES.find((c) => c.code === value);
 
   return (
-    <div className="relative">
-      <button
+ <div className="w-full">    
+   <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="min-w-[220px] rounded-lg bg-black/70 text-white border border-white/10 px-3 py-2
-                   flex items-center justify-between"
+        className="w-full h-[3.5rem] bg-black/70 text-white px-4
+           flex items-center justify-between
+           border-none rounded-none outline-none"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -90,7 +91,7 @@ function Modal({
   open,
   title,
   onClose,
-  children
+  children,
 }: {
   open: boolean;
   title: string;
@@ -102,11 +103,11 @@ function Modal({
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="absolute right-6 top-6 max-w-xl w-[92vw] card rounded-2xl p-6 shadow-neon">
-        <div className="flex items-center justify_between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-lg bg-white/10 hover:bg_white/15"
+            className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/15"
             aria-label="Close"
           >
             ×
@@ -132,7 +133,8 @@ export default function RegisterPage({
       mismatch: locale === 'ka' ? 'პაროლები არ ემთხვევა' : 'Passwords do not match',
       emailTaken: locale === 'ka' ? 'Email უკვე გამოყენებულია.' : 'Email already in use.',
       phoneTaken: locale === 'ka' ? 'მობილურის ნომერი უკვე გამოიყენება.' : 'Mobile number already in use.',
-      usernameTaken: locale === 'ka' ? 'მომხმარებლის სახელი უკვე გამოიყენება.' : 'Username already in use.',
+      usernameTaken:
+        locale === 'ka' ? 'მომხმარებლის სახელი უკვე გამოიყენება.' : 'Username already in use.',
       weakPwd: locale === 'ka' ? 'პაროლი ძალიან მოკლეა (მინ. 6).' : 'Password too short (min 6).',
       invalidEmail: locale === 'ka' ? 'ელფოსტა არასწორია.' : 'Invalid email.',
       genericErr: locale === 'ka' ? 'რეგისტრაციის შეცდომა.' : 'Registration error.',
@@ -141,7 +143,7 @@ export default function RegisterPage({
     }),
     [locale]
   );
-const createLabel = m.auth.createBtn as string;
+  const createLabel = m.auth.createBtn as string;
 
   const r = useRouter();
 
@@ -155,7 +157,12 @@ const createLabel = m.auth.createBtn as string;
     agree: false,
   });
 
-  const [errors, setErrors] = useState<{ username?: string; email?: string; pwd2?: string; phone?: string }>({});
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    pwd2?: string;
+    phone?: string;
+  }>({});
   const [serverErr, setServerErr] = useState<string>('');
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -168,7 +175,8 @@ const createLabel = m.auth.createBtn as string;
   function validate(): boolean {
     const newErr: typeof errors = {};
     if (form.pwd !== form.pwd2) newErr.pwd2 = t.mismatch;
-    if (form.phone.length !== 9) newErr.phone = locale === 'ka' ? 'შეიყვანე 9 ციფრი' : 'Enter 9 digits';
+    if (form.phone.length !== 9)
+      newErr.phone = locale === 'ka' ? 'შეიყვანე 9 ციფრი' : 'Enter 9 digits';
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
   }
@@ -186,7 +194,7 @@ const createLabel = m.auth.createBtn as string;
         body: JSON.stringify({
           email: form.email.trim(),
           password: form.pwd,
-          name: form.username.trim(),   // username -> DB.name
+          name: form.username.trim(), // username -> DB.name
           phone: phoneFull,
         }),
       });
@@ -195,17 +203,21 @@ const createLabel = m.auth.createBtn as string;
         const j = await res.json().catch(() => ({}));
         const code = j?.error;
         setServerErr(
-          code === 'email_taken' ? t.emailTaken :
-          code === 'phone_taken' ? t.phoneTaken :
-          code === 'username_taken' ? t.usernameTaken :
-          code === 'weak_password' ? t.weakPwd :
-          code === 'invalid_email' ? t.invalidEmail :
-          t.genericErr
+          code === 'email_taken'
+            ? t.emailTaken
+            : code === 'phone_taken'
+            ? t.phoneTaken
+            : code === 'username_taken'
+            ? t.usernameTaken
+            : code === 'weak_password'
+            ? t.weakPwd
+            : code === 'invalid_email'
+            ? t.invalidEmail
+            : t.genericErr
         );
         return;
       }
 
-      // წარმატებისას API დააყენებს ქუქებს; UI გადავიდეს mypage-ზე
       try {
         const j = await res.json().catch(() => null);
         localStorage.setItem('auth', '1');
@@ -222,75 +234,241 @@ const createLabel = m.auth.createBtn as string;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="card rounded-რ2xl p-8">
+      <div className="card rounded-2xl p-8">
         <h1 className="text-center text-3xl font-extrabold mb-2">{m.auth.createTitle}</h1>
         <p className="text-center text-white/70 mb-8">{m.auth.createSubtitle}</p>
 
         <form onSubmit={onSubmit} className="space-y-5">
-          {/* Username */}
-          <div>
-            <label className="block text-sm mb-1">{m.auth.username}</label>
-            <input
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2"
-              placeholder="your_username"
-              required
-            />
-            {errors.username && <p className="text-red-400 text-xs mt-1">{errors.username}</p>}
+          {/* Username – HOLO input */}
+          <div className="glitch-input-wrapper mb-4">
+            <div className="input-container">
+              <input
+                id="reg-username"
+                type="text"
+                required
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                className="holo-input"
+                placeholder=" "
+              />
+              <label
+                htmlFor="reg-username"
+                className="input-label"
+                data-text={m.auth.username}
+              >
+                {m.auth.username}
+              </label>
+
+              <div className="input-border" />
+              <div className="input-scanline" />
+              <div className="input-glow" />
+
+              <div className="input-data-stream">
+                <div className="stream-bar" style={{ '--i': 0 } as any} />
+                <div className="stream-bar" style={{ '--i': 1 } as any} />
+                <div className="stream-bar" style={{ '--i': 2 } as any} />
+                <div className="stream-bar" style={{ '--i': 3 } as any} />
+                <div className="stream-bar" style={{ '--i': 4 } as any} />
+                <div className="stream-bar" style={{ '--i': 5 } as any} />
+                <div className="stream-bar" style={{ '--i': 6 } as any} />
+                <div className="stream-bar" style={{ '--i': 7 } as any} />
+                <div className="stream-bar" style={{ '--i': 8 } as any} />
+                <div className="stream-bar" style={{ '--i': 9 } as any} />
+              </div>
+
+              <div className="input-corners">
+                <div className="corner corner-tl" />
+                <div className="corner corner-tr" />
+                <div className="corner corner-bl" />
+                <div className="corner corner-br" />
+              </div>
+            </div>
+            {errors.username && (
+              <p className="text-red-400 text-xs mt-1">{errors.username}</p>
+            )}
           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text_sm mb-1">{m.auth.email}</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2"
-              placeholder="you@example.com"
-              required
-            />
+          {/* Email – HOLO input */}
+          <div className="glitch-input-wrapper mb-4">
+            <div className="input-container">
+              <input
+                id="reg-email"
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="holo-input"
+                placeholder=" "
+              />
+              <label
+                htmlFor="reg-email"
+                className="input-label"
+                data-text={m.auth.email}
+              >
+                {m.auth.email}
+              </label>
+
+              <div className="input-border" />
+              <div className="input-scanline" />
+              <div className="input-glow" />
+
+              <div className="input-data-stream">
+                <div className="stream-bar" style={{ '--i': 0 } as any} />
+                <div className="stream-bar" style={{ '--i': 1 } as any} />
+                <div className="stream-bar" style={{ '--i': 2 } as any} />
+                <div className="stream-bar" style={{ '--i': 3 } as any} />
+                <div className="stream-bar" style={{ '--i': 4 } as any} />
+                <div className="stream-bar" style={{ '--i': 5 } as any} />
+                <div className="stream-bar" style={{ '--i': 6 } as any} />
+                <div className="stream-bar" style={{ '--i': 7 } as any} />
+                <div className="stream-bar" style={{ '--i': 8 } as any} />
+                <div className="stream-bar" style={{ '--i': 9 } as any} />
+              </div>
+
+              <div className="input-corners">
+                <div className="corner corner-tl" />
+                <div className="corner corner-tr" />
+                <div className="corner corner-bl" />
+                <div className="corner corner-br" />
+              </div>
+            </div>
             {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
           </div>
 
-          {/* Phone (country code + local) */}
-          <div>
-            <label className="block text-sm mb-1">{m.auth.mobile}</label>
-            <div className="flex gap-2">
-              <PhoneCodeSelect
-                value={form.code}
-                onChange={(v) => setForm({ ...form, code: v })}
-              />
-              <input
-                value={form.phone}
-                onChange={(e) => onChangePhone(e.target.value)}
-                className="w-full rounded-lg bg-black/30 border border_white/10 px-3 py-2"
-                placeholder="5XX XX XX XX"
-                inputMode="numeric"
-                pattern="[0-9]{9}"
-                maxLength={9}
-                required
-              />
-            </div>
-            <p className="text-xs text-white/60 mt-1">
-              <span className="text-white/80">{form.code}{form.phone || '5XX XX XX XX'}</span>
-            </p>
-            {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
-          </div>
+          {/* Phone (country code + local) – ძველი სტილი, არ შევცვალე */}
+{/* Phone (country code + local) – ჰოლო ველი ნომერზე */}
 
-          {/* Password */}
-          <div className="grid md:grid-cols-2 gap-4">
+{/* Phone (country code + local) – ჰოლო ველი ნომერზე */}
+<div>
+  <label className="block text-sm mb-2">{m.auth.mobile}</label>
+
+<div className="flex flex-col md:flex-row gap-3 md:items-start">
+  {/* ქვეყნის კოდი – სელექტი ჰოლო ჩარჩოში */}
+  <div className="glitch-input-wrapper md:w-[230px] w-full">
+    <div className="input-container">
+      <PhoneCodeSelect
+        value={form.code}
+        onChange={(v) => setForm({ ...form, code: v })}
+      />
+
+      {/* ლურჯი ჩარჩო + კუთხეები */}
+      <div className="input-border" />
+      <div className="input-corners">
+        <div className="corner corner-tl" />
+        <div className="corner corner-tr" />
+        <div className="corner corner-bl" />
+        <div className="corner corner-br" />
+      </div>
+    </div>
+  </div>
+    {/* ადგილობრივი ნომერი – HOLO სტილით, როგორც უკვე გქონდა */}
+    <div className="flex-1 glitch-input-wrapper">
+      <div className="input-container w-full">
+        <input
+          id="reg-phone"
+          value={form.phone}
+          onChange={(e) => onChangePhone(e.target.value)}
+          className="holo-input"
+          placeholder=" "
+          inputMode="numeric"
+          pattern="[0-9]{9}"
+          maxLength={9}
+          required
+        />
+        <label
+          htmlFor="reg-phone"
+          className="input-label"
+          data-text={t.phoneLocal}
+        >
+          {t.phoneLocal}
+        </label>
+
+        <div className="input-border" />
+        <div className="input-scanline" />
+        <div className="input-glow" />
+
+        <div className="input-data-stream">
+          <div className="stream-bar" style={{ '--i': 0 } as any} />
+          <div className="stream-bar" style={{ '--i': 1 } as any} />
+          <div className="stream-bar" style={{ '--i': 2 } as any} />
+          <div className="stream-bar" style={{ '--i': 3 } as any} />
+          <div className="stream-bar" style={{ '--i': 4 } as any} />
+          <div className="stream-bar" style={{ '--i': 5 } as any} />
+          <div className="stream-bar" style={{ '--i': 6 } as any} />
+          <div className="stream-bar" style={{ '--i': 7 } as any} />
+          <div className="stream-bar" style={{ '--i': 8 } as any} />
+          <div className="stream-bar" style={{ '--i': 9 } as any} />
+        </div>
+
+        <div className="input-corners">
+          <div className="corner corner-tl" />
+          <div className="corner corner-tr" />
+          <div className="corner corner-bl" />
+          <div className="corner corner-br" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* preview + error-ები უცვლელად რჩება */}
+  <p className="text-xs text-white/60 mt-2">
+    <span className="text-white/80">
+      {form.code}
+      {form.phone || '5XX XX XX XX'}
+    </span>
+  </p>
+  {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
+</div>
+
+
+          {/* Passwords – 2 ჰოლო ველი grid-ში */}
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm mb-1">{m.auth.password}</label>
-              <input
-                type="password"
-                value={form.pwd}
-                onChange={(e) => setForm({ ...form, pwd: e.target.value })}
-                className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2"
-                placeholder={locale === 'ka' ? 'შექმენი პაროლი' : 'Create a password'}
-                required
-              />
+              <div className="glitch-input-wrapper mb-2">
+                <div className="input-container">
+                  <input
+                    id="reg-password"
+                    type="password"
+                    required
+                    value={form.pwd}
+                    onChange={(e) => setForm({ ...form, pwd: e.target.value })}
+                    className="holo-input"
+                    placeholder=" "
+                  />
+                  <label
+                    htmlFor="reg-password"
+                    className="input-label"
+                    data-text={m.auth.password}
+                  >
+                    {m.auth.password}
+                  </label>
+
+                  <div className="input-border" />
+                  <div className="input-scanline" />
+                  <div className="input-glow" />
+
+                  <div className="input-data-stream">
+                    <div className="stream-bar" style={{ '--i': 0 } as any} />
+                    <div className="stream-bar" style={{ '--i': 1 } as any} />
+                    <div className="stream-bar" style={{ '--i': 2 } as any} />
+                    <div className="stream-bar" style={{ '--i': 3 } as any} />
+                    <div className="stream-bar" style={{ '--i': 4 } as any} />
+                    <div className="stream-bar" style={{ '--i': 5 } as any} />
+                    <div className="stream-bar" style={{ '--i': 6 } as any} />
+                    <div className="stream-bar" style={{ '--i': 7 } as any} />
+                    <div className="stream-bar" style={{ '--i': 8 } as any} />
+                    <div className="stream-bar" style={{ '--i': 9 } as any} />
+                  </div>
+
+                  <div className="input-corners">
+                    <div className="corner corner-tl" />
+                    <div className="corner corner-tr" />
+                    <div className="corner corner-bl" />
+                    <div className="corner corner-br" />
+                  </div>
+                </div>
+              </div>
+
               <div className="text-xs text-white/60 mt-1">
                 {locale === 'ka'
                   ? 'გამოიყენე 6+ სიმბოლო ასოებისა და ციფრების კომბინაციით.'
@@ -299,53 +477,118 @@ const createLabel = m.auth.createBtn as string;
             </div>
 
             <div>
-              <label className="block text-sm mb-1">{t.repeat}</label>
-              <input
-                type="password"
-                value={form.pwd2}
-                onChange={(e) => setForm({ ...form, pwd2: e.target.value })}
-                className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2"
-                placeholder={locale === 'ka' ? 'გაიმეორე პაროლი' : 'Repeat password'}
-                required
-              />
-              {errors.pwd2 && <p className="text-red-400 text-xs mt-1">{errors.pwd2}</p>}
+              <div className="glitch-input-wrapper">
+                <div className="input-container">
+                  <input
+                    id="reg-password2"
+                    type="password"
+                    required
+                    value={form.pwd2}
+                    onChange={(e) => setForm({ ...form, pwd2: e.target.value })}
+                    className="holo-input"
+                    placeholder=" "
+                  />
+                  <label
+                    htmlFor="reg-password2"
+                    className="input-label"
+                    data-text={t.repeat}
+                  >
+                    {t.repeat}
+                  </label>
+
+                  <div className="input-border" />
+                  <div className="input-scanline" />
+                  <div className="input-glow" />
+
+                  <div className="input-data-stream">
+                    <div className="stream-bar" style={{ '--i': 0 } as any} />
+                    <div className="stream-bar" style={{ '--i': 1 } as any} />
+                    <div className="stream-bar" style={{ '--i': 2 } as any} />
+                    <div className="stream-bar" style={{ '--i': 3 } as any} />
+                    <div className="stream-bar" style={{ '--i': 4 } as any} />
+                    <div className="stream-bar" style={{ '--i': 5 } as any} />
+                    <div className="stream-bar" style={{ '--i': 6 } as any} />
+                    <div className="stream-bar" style={{ '--i': 7 } as any} />
+                    <div className="stream-bar" style={{ '--i': 8 } as any} />
+                    <div className="stream-bar" style={{ '--i': 9 } as any} />
+                  </div>
+
+                  <div className="input-corners">
+                    <div className="corner corner-tl" />
+                    <div className="corner corner-tr" />
+                    <div className="corner corner-bl" />
+                    <div className="corner corner-br" />
+                  </div>
+                </div>
+              </div>
+
+              {errors.pwd2 && (
+                <p className="text-red-400 text-xs mt-1">{errors.pwd2}</p>
+              )}
             </div>
           </div>
 
-          {/* Agree */}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.agree}
-              onChange={(e) => setForm({ ...form, agree: e.target.checked })}
-              required
-            />
-            <span>
-              {m.auth.agree}{' '}
-              <button type="button" className="underline" onClick={() => setShowTerms(true)}>
-                {m.auth.terms}
-              </button>{' '}
-              {m.auth.and}{' '}
-              <button type="button" className="underline" onClick={() => setShowPrivacy(true)}>
-                {m.auth.privacy}
-              </button>
-            </span>
-          </label>
+ {/* Agree – neon checkbox + ძველი ტექსტი/ლინკები */}
+<label className="checkbox-wrapper mt-2">
+  {/* ნამდვილი checkbox (inchvisible) */}
+  <input
+    type="checkbox"
+    checked={form.agree}
+    onChange={(e) => setForm({ ...form, agree: e.target.checked })}
+    required
+  />
+
+  {/* ნეონ ბოქსი */}
+  <div className="checkmark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path
+        d="M20 6L9 17L4 12"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </div>
+
+  {/* ტექსტი + ლინკები უცვლელი ლოგიკით */}
+  <span className="label text-sm">
+    {m.auth.agree}{' '}
+    <button
+      type="button"
+      className="underline"
+      onClick={() => setShowTerms(true)}
+    >
+      {m.auth.terms}
+    </button>{' '}
+    {m.auth.and}{' '}
+    <button
+      type="button"
+      className="underline"
+      onClick={() => setShowPrivacy(true)}
+    >
+      {m.auth.privacy}
+    </button>
+  </span>
+</label>
+
 
           {serverErr && <div className="text-red-400 text-sm">{serverErr}</div>}
 
-        <button
-          type="submit"
-          className="btn-hero-primary w-full justify-center text-sm"
-          data-text={createLabel}
-        >
-          <span className="btn-text">{createLabel}</span>
-        </button>
+          <button
+            type="submit"
+            className="btn-hero-primary w-full justify-center text-sm"
+            data-text={createLabel}
+          >
+            <span className="btn-text">{createLabel}</span>
+          </button>
         </form>
 
         <div className="text-center mt-6 text-sm">
           {m.auth.haveAccount}{' '}
-          <Link href={`/${locale}/auth/login`} className="text-cyan hover:underline">
+          <Link
+            href={`/${locale}/auth/login`}
+            className="text-cyan hover:underline"
+          >
             {m.auth.goLogin}
           </Link>
         </div>
@@ -357,7 +600,11 @@ const createLabel = m.auth.createBtn as string;
           ? 'დროებითი ტექსტი: აქ გამოჩნდება წესები და პირობები. შეგიძლია ჩაანაცვლო რეალური დოკუმენტით.'
           : 'Temporary text: your Terms & Conditions will appear here. Replace with your real document.'}
       </Modal>
-      <Modal open={showPrivacy} onClose={() => setShowPrivacy(false)} title={t.privacyTitle}>
+      <Modal
+        open={showPrivacy}
+        onClose={() => setShowPrivacy(false)}
+        title={t.privacyTitle}
+      >
         {locale === 'ka'
           ? 'დროებითი ტექსტი: აქ იქნება კონფიდენციალურობის პოლიტიკა. შეცვალე შემდგომში.'
           : 'Temporary text: your Privacy Policy goes here. Update with the real one later.'}

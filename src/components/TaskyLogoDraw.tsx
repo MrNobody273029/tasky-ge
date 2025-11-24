@@ -14,7 +14,7 @@ type HoloLogoProps = {
   fadeDelayMs?: number;     // ფეიდის დაყოვნება onExplode-ის შემდეგ (ნაგულისხმები 0)
   powered?: boolean;      // true => აჩქარება
   hoverAccel?: boolean;   // hover-ზე აჩქარების ჩართვა/გამორთვა
-
+  spinDelayMs?: number;
 };
 
 export default function TaskyLogoDraw({
@@ -30,6 +30,7 @@ export default function TaskyLogoDraw({
   fadeDelayMs = 0,
   powered,
   hoverAccel = true,
+  spinDelayMs = 3000,
 }: HoloLogoProps) {
   const style = { ['--size' as any]: `${size}px` } as CSSProperties;
 
@@ -60,6 +61,19 @@ export default function TaskyLogoDraw({
 
   const [hovered, setHovered] = useState(false);
   const hoverRef = useRef(false);
+  const [spinReady, setSpinReady] = useState(false);
+  // ⏱ ჯერ SVG-ს ვაძლევთ დახატვის/გლიჩის დროს, მერე ვრთავთ ტრიალს
+  useEffect(() => {
+    if (!spin) return;
+
+    setSpinReady(false);
+    const id = window.setTimeout(() => {
+      setSpinReady(true);
+    }, spinDelayMs);
+
+    return () => window.clearTimeout(id);
+  }, [spin, spinDelayMs, resetOn, srcBust]);
+
   useEffect(() => { hoverRef.current = hovered; }, [hovered]);
 
   // Rotation
@@ -102,14 +116,13 @@ export default function TaskyLogoDraw({
   }, []);
 
   /* ---------------- Rotation loop (არ შევცვალე) ---------------- */
-  useEffect(() => {
-    if (!spin) return;
+useEffect(() => {
+  if (!spin || !spinReady) return;
 // ადრე გეწყებოდა .matches undefined-ზე
 const reduce =
   typeof window !== 'undefined' &&
   !!window.matchMedia &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 
     const el = imgRef.current;
     if (!el) return;
@@ -153,7 +166,7 @@ const reduce =
     };
     rafId.current = requestAnimationFrame(tick);
     return () => { if (rafId.current) cancelAnimationFrame(rafId.current); rafId.current = null; };
-  }, [spin, spinSpeedSec, maxMulHover, accelPerSec, decelPerSec, powered, hoverAccel]);
+}, [spin, spinReady, spinSpeedSec, maxMulHover, accelPerSec, decelPerSec, powered, hoverAccel]);
 
   /* ---------------- Canvas helpers ---------------- */
   function ensureBodyCanvas() {

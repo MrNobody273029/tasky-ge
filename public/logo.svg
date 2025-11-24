@@ -38,6 +38,116 @@
     
       .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.4s ease forwards; }
       @keyframes draw { to { stroke-dashoffset: 0; } }
+
+.glitch-once {
+  /* ცენტრიდან გლიჩი */
+  transform-box: fill-box;
+  transform-origin: center;
+  /* უფრო ხანგრძლივი და აგრესიული გლიჩი */
+  animation: logo-glitch 0.9s steps(3, end) 2.4s 1 both;
+}
+
+
+
+
+@keyframes logo-glitch {
+  0% {
+    transform: translate(0, 0) scale(1);
+    filter: none;
+    opacity: 1;
+    clip-path: none;
+  }
+
+  8% {
+    /* პირველი ხტომა + წითელი ჩრდილი */
+    transform: translate(-6px, 3px) skewX(10deg) scale(1.02);
+    filter: drop-shadow(-4px 0 0 #ff0040);
+    opacity: 1;
+  }
+
+  /* შუაში გამტვრეული ხაზივით – ნაწილობრივი გაქრობა */
+  14% {
+    opacity: 0;
+    clip-path: inset(40% 0 40% 0);
+    transform: translate(4px, -2px) skewX(-8deg) scale(1.03);
+    filter: drop-shadow(4px 0 0 #00f7ff);
+  }
+
+  20% {
+    opacity: 1;
+    clip-path: none;
+    transform: translate(8px, -6px) skewX(-12deg) scale(1.04);
+    filter: drop-shadow(5px 0 0 #00f7ff);
+  }
+
+  /* 😈 სრული გაქრობა – თითქოს signal წავიდა */
+  28% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translate(0, 0) scale(1.02);
+    filter: none;
+  }
+
+  34% {
+    opacity: 1;
+    clip-path: none;
+    transform: translate(-10px, 4px) skewY(10deg) scale(1.05);
+    filter: drop-shadow(-5px 0 0 #ff0040);
+  }
+
+  45% {
+    transform: translate(6px, 8px) skewY(-12deg) scale(1.03);
+    filter: drop-shadow(4px 0 0 #00f7ff);
+    opacity: 1;
+  }
+
+  /* ზედა ნაწილის ჩაქრობა – მეორედ “გაფუჭება” */
+  52% {
+    opacity: 0;
+    clip-path: inset(0 0 70% 0);
+    transform: translate(-4px, -3px) skewX(6deg);
+    filter: none;
+  }
+
+  60% {
+    opacity: 1;
+    clip-path: none;
+    transform: translate(3px, -5px) skewY(8deg) scale(1.02);
+    filter: drop-shadow(3px 0 0 #00f7ff);
+  }
+
+  /* პატარა random ტრიალი – ძველი CRT-ის vibe */
+  72% {
+    transform: translate(-3px, 2px) skewX(-6deg) scale(1.01);
+    filter: drop-shadow(-3px 0 0 #ff0040);
+    opacity: 1;
+  }
+
+  82% {
+    opacity: 0;
+    clip-path: inset(55% 0 0 0); /* ქვედა ნაწილი გათიშული */
+    transform: translate(6px, -2px) skewY(-6deg);
+    filter: none;
+  }
+
+  90% {
+    opacity: 1;
+    clip-path: none;
+    transform: translate(0, 0) scale(1.02);
+    filter: drop-shadow(0 0 4px #00f7ff);
+  }
+
+  /* ბოლოს ნორმაზე დაბრუნება */
+  100% {
+    transform: translate(0, 0) scale(1);
+    filter: none;
+    opacity: 1;
+    clip-path: none;
+  }
+}
+
+
+
     </ns0:style>
   </ns0:defs>
 
@@ -87,7 +197,7 @@
   </ns0:g>
 
   
-  <ns0:g id="art">
+  <ns0:g id="art" class="glitch-once">
     <ns0:path class="stroke draw" d="M 215.00 39.00 L 216.00 40.00 L 218.00 39.00 L 240.00 39.00 L 248.00 41.00 L 258.00 47.00 L 265.00 55.00 L 268.00 64.00 L 268.00 78.00 L 269.00 79.00 L 269.00 129.00 L 268.00 130.00 L 267.00 141.00 L 264.00 146.00 L 113.00 298.00 L 109.00 307.00 L 109.00 324.00" pathLength="1" />
 <ns0:path class="stroke draw" d="M 62.00 40.00 L 60.00 39.00 L 37.00 39.00 L 27.00 41.00 L 18.00 46.00 L 13.00 51.00 L 8.00 60.00 L 8.00 65.00 L 7.00 66.00 L 7.00 326.00 L 11.00 336.00 L 19.00 345.00 L 28.00 350.00 L 37.00 352.00 L 131.00 352.00 L 132.00 351.00 L 137.00 351.00 L 146.00 347.00 L 174.00 319.00 L 176.00 315.00 L 177.00 298.00 L 182.00 289.00 L 254.00 217.00" pathLength="1" />
 <ns0:path class="stroke draw" d="M 234.00 105.00 L 123.00 216.00 L 118.00 218.00 L 111.00 216.00 L 57.00 161.00" pathLength="1" />

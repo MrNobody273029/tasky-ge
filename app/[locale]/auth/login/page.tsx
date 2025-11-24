@@ -77,24 +77,103 @@ r.replace(`/${locale}/mypage`);
         <p className="text-center text-white/70 mb-8">{m.auth.loginSubtitle}</p>
 
         <form onSubmit={onSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm mb-1">{m.auth.email}</label>
-            <input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)}
-              className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2" placeholder="you@example.com" />
-          </div>
+       <div className="glitch-input-wrapper mb-8">
+  <div className="input-container">
+    <input
+      type="email"
+      id="login-email"
+      required
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      className="holo-input"
+      placeholder=" "         // ერთი space რომ :placeholder-shown იმუშაოს
+    />
+    <label
+      htmlFor="login-email"
+      className="input-label"
+      data-text={m.auth.email}
+    >
+      {m.auth.email}
+    </label>
 
-          <div>
-            <label className="block text-sm mb-1">{m.auth.password}</label>
-            <div className="relative">
-              <input type="password" required value={pwd} onChange={(e)=>setPwd(e.target.value)}
-                className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 pr-10" placeholder="••••••••" />
-            </div>
-            <div className="text-right mt-2">
-              <Link href="#" className="text-sm text-white/70 hover:text-white">
-                {m.auth.forgot}
-              </Link>
-            </div>
-          </div>
+    <div className="input-border" />
+    <div className="input-scanline" />
+    <div className="input-glow" />
+
+    <div className="input-data-stream">
+      <div className="stream-bar" style={{ '--i': 0 } as any} />
+      <div className="stream-bar" style={{ '--i': 1 } as any} />
+      <div className="stream-bar" style={{ '--i': 2 } as any} />
+      <div className="stream-bar" style={{ '--i': 3 } as any} />
+      <div className="stream-bar" style={{ '--i': 4 } as any} />
+      <div className="stream-bar" style={{ '--i': 5 } as any} />
+      <div className="stream-bar" style={{ '--i': 6 } as any} />
+      <div className="stream-bar" style={{ '--i': 7 } as any} />
+      <div className="stream-bar" style={{ '--i': 8 } as any} />
+      <div className="stream-bar" style={{ '--i': 9 } as any} />
+    </div>
+
+    <div className="input-corners">
+      <div className="corner corner-tl" />
+      <div className="corner corner-tr" />
+      <div className="corner corner-bl" />
+      <div className="corner corner-br" />
+    </div>
+  </div>
+</div>
+
+
+<div className="glitch-input-wrapper mb-2">
+  <div className="input-container">
+    <input
+      type="password"
+      id="login-password"
+      required
+      value={pwd}
+      onChange={(e) => setPwd(e.target.value)}
+      className="holo-input"
+      placeholder=" "
+    />
+    <label
+      htmlFor="login-password"
+      className="input-label"
+      data-text={m.auth.password}
+    >
+      {m.auth.password}
+    </label>
+
+    <div className="input-border" />
+    <div className="input-scanline" />
+    <div className="input-glow" />
+
+    <div className="input-data-stream">
+      <div className="stream-bar" style={{ '--i': 0 } as any} />
+      <div className="stream-bar" style={{ '--i': 1 } as any} />
+      <div className="stream-bar" style={{ '--i': 2 } as any} />
+      <div className="stream-bar" style={{ '--i': 3 } as any} />
+      <div className="stream-bar" style={{ '--i': 4 } as any} />
+      <div className="stream-bar" style={{ '--i': 5 } as any} />
+      <div className="stream-bar" style={{ '--i': 6 } as any} />
+      <div className="stream-bar" style={{ '--i': 7 } as any} />
+      <div className="stream-bar" style={{ '--i': 8 } as any} />
+      <div className="stream-bar" style={{ '--i': 9 } as any} />
+    </div>
+
+    <div className="input-corners">
+      <div className="corner corner-tl" />
+      <div className="corner corner-tr" />
+      <div className="corner corner-bl" />
+      <div className="corner corner-br" />
+    </div>
+  </div>
+
+  <div className="text-right mt-2 text-sm">
+    <Link href="#" className="text-white/70 hover:text-white">
+      {m.auth.forgot}
+    </Link>
+  </div>
+</div>
+
 
           {err && <div className="text-red-400 text-sm">{err}</div>}
 
