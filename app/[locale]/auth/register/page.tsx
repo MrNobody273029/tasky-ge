@@ -141,6 +141,7 @@ export default function RegisterPage({
     }),
     [locale]
   );
+const createLabel = m.auth.createBtn as string;
 
   const r = useRouter();
 
@@ -333,12 +334,13 @@ export default function RegisterPage({
 
           {serverErr && <div className="text-red-400 text-sm">{serverErr}</div>}
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-cyan text-black font-semibold py-3 shadow-neონ"
-          >
-            {m.auth.createBtn}
-          </button>
+        <button
+          type="submit"
+          className="btn-hero-primary w-full justify-center text-sm"
+          data-text={createLabel}
+        >
+          <span className="btn-text">{createLabel}</span>
+        </button>
         </form>
 
         <div className="text-center mt-6 text-sm">

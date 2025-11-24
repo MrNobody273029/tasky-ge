@@ -29,6 +29,8 @@ export default function LoginPage({
 
   const play = (a?: HTMLAudioElement | null) => { if (!a) return; try { a.currentTime = 0; void a.play(); } catch {} };
 
+const loginLabel = m.auth.loginBtn as string;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr('');
@@ -96,8 +98,12 @@ r.replace(`/${locale}/mypage`);
 
           {err && <div className="text-red-400 text-sm">{err}</div>}
 
-          <button type="submit" className="w-full rounded-xl bg-cyan text-black font-semibold py-3 shadow-neon">
-            {m.auth.loginBtn}
+          <button
+            type="submit"
+            className="btn-hero-primary w-full justify-center text-sm"
+            data-text={loginLabel}
+          >
+            <span className="btn-text">{loginLabel}</span>
           </button>
         </form>
 

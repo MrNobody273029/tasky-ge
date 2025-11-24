@@ -285,20 +285,39 @@ export default function Balance({
   return (
     <div className="space-y-6">
       {/* Header + actions */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t.title}</h1>
-        <div className="flex gap-2">
-          <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm">
-            {t.statements}
-          </button>
-          <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm">
-            {t.addPayout}
-          </button>
-          <button className="px-3 py-1.5 rounded-lg bg-cyan text-black font-semibold text-sm">
-            {t.withdraw}
-          </button>
-        </div>
-      </div>
+
+<div className="flex items-center justify-between">
+  <h1 className="text-3xl font-bold">{t.title}</h1>
+  <div className="flex gap-2">
+    {/* Statements – ghost / secondary */}
+    <button
+      className="btn-hero-secondary text-sm"
+      data-text={t.statements}
+      type="button"
+    >
+      <span className="btn-text">{t.statements}</span>
+    </button>
+
+    {/* Add payout method – ghost / secondary */}
+    <button
+      className="btn-hero-secondary text-sm"
+      data-text={t.addPayout}
+      type="button"
+    >
+      <span className="btn-text">{t.addPayout}</span>
+    </button>
+
+    {/* Withdraw – მთავარი action, primary */}
+    <button
+      className="btn-hero-primary text-sm"
+      data-text={t.withdraw}
+      type="button"
+    >
+      <span className="btn-text">{t.withdraw}</span>
+    </button>
+  </div>
+</div>
+
 
       {/* Loading / error პატარა შეტყობინება ზედა ნაწილში */}
       {!loaded && (
@@ -367,12 +386,16 @@ export default function Balance({
               <option value="OnHold">{t.onHoldS}</option>
               <option value="Failed">{t.failed}</option>
             </select>
-            <button
-              onClick={() => downloadCSV('transactions.csv', rows)}
-              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm"
-            >
-              {t.export}
-            </button>
+
+<button
+  onClick={() => downloadCSV('transactions.csv', rows)}
+  className="btn-hero-secondary text-sm"
+  data-text={t.export}
+  type="button"
+>
+  <span className="btn-text">{t.export}</span>
+</button>
+
           </div>
         </div>
 

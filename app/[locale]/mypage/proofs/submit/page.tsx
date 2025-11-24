@@ -121,6 +121,8 @@ export default function ProofSubmitPage({
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const cancelLabel = t.cancel;
+  const sendLabel = busy ? t.sending : t.send;
 
   // ---- helpers ----
   const keyFor = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
@@ -414,24 +416,28 @@ export default function ProofSubmitPage({
         )}
 
         {/* ღილაკები */}
+        {/* ღილაკები */}
         <div className="pt-2 flex justify-end gap-3">
           <button
             type="button"
             onClick={goBack}
-            className="btn-hero-secondary text-sm"
+            className="btn-hero-secondary text-sm disabled:opacity-60"
             disabled={busy}
+            data-text={cancelLabel}
           >
-            <span>{t.cancel}</span>
+            <span className="btn-text">{cancelLabel}</span>
           </button>
           <button
             type="button"
             onClick={onSubmit}
             className="btn-hero-primary text-sm disabled:opacity-60"
             disabled={busy}
+            data-text={sendLabel}
           >
-            <span>{busy ? t.sending : t.send}</span>
+            <span className="btn-text">{sendLabel}</span>
           </button>
         </div>
+
       </div>
     </div>
   );

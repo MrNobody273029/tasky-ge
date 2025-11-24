@@ -225,14 +225,18 @@ export default function RequestsPage() {
       <div className="flex items-center gap-3">
         <h1 className="text-3xl font-extrabold">{t.title}</h1>
         {loading && <span className="text-white/60 text-sm">{t.loading}</span>}
-        {!!err && (
-          <button
-            onClick={load}
-            className="ml-2 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-sm"
-          >
-            {t.retry}
-          </button>
-        )}
+
+{!!err && (
+  <button
+    onClick={load}
+    className="ml-2 btn-hero-secondary text-sm"
+    data-text={t.retry}
+    type="button"
+  >
+    <span className="btn-text">{t.retry}</span>
+  </button>
+)}
+
       </div>
 
       {err && (
@@ -285,52 +289,60 @@ export default function RequestsPage() {
                       </div>
                     </div>
                   </div>
-                  {/* Actions */}
-                  <div className="pt-1 flex flex-wrap gap-3">
-                    {/* ჩატის გახსნა — ლურჯი გამჭვირვალე გრადიენტით */}
-                    {status !== 'REJECTED' && (
-                      <button
-                        onClick={() => openChatFor(app)}
-                        className="btn-hero-secondary text-sm"
-                      >
-                        <span>{t.chat}</span>
-                      </button>
-                    )}
+                
 
-                    {status === 'PENDING' && (
-                      <>
-                        {/* დადასტურება — ლურჯი გამჭვირვალე ისევე, როგორც სხვაგან */}
-                        <button
-                          onClick={() => approve(app)}
-                          className="btn-hero-secondary text-sm"
-                        >
-                          <span>{t.approve}</span>
-                        </button>
+{/* Actions */}
+<div className="pt-1 flex flex-wrap gap-3">
+  {/* ჩატის გახსნა — გლიჩიანი ლურჯი */}
+  {status !== 'REJECTED' && (
+    <button
+      onClick={() => openChatFor(app)}
+      className="btn-hero-secondary text-sm"
+      data-text={t.chat}
+      type="button"
+    >
+      <span className="btn-text">{t.chat}</span>
+    </button>
+  )}
 
-                        {/* უარყოფა — იგივე წითელი გრადიენტი, რაც logout / „დაბრუნება“ ღილაკებს */}
-                        <button
-                          onClick={() => reject(app)}
-                          className="btn-logout text-sm"
-                        >
-                          <span>{t.reject}</span>
-                        </button>
-                      </>
-                    )}
+  {status === 'PENDING' && (
+    <>
+      {/* დადასტურება — გლიჩიანი ლურჯი */}
+      <button
+        onClick={() => approve(app)}
+        className="btn-hero-secondary text-sm"
+        data-text={t.approve}
+        type="button"
+      >
+        <span className="btn-text">{t.approve}</span>
+      </button>
 
-                    {/* უკვე დადასტურებულია — მწვანე ნეონი, არაკლიკებადი */}
-                    {status === 'APPROVED' && (
-                      <div className="pill-status-approved">
-                        {t.approved}
-                      </div>
-                    )}
+      {/* უარყოფა — წითელი, გლიჩის გარეშე */}
+      <button
+        onClick={() => reject(app)}
+        className="btn-logout text-sm"
+        type="button"
+      >
+        <span>{t.reject}</span>
+      </button>
+    </>
+  )}
 
-                    {/* უკვე უარყოფილია — თეთრი გრადიენტი, არაკლიკებადი */}
-                    {status === 'REJECTED' && (
-                      <div className="pill-status-rejected">
-                        {t.rejected}
-                      </div>
-                    )}
-                  </div>
+  {/* უკვე დადასტურებულია — მწვანე ბეჯი */}
+  {status === 'APPROVED' && (
+    <div className="pill-status-approved">
+      {t.approved}
+    </div>
+  )}
+
+  {/* უკვე უარყოფილია — თეთრი ბეჯი */}
+  {status === 'REJECTED' && (
+    <div className="pill-status-rejected">
+      {t.rejected}
+    </div>
+  )}
+</div>
+
 
 
                 </div>

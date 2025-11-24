@@ -152,6 +152,9 @@ function EvidenceModal({
   const isKa = locale === 'ka';
   const [busy, setBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
+const confirmLabel = busy
+  ? (isKa ? 'დადასტურება...' : 'Confirming...')
+  : (isKa ? 'დადასტურება' : 'Confirm');
 
   async function handleConfirm() {
     if (!isIncoming) return;
@@ -448,22 +451,18 @@ function EvidenceModal({
                       </div>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          onClick={handleConfirm}
-                          disabled={busy}
-                          className="btn-hero-secondary text-sm disabled:opacity-60"
-                        >
-                          <span>
-                            {busy
-                              ? isKa
-                                ? 'დადასტურება...'
-                                : 'Confirming...'
-                              : isKa
-                                ? 'დადასტურება'
-                                : 'Confirm'}
-                          </span>
-                        </button>
+       
+
+<button
+  type="button"
+  onClick={handleConfirm}
+  disabled={busy}
+  className="btn-hero-secondary text-sm disabled:opacity-60"
+  data-text={confirmLabel}
+>
+  <span className="btn-text">{confirmLabel}</span>
+</button>
+
 
                         {/* Fix / Reject ჯერჯერობით გამორთული — მერე ავამუშავებთ */}
                         <button
@@ -588,29 +587,33 @@ export default function MyPageProofs({
 
       {/* tabs */}
       <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => changeTab('incoming')}
-          className={
-            tab === 'incoming'
-              ? 'btn-tab-active text-sm'
-              : 'btn-hero-ghost text-sm'
-          }
-        >
-          <span>{labels.incoming}</span>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => changeTab('outgoing')}
-          className={
-            tab === 'outgoing'
-              ? 'btn-tab-active text-sm'
-              : 'btn-hero-ghost text-sm'
-          }
-        >
-          <span>{labels.outgoing}</span>
-        </button>
+<button
+  type="button"
+  onClick={() => changeTab('incoming')}
+  className={
+    tab === 'incoming'
+      ? 'btn-tab-active text-sm'
+      : 'btn-hero-ghost text-sm'
+  }
+  data-text={labels.incoming}
+>
+  <span className="btn-text">{labels.incoming}</span>
+</button>
+
+<button
+  type="button"
+  onClick={() => changeTab('outgoing')}
+  className={
+    tab === 'outgoing'
+      ? 'btn-tab-active text-sm'
+      : 'btn-hero-ghost text-sm'
+  }
+  data-text={labels.outgoing}
+>
+  <span className="btn-text">{labels.outgoing}</span>
+</button>
+
       </div>
 
       {/* content */}

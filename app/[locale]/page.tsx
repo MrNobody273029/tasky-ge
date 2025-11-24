@@ -5,6 +5,7 @@ import Link from 'next/link';
 import ka from '../../messages/ka.json';
 import en from '../../messages/en.json';
 import { ShoppingBag, ShieldCheck, ClipboardList } from 'lucide-react';
+import NeonPowerSwitch from '@/components/NeonPowerSwitch';
 
 import TaskyLogoDraw from '@/components/TaskyLogoDraw';
 import TaskModal from '@/components/task/TaskModal';
@@ -39,14 +40,20 @@ export default function Home({ params }: { params: { locale: Locale } }) {
   const playNav = () => {
     const a = navRef.current;
     if (!a) return;
-    try { a.currentTime = 0; void a.play(); } catch {}
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch {}
   };
 
   // Auth flag
   const [authed, setAuthed] = useState(false);
   useEffect(() => {
-    try { setAuthed(Boolean(localStorage.getItem('auth') || localStorage.getItem('token'))); }
-    catch { setAuthed(false); }
+    try {
+      setAuthed(Boolean(localStorage.getItem('auth') || localStorage.getItem('token')));
+    } catch {
+      setAuthed(false);
+    }
   }, []);
   const startHref = authed ? `/${params.locale}/tasky` : `/${params.locale}/auth/register`;
 
@@ -55,52 +62,56 @@ export default function Home({ params }: { params: { locale: Locale } }) {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
 
+  // Power switch -> ლოგოს აჩქარება
+  const [powerOn, setPowerOn] = useState(false);
+
   // ზარი TaskyLogoDraw-დან — როცა ნაწილაკები უკვე შეკრებილნი არიან ცენტრში
-// 🔁 ჩაანაცვლე მთლიანად ეს ფუნქცია
-const handleExplode = useCallback(async () => {
-  let id: string | null = null;
+  const handleExplode = useCallback(async () => {
+    let id: string | null = null;
 
-  try {
-    const uid = getUidSafe();
+    try {
+      const uid = getUidSafe();
 
-    if (uid) {
-      // ავტორიზებული: მხოლოდ რეკომენდებული, თვითონ დადებული და უკვე აღებული გამოირიცხება სერვერზე
-      const r = await fetch('/api/tasks/recomend', {
-        cache: 'no-store',
-        headers: { 'x-user-id': uid },
-      });
-      if (r.ok) {
-        const j = await r.json().catch(() => ({}));
-        id = j?.id ?? null;
+      if (uid) {
+        // ავტორიზებული: მხოლოდ რეკომენდებული, თვითონ დადებული და უკვე აღებული გამოირიცხება სერვერზე
+        const r = await fetch('/api/tasks/recomend', {
+          cache: 'no-store',
+          headers: { 'x-user-id': uid },
+        });
+        if (r.ok) {
+          const j = (await r.json().catch(() => ({}))) as any;
+          id = j?.id ?? null;
+        } else {
+          // ავტორიზებულზე არ ვფოლბექდებით random-published-ზე — თუ არ არის აღარ ვხსნით მოდალს
+          id = null;
+        }
       } else {
-        // ავტორიზებულზე არ ვფოლბექდებით random-published-ზე — თუ არ არის აღარ ვხსნით მოდალს
-        id = null;
+        // სტუმარი: რენდომად გამოქვეყნებული
+        const r = await fetch('/api/tasks/random-published', { cache: 'no-store' });
+        if (r.ok) {
+          const j = (await r.json().catch(() => ({}))) as any;
+          id = j?.id ?? null;
+        }
       }
-    } else {
-      // სტუმარი: რენდომად გამოქვეყნებული
-      const r = await fetch('/api/tasks/random-published', { cache: 'no-store' });
-      if (r.ok) {
-        const j = await r.json().catch(() => ({}));
-        id = j?.id ?? null;
-      }
+    } catch {
+      id = null;
     }
-  } catch {
-    id = null;
-  }
 
-  if (!id) {            // თუ შესაფერისი ტასკი ვერ მოიძებნა, მოდალი არ გაიხსნას
-    setTaskId(null);
-    return;
-  }
+    if (!id) {
+      // თუ შესაფერისი ტასკი ვერ მოიძებნა, მოდალი არ გაიხსნას, სვიჩი მაინც OFF-ზე გადავიყვანოთ
+      setTaskId(null);
+      setPowerOn(false);
+      return;
+    }
 
-  setTaskId(id);
-  setOpen(true);        // ნაწილაკები უკვე შეკრებილია — პირდაპირ ვხსნით მოდალს
-}, []);
-
+    setTaskId(id);
+    setOpen(true); // ნაწილაკები უკვე შეკრებილია — პირდაპირ ვხსნით მოდალს
+    setPowerOn(false); // აფეთქების შემდეგ სვიჩი ავტომატურად გათიშულზე გადადის
+  }, []);
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    setResetTick(v => v + 1); // ლოგო აღდგება და კვლავ იტრიალებს
+    setResetTick((v) => v + 1); // ლოგო აღდგება და კვლავ იტრიალებს
   }, []);
 
   return (
@@ -110,30 +121,29 @@ const handleExplode = useCallback(async () => {
         <div className="space-y-6">
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">{m.home.title}</h1>
           <p className="text-white/80 text-lg max-w-prose">{m.home.subtitle}</p>
-        <div className="flex gap-4">
-          <Link
-            href={startHref}
-            onClick={playNav}
-            className="btn-hero-primary"
-            data-text={m.cta.getStarted}   // <<< გლიჩისთვის
-          >
-            <span className="btn-text">{m.cta.getStarted}</span>
-          </Link>
+          <div className="flex gap-4">
+            <Link
+              href={startHref}
+              onClick={playNav}
+              className="btn-hero-primary"
+              data-text={m.cta.getStarted} // <<< გლიჩისთვის
+            >
+              <span className="btn-text">{m.cta.getStarted}</span>
+            </Link>
 
-          <Link
-            href={`/${params.locale}/tasky`}
-            onClick={playNav}
-            className="btn-hero-secondary"
-            data-text={m.cta.browseTasks}  // <<< გლიჩისთვის
-          >
-            <span className="btn-text">{m.cta.browseTasks}</span>
-          </Link>
+            <Link
+              href={`/${params.locale}/tasky`}
+              onClick={playNav}
+              className="btn-hero-secondary"
+              data-text={m.cta.browseTasks} // <<< გლიჩისთვის
+            >
+              <span className="btn-text">{m.cta.browseTasks}</span>
+            </Link>
+          </div>
         </div>
 
-        </div>
-
-        {/* NOTE: აქ იყო პატარა typo: h=[min(... → h-[min(... */}
-        <div className="relative w-full h-[min(42vw,420px)] md:h-[min(42vw,420px)] flex items-center justify-center">
+        {/* Logo + Power switch */}
+        <div className="relative w-full h-[min(42vw,420px)] md:h-[min(42vw,420px)] flex flex-col items-center justify-center gap-4">
           <TaskyLogoDraw
             size={280}
             spin
@@ -141,9 +151,17 @@ const handleExplode = useCallback(async () => {
             maxMulHover={40}
             accelPerSec={7}
             decelPerSec={4}
-            fadeDelayMs={0}          // სპარკები ქრებიან იმ წამსვე, როცა მოდალს ვხსნით
+            fadeDelayMs={0}
             onExplode={handleExplode}
             resetOn={resetTick}
+            powered={powerOn}      // სვიჩი ამარაგებს „ძალს“
+            hoverAccel={false}     // მაუსის მიტანა აღარ ასწრაფებს
+          />
+
+          <NeonPowerSwitch
+            className="mt-12"
+            checked={powerOn}
+            onChange={setPowerOn}
           />
         </div>
       </section>
@@ -155,7 +173,10 @@ const handleExplode = useCallback(async () => {
           { Icon: ShieldCheck, t: m.home.features[1] },
           { Icon: ClipboardList, t: m.home.features[2] },
         ].map(({ Icon, t }: any, i: number) => (
-          <div key={i} className="card p-5 rounded-2xl border border-white/10 bg-gradient-to-tr from-cyan/10 to-transparent hover:from-cyan/15 transition">
+          <div
+            key={i}
+            className="card p-5 rounded-2xl border border-white/10 bg-gradient-to-tr from-cyan/10 to-transparent hover:from-cyan/15 transition"
+          >
             <div className="mb-3 w-9 h-9 rounded-xl bg-cyan/25 text-cyan flex items-center justify-center shadow-neon">
               <Icon className="w-5 h-5" />
             </div>
@@ -193,36 +214,53 @@ const handleExplode = useCallback(async () => {
       <TaskModal open={open} taskId={taskId} onClose={handleClose} />
 
       {/* Modal grow animation — პირდაპირ დაიფარება თვითონ მოდალს */}
-<style jsx global>{`
-  /* თვითონ მოდალის კონტენტი – პატარა იბადება ცენტრში და იზრდება */
-  .tasky-modal {
-    animation: tasky-modal-seed .36s cubic-bezier(.2,.8,.2,1) both;
-    transform-origin: 50% 50%;
-    will-change: transform, opacity, filter;
-    backface-visibility: hidden;
-  }
-  @keyframes tasky-modal-seed {
-    0%   { transform: scale(.60); opacity: 0; filter: blur(6px); }
-    40%  { opacity: 1; filter: blur(0); }
-    72%  { transform: scale(1.03); }
-    100% { transform: scale(1); opacity: 1; }
-  }
+      <style jsx global>{`
+        /* თვითონ მოდალის კონტენტი – პატარა იბადება ცენტრში და იზრდება */
+        .tasky-modal {
+          animation: tasky-modal-seed 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter;
+          backface-visibility: hidden;
+        }
+        @keyframes tasky-modal-seed {
+          0% {
+            transform: scale(0.6);
+            opacity: 0;
+            filter: blur(6px);
+          }
+          40% {
+            opacity: 1;
+            filter: blur(0);
+          }
+          72% {
+            transform: scale(1.03);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
 
-  /* overlay-ის რბილი ფეიდი */
-  .modal-overlay {
-    animation: tasky-overlay-fade .36s ease-out both;
-  }
-  @keyframes tasky-overlay-fade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+        /* overlay-ის რბილი ფეიდი */
+        .modal-overlay {
+          animation: tasky-overlay-fade 0.36s ease-out both;
+        }
+        @keyframes tasky-overlay-fade {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tasky-modal, .modal-overlay { animation: none !important; }
-  }
-`}</style>
-
-
+        @media (prefers-reduced-motion: reduce) {
+          .tasky-modal,
+          .modal-overlay {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

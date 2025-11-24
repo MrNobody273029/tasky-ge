@@ -305,6 +305,9 @@ export default function SettingsPage({
   };
 
   /* ---------------- Helpers ---------------- */
+  const uploadLabel = t.uploadNew;
+  const pwdUpdateLabel = t.pwdUpdate;
+
   const StarRowCmp = ({ value }: { value: number }) => (
     <div className="flex gap-1">
       {Array.from({ length: 5 }).map((_, i) => {
@@ -357,23 +360,29 @@ export default function SettingsPage({
                   : {}
               }
             />
+
             <div className="space-x-3">
-              <button
-                onClick={onPick}
-                className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 inline-flex items-center gap-2"
-              >
-                <Upload className="w-4 h-4" />
-                {t.uploadNew}
-              </button>
+              {/* ახლის ატვირთვა – გლიჩი */}
+       <button
+  onClick={onPick}
+  className="btn-hero-secondary btn-no-glitch text-sm inline-flex items-center gap-2 disabled:opacity-60"
+>
+  <Upload className="w-4 h-4" />
+  <span>{t.uploadNew}</span>
+</button>
+
+
+              {/* წაშლა – წითელი, უგლიჩოდ */}
               <button
                 onClick={() => setAskRemove(true)}
-                className="px-3 py-2 rounded-lg border border-white/10 inline-flex items-center gap-2"
+                className="btn-logout text-sm inline-flex items-center gap-2 disabled:opacity-60"
                 disabled={!avatar}
                 aria-disabled={!avatar}
               >
                 <Trash2 className="w-4 h-4" />
-                {t.remove}
+                <span>{t.remove}</span>
               </button>
+
               <input
                 ref={fileRef}
                 type="file"
@@ -404,24 +413,28 @@ export default function SettingsPage({
         <div className="card p-6 space-y-4">
           <div className="font-semibold">{t.reviewsTitle}</div>
 
+
           <div className="flex items-center gap-2">
             {[
               { k: 'client', label: t.tabClient },
               { k: 'worker', label: t.tabWorker },
-            ].map((tt) => (
-              <button
-                key={tt.k}
-                onClick={() => setTab(tt.k as Role)}
-                className={clsx(
-                  'px-3 py-2 rounded-lg',
-                  tab === (tt.k as Role)
-                    ? 'bg-white/10 shadow-neon'
-                    : 'text-white/70 hover:text-white',
-                )}
-              >
-                {tt.label}
-              </button>
-            ))}
+            ].map((tt) => {
+              const isActive = tab === (tt.k as Role);
+              return (
+                <button
+                  key={tt.k}
+                  onClick={() => setTab(tt.k as Role)}
+                  className={clsx(
+                    'text-sm',
+                    isActive ? 'btn-tab-active' : 'btn-hero-ghost',
+                  )}
+                  data-text={tt.label}
+                >
+                  <span className="btn-text">{tt.label}</span>
+                </button>
+              );
+            })}
+
             <div className="ml-auto" />
             <div className="flex items-center gap-3 text-sm">
               <StarRowCmp value={stats.avg || 0} />
@@ -499,12 +512,15 @@ export default function SettingsPage({
         {pwdMsg.ok && (
           <div className="text-green-400 text-sm">{pwdMsg.ok}</div>
         )}
+
         <button
           className="btn-hero-secondary text-sm"
           type="submit"
+          data-text={pwdUpdateLabel}
         >
-          {t.pwdUpdate}
+          <span className="btn-text">{pwdUpdateLabel}</span>
         </button>
+
       </form>
 
       {/* REMOVE AVATAR MODAL */}
@@ -527,20 +543,26 @@ export default function SettingsPage({
             <div className="text-white/80 text-sm mb-4">
               {t.modalRemoveText}
             </div>
+
             <div className="flex justify-end gap-2">
+              {/* Cancel – გლიჩი */}
               <button
-                className="px-3 py-2 rounded-lg border border-white/10"
+                className="btn-modal-close text-sm"
                 onClick={() => setAskRemove(false)}
+                data-text={t.cancel}
               >
-                {t.cancel}
+                <span className="btn-text">{t.cancel}</span>
               </button>
+
+              {/* Remove – წითელი, უგლიჩოდ */}
               <button
-                className="px-3 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                className="btn-logout text-sm"
                 onClick={onRemoveAvatar}
               >
-                {t.remove2}
+                <span>{t.remove2}</span>
               </button>
             </div>
+
           </div>
         </div>
       )}

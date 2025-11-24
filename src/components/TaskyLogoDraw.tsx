@@ -12,6 +12,9 @@ type HoloLogoProps = {
   onExplode?: () => void;   // გამოიძახება, როცა ნაწილაკები უკვე შეკრებილნი არიან ცენტრში
   resetOn?: number;
   fadeDelayMs?: number;     // ფეიდის დაყოვნება onExplode-ის შემდეგ (ნაგულისხმები 0)
+  powered?: boolean;      // true => აჩქარება
+  hoverAccel?: boolean;   // hover-ზე აჩქარების ჩართვა/გამორთვა
+
 };
 
 export default function TaskyLogoDraw({
@@ -25,6 +28,8 @@ export default function TaskyLogoDraw({
   onExplode,
   resetOn = 0,
   fadeDelayMs = 0,
+  powered,
+  hoverAccel = true,
 }: HoloLogoProps) {
   const style = { ['--size' as any]: `${size}px` } as CSSProperties;
 
@@ -119,10 +124,15 @@ const reduce =
       const dt  = Math.min((now - last) / 1000, 0.033);
       last = now;
 
-      if (!explodedRef.current) {
-        if (hoverRef.current) mulRef.current = Math.min(maxMulHover, mulRef.current + accelPerSec * dt);
-        else                  mulRef.current = Math.max(1,           mulRef.current - decelPerSec * dt);
+        if (!explodedRef.current) {
+        // effective „ON“ მდგომარეობა: ან hover (თუ ჩართულია), ან სვიჩიდან მიღებული powered
+        const isOn = (hoverAccel && hoverRef.current) || !!powered;
 
+        if (isOn) {
+          mulRef.current = Math.min(maxMulHover, mulRef.current + accelPerSec * dt);
+        } else {
+          mulRef.current = Math.max(1, mulRef.current - decelPerSec * dt);
+        }
         if (mulRef.current >= (maxMulHover - eps)) {
           dwellRef.current += dt;
           if (dwellRef.current >= DWELL_SEC && !explodedRef.current) {
@@ -143,7 +153,7 @@ const reduce =
     };
     rafId.current = requestAnimationFrame(tick);
     return () => { if (rafId.current) cancelAnimationFrame(rafId.current); rafId.current = null; };
-  }, [spin, spinSpeedSec, maxMulHover, accelPerSec, decelPerSec]);
+  }, [spin, spinSpeedSec, maxMulHover, accelPerSec, decelPerSec, powered, hoverAccel]);
 
   /* ---------------- Canvas helpers ---------------- */
   function ensureBodyCanvas() {
