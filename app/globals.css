@@ -659,9 +659,17 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: #000813;
+
+  /* ნაცვლად მყარ ფონზე (#000813) – ნახევრად გამჭვირვალე მუქი */
+  background: rgba(0, 8, 19, 0.55);
+
+  /* რომ უკან ფეიჯი დაიბლუროს */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
   color: #00fff2;
 }
+
 
 .loader-container {
   display: flex;
@@ -670,13 +678,12 @@ body::before {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background:
-    radial-gradient(circle at center, #001233 0%, #000813 100%),
-    linear-gradient(45deg, #00112233 25%, transparent 25%),
-    linear-gradient(-45deg, #00112233 25%, transparent 25%);
-  background-size: 100% 100%, 4px 4px, 4px 4px;
+
+  /* უფრო „ჰაეროვნად“ რომ იდგეს, ფონს აღარ ვუკეთებთ */
+  background: transparent;
   perspective: 1000px;
 }
+
 
 .matrix-bg {
   position: fixed;

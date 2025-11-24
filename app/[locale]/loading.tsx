@@ -1,4 +1,4 @@
-// app/loading.tsx
+// app/[locale]/loading.tsx
 "use client";
 
 import React, { useEffect, useRef } from "react";
@@ -6,6 +6,11 @@ import React, { useEffect, useRef } from "react";
 export default function Loading() {
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
+
+  // просто ლოგი, რომ დავრწმუნდეთ რომ ლოადერი ჩაირთო
+  useEffect(() => {
+    console.log("🔥 GLOBAL LOADER MOUNTED");
+  }, []);
 
   useEffect(() => {
     const matrixEl = matrixRef.current;
@@ -107,16 +112,9 @@ export default function Loading() {
             viewBox="0 0 100 100"
             style={{ transform: "rotate(-90deg)" }}
           >
-            {/* Outer ring */}
             <circle className="circle outer" cx="50" cy="50" r="45" />
-
-            {/* Middle ring */}
             <circle className="circle middle" cx="50" cy="50" r="35" />
-
-            {/* Inner ring */}
             <circle className="circle inner" cx="50" cy="50" r="25" />
-
-            {/* Cross lines */}
             <path
               className="circle outer"
               d="M10,50 L90,50"
