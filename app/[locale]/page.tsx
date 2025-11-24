@@ -110,23 +110,26 @@ const handleExplode = useCallback(async () => {
         <div className="space-y-6">
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">{m.home.title}</h1>
           <p className="text-white/80 text-lg max-w-prose">{m.home.subtitle}</p>
-          <div className="flex gap-4">
-            <Link
-              href={startHref}
-              onClick={playNav}
-              className="btn-hero-primary"
-            >
-              <span>{m.cta.getStarted}</span>
-            </Link>
-            <Link
-              href={`/${params.locale}/tasky`}
-              onClick={playNav}
-              className="btn-hero-secondary"
-            >
-              <span>{m.cta.browseTasks}</span>
-            </Link>
+        <div className="flex gap-4">
+          <Link
+            href={startHref}
+            onClick={playNav}
+            className="btn-hero-primary"
+            data-text={m.cta.getStarted}   // <<< გლიჩისთვის
+          >
+            <span className="btn-text">{m.cta.getStarted}</span>
+          </Link>
 
-          </div>
+          <Link
+            href={`/${params.locale}/tasky`}
+            onClick={playNav}
+            className="btn-hero-secondary"
+            data-text={m.cta.browseTasks}  // <<< გლიჩისთვის
+          >
+            <span className="btn-text">{m.cta.browseTasks}</span>
+          </Link>
+        </div>
+
         </div>
 
         {/* NOTE: აქ იყო პატარა typo: h=[min(... → h-[min(... */}

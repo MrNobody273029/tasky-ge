@@ -158,13 +158,14 @@ export default function TopTabs({
     { key: 'settings', href: `${base}/settings`, label: m.mypage.tabs.settings },
   ];
 
-  const renderLink = (it: { href: string; label: string; key: string }) => {
-    // pathname-ს არ აქვს query, ამიტომ შევადაროთ href-ის path-ნაწილს
-    const hrefPath = it.href.split('?')[0];
-    const active = p.startsWith(hrefPath);
+const renderLink = (it: { href: string; label: string; key: string }) => {
+  const hrefPath = it.href.split("?")[0];
+  const active = p.startsWith(hrefPath);
+  const label = it.label;
 
-    // აქტიური ტაბი — ზუსტად ძველი სტილით
-if (active) {
+
+  if (active) {
+  // აქტიური ტაბი – შევსებული, გლიჩის გარეშე
   return (
     <Link
       key={it.href}
@@ -173,48 +174,51 @@ if (active) {
       className="btn-tab-active text-sm"
     >
       <span className="inline-flex items-center gap-1">
-        <span>{it.label}</span>
-        {it.key === 'requests' && reqCount > 0 && (
+        <span>{label}</span>
+        {it.key === "requests" && reqCount > 0 && (
           <span
             className="
               ml-1 min-w-[18px] h-[18px] px-1
               rounded-full bg-red-500 text-white text-[11px] leading-[18px]
               text-center font-bold
-                "
-              >
-                {reqCount > 99 ? '99+' : reqCount}
-              </span>
-            )}
+            "
+          >
+            {reqCount > 99 ? "99+" : reqCount}
           </span>
-        </Link>
-      );
-    }
+        )}
+      </span>
+    </Link>
+  );
+}
 
-    // არააქტიური ტაბი — გამჭვირვალე ჩარჩო + გრადიენტული hover (btn-hero-ghost)
-    return (
-      <Link
-        key={it.href}
-        href={it.href}
-        onClick={playTab}
-        className="btn-hero-ghost text-sm"
-      >
-        <span className="inline-flex items-center gap-1 relative z-[1]">
-          <span>{it.label}</span>
-          {it.key === 'requests' && reqCount > 0 && (
-            <span
-              className="
-                ml-1 min-w-[18px] h-[18px] px-1
-                rounded-full bg-red-500 text-white text-[11px] leading-[18px]
-                text-center font-bold
-              "
-            >
-              {reqCount > 99 ? '99+' : reqCount}
-            </span>
-          )}
-        </span>
-      </Link>
-    );
-  };
+
+  // არააქტიური ტაბი – იგივე, მაგრამ btn-hero-ghost-ით
+  return (
+    <Link
+      key={it.href}
+      href={it.href}
+      onClick={playTab}
+      className="btn-hero-ghost text-sm"
+      data-text={label}                      // <<< გლიჩის ტექსტი
+    >
+      <span className="btn-text inline-flex items-center gap-1">
+        <span>{label}</span>
+        {it.key === "requests" && reqCount > 0 && (
+          <span
+            className="
+              ml-1 min-w-[18px] h-[18px] px-1
+              rounded-full bg-red-500 text-white text-[11px] leading-[18px]
+              text-center font-bold
+            "
+          >
+            {reqCount > 99 ? "99+" : reqCount}
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+};
+
 
 
 
@@ -236,16 +240,17 @@ if (active) {
         {left.map(renderLink)}
         <div className="ml-auto" />
         {/* Logout */}
-          <Link
-            href={`${base}/logout`}
-            onClick={onLogoutClick}
-            className="btn-logout"
-          >
-            <span className="inline-flex items-center gap-2">
-              <LogOut className="w-4 h-4" />
-              {logoutLabel}
-            </span>
-          </Link>
+<Link
+  href={`${base}/logout`}
+  onClick={onLogoutClick}
+  className="btn-logout"
+>
+  <span className="inline-flex items-center gap-2">
+    <LogOut className="w-4 h-4" />
+    {logoutLabel}
+  </span>
+</Link>
+
 
       </div>
     </div>

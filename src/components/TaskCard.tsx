@@ -217,8 +217,9 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
             <Link
               href={ctaHref}
               className="ml-auto btn-hero-secondary text-sm"
+              data-text={ctaText}              // <<< გლიჩის ტექსტი
             >
-              <span>{ctaText}</span>
+              <span className="btn-text">{ctaText}</span>
             </Link>
           ) : (
             <button
@@ -229,10 +230,12 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
                 openTaskModal(task.id);
               }}
               className="ml-auto btn-hero-secondary text-sm"
+              data-text={ctaText}              // <<< გლიჩის ტექსტი
             >
-              <span>{ctaText}</span>
+              <span className="btn-text">{ctaText}</span>
             </button>
           )}
+
 
         </div>
 

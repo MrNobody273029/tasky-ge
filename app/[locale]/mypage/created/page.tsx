@@ -112,27 +112,34 @@ function toCardInput(db: any): TaskCardInput {
         <div className="flex items-center gap-2">
           {/* ↔️ მარცხნივ გამოქვეყნებული, მარჯვივ დრაფტები */}
 
-                  <Link
-            href={`/${locale}/mypage/created?tab=published`}
-            className={tab === "published" ? activeTab : inactiveTab}
-          >
-            <span>{t.published}</span>
-          </Link>
 
-          <Link
-            href={`/${locale}/mypage/created?tab=drafts`}
-            className={tab === "drafts" ? activeTab : inactiveTab}
-          >
-            <span>{t.drafts}</span>
-          </Link>
+<Link
+  href={`/${locale}/mypage/created?tab=published`}
+  className={tab === "published" ? activeTab : inactiveTab}
+  data-text={t.published}
+>
+  <span className="btn-text">{t.published}</span>
+</Link>
 
 
-          <Link
-            href={`/${locale}/mypage/created/new`}
-            className="btn-hero-secondary text-sm"
-          >
-            <span>{t.create}</span>
-          </Link>
+<Link
+  href={`/${locale}/mypage/created?tab=drafts`}
+  className={tab === "drafts" ? activeTab : inactiveTab}
+  data-text={t.drafts}
+>
+  <span className="btn-text">{t.drafts}</span>
+</Link>
+
+
+
+<Link
+  href={`/${locale}/mypage/created/new`}
+  className="btn-hero-secondary text-sm"
+  data-text={t.create}
+>
+  <span className="btn-text">{t.create}</span>
+</Link>
+
 
 
         </div>

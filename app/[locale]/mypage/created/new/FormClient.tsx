@@ -307,13 +307,26 @@ export default function FormClient({
     return Promise.all(uploads);
   }
 
-  function removeFile(idx:number){
+
+    function removeFile(idx:number){
     setFiles(prev=>prev.filter((_,i)=>i!==idx));
   }
+
+  // ღილაკების ტექსტი (სტატუსის მიხედვით) + გლიჩისთვის data-text
+  const draftLabel =
+    saving === "draft"
+      ? (locale === "ka" ? "შენახვა..." : "Saving...")
+      : t.saveDraft;
+
+  const publishLabel =
+    saving === "publish"
+      ? (locale === "ka" ? "გამოქვეყნება..." : "Publishing...")
+      : t.publish;
 
   const optionStyle = { backgroundColor:"#000", color:"#fff" } as const;
 
   async function saveTask(status: "draft" | "published") {
+
     try {
       setErrorMsg(null);
       setSaving(status === "draft" ? "draft" : "publish");
@@ -585,92 +598,144 @@ export default function FormClient({
             <label className="block text-sm text-white/70 mb-1">{t.execType}</label>
             <div className="flex flex-wrap gap-2">
               {/* არაექსკლუზიური */}
-              <button
-                type="button"
-                onClick={() => setExclusive(false)}
-                className={`${!exclusive ? 'btn-tab-active' : 'btn-hero-ghost'} text-sm disabled:opacity-60`}
-                disabled={saving !== "idle"}
-              >
-                <span>{t.multi}</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => setExclusive(false)}
+            className={`${!exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
+            disabled={saving !== "idle"}
+            data-text={t.multi}
+          >
+            <span className="btn-text">{t.multi}</span>
+          </button>
+
 
               {/* ექსკლუზიური */}
-              <button
-                type="button"
-                onClick={() => setExclusive(true)}
-                className={`${exclusive ? 'btn-tab-active' : 'btn-hero-ghost'} text-sm disabled:opacity-60`}
-                disabled={saving !== "idle"}
-              >
-                <span>{t.exclusive}</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => setExclusive(true)}
+            className={`${exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
+            disabled={saving !== "idle"}
+            data-text={t.exclusive}
+          >
+            <span className="btn-text">{t.exclusive}</span>
+          </button>
+
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-white/70 mb-1">{t.photos}</label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={onFileChange}
-              className="block w-full px-3 py-2 rounded-lg bg-white/5"
-              disabled={saving!=="idle"}
+<div>
+  <label className="block text-sm text-white/70 mb-1">{t.photos}</label>
+
+  {/* Neon circular upload button + hint */}
+  <div className="mt-2 flex items-center gap-4">
+    <div className="photo-upload-circle">
+      {/* SVG ზემოთ – მხოლოდ ვიზუალი */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        viewBox="0 0 24 24"
+        strokeWidth="2"
+        fill="none"
+        stroke="currentColor"
+        className="photo-upload-icon"
+        aria-hidden="true"
+      >
+        <polyline points="16 16 12 12 8 16" />
+        <line x1="12" y1="12" x2="12" y2="21" />
+        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+        <polyline points="16 16 12 12 8 16" />
+      </svg>
+
+      {/* რეალური file input – ზედა გამჭვირვალე ფენა */}
+      <input
+        id="task-photos"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={onFileChange}
+        disabled={saving !== "idle"}
+        className="photo-upload-input"
+        aria-label={t.photos}
+        title={t.photos}
+      />
+    </div>
+
+    <div className="text-xs text-white/50">
+      {t.photosHint}
+    </div>
+  </div>
+
+  {/* არსებული (DB-დან მოტანილი) ფოტოები */}
+  {existingPhotos.length > 0 && (
+    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+      {existingPhotos.map((url, i) => (
+        <div
+          key={`exist-${i}`}
+          className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
+          style={{ height: 120 }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (saving !== "idle") return;
+              setExistingPhotos(prev => prev.filter((_, idx) => idx !== i));
+            }}
+            className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
+            aria-label="Remove"
+            title={locale === "ka" ? "წაშლა" : "Remove"}
+            disabled={saving !== "idle"}
+          >
+            ✕
+          </button>
+          <img
+            src={url}
+            alt={`photo-${i + 1}`}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* ახლად არჩეული ფაილები (ადგილობრივიდან) */}
+  {files.length > 0 && (
+    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+      {files.map((f, i) => {
+        const src = URL.createObjectURL(f);
+        return (
+          <div
+            key={i}
+            className="relative rounded-lg bg:white/5 p-2 flex items-center justify-center"
+            style={{ height: 120 }}
+          >
+            <button
+              type="button"
+              onClick={() => removeFile(i)}
+              className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
+              aria-label="Remove"
+              title={locale === "ka" ? "წაშლა" : "Remove"}
+              disabled={saving !== "idle"}
+            >
+              ✕
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={f.name}
+              className="max-h-full max-w-full object-contain"
+              onLoad={() => URL.revokeObjectURL(src)}
             />
-            <div className="text-xs text-white/50 mt-1">{t.photosHint}</div>
-
-            {/* არსებული (DB-დან მოტანილი) ფოტოები */}
-            {existingPhotos.length > 0 && (
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                {existingPhotos.map((url, i) => (
-                  <div
-                    key={`exist-${i}`}
-                    className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
-                    style={{ height: 120 }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (saving !== "idle") return;
-                        setExistingPhotos(prev => prev.filter((_, idx) => idx !== i));
-                      }}
-                      className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
-                      aria-label="Remove"
-                      title={locale==="ka" ? "წაშლა" : "Remove"}
-                      disabled={saving !== "idle"}
-                    >
-                      ✕
-                    </button>
-                    <img src={url} alt={`photo-${i+1}`} className="max-h-full max-w-full object-contain" />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ახლად არჩეული ფაილები (ადგილობრივიდან) */}
-            {files.length>0 && (
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                {files.map((f,i)=>{
-                  const src = URL.createObjectURL(f);
-                  return (
-                    <div key={i} className="relative rounded-lg bg:white/5 p-2 flex items-center justify-center" style={{height:120}}>
-                      <button
-                        type="button"
-                        onClick={()=>removeFile(i)}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
-                        aria-label="Remove"
-                        title={locale==="ka"?"წაშლა":"Remove"}
-                        disabled={saving!=="idle"}
-                      >
-                        ✕
-                      </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={f.name} className="max-h-full max-w-full object-contain" onLoad={()=>URL.revokeObjectURL(src)} />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
+        );
+      })}
+    </div>
+  )}
+</div>
+
+
 
           <div>
             <label className="block text-sm text:white/70 mb-1">{t.proof}</label>
@@ -693,22 +758,26 @@ export default function FormClient({
               onClick={() => saveTask("draft")}
               className="btn-hero-secondary text-sm disabled:opacity-60"
               disabled={saving !== "idle"}
+              data-text={draftLabel}
             >
-              <span>
-                {saving === "draft" ? (locale === "ka" ? "შენახვა..." : "Saving...") : t.saveDraft}
+              <span className="btn-text">
+                {draftLabel}
               </span>
             </button>
+
 
             {/* Publish */}
             <button
               type="submit"
               className="btn-hero-primary text-sm disabled:opacity-60"
               disabled={saving !== "idle"}
+              data-text={publishLabel}
             >
-              <span>
-                {saving === "publish" ? (locale === "ka" ? "გამოქვეყნება..." : "Publishing...") : t.publish}
+              <span className="btn-text">
+                {publishLabel}
               </span>
             </button>
+
           </div>
 
           {uploadingPhotos && (
@@ -766,9 +835,15 @@ export default function FormClient({
             )}
 
             <div className="mt-4">
-              <button className="btn-hero-secondary text-sm" type="button" aria-disabled="true">
-                <span>{t.viewClaim}</span>
-              </button>
+            <button
+              className="btn-hero-secondary text-sm"
+              type="button"
+              aria-disabled="true"
+              data-text={t.viewClaim}
+            >
+              <span className="btn-text">{t.viewClaim}</span>
+            </button>
+
             </div>
           </div>
         </aside>
@@ -802,34 +877,44 @@ export default function FormClient({
               <div className="text-lg font-semibold">₾{balance}</div>
             </div>
 
-            {payErr && <div className="text-red-400 text-sm">{payErr}</div>}
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15"
-                onClick={()=>setPayOpen(false)}
-                disabled={saving!=="idle"}
-              >
-                {t.cancel}
-              </button>
+{payErr && <div className="text-red-400 text-sm">{payErr}</div>}
 
-              <button
-                className="px-4 py-2 rounded-lg bg-cyan text-black font-semibold"
-                onClick={payWithCard}
-                disabled={saving!=="idle"}
-                title="(TEMP) Redirect to bank later"
-              >
-                {t.payWithCard}
-              </button>
+<div className="flex items-center justify-end gap-3 pt-1">
+  {/* Cancel – იგივე, რაც modal close ღილაკი */}
+  <button
+    type="button"
+    onClick={() => setPayOpen(false)}
+    disabled={saving !== "idle"}
+    className="btn-modal-close text-sm disabled:opacity-60"
+    data-text={t.cancel}
+  >
+    <span className="btn-text">{t.cancel}</span>
+  </button>
 
-              <button
-                className="ml-auto px-4 py-2 rounded-lg bg-emerald-400/90 hover:bg-emerald-400 text-black font-semibold"
-                onClick={payWithBalance}
-                disabled={saving!=="idle"}
-              >
-                {t.payWithBalance}
-              </button>
-            </div>
+  {/* Pay by card – გლიჩიანი ცისფერი */}
+  <button
+    type="button"
+    onClick={payWithCard}
+    disabled={saving !== "idle"}
+    className="btn-hero-secondary text-sm disabled:opacity-60"
+    data-text={t.payWithCard}
+  >
+    <span className="btn-text">{t.payWithCard}</span>
+  </button>
+
+  {/* Pay with balance – გლიჩიანი main CTA */}
+  <button
+    type="button"
+    onClick={payWithBalance}
+    disabled={saving !== "idle"}
+    className="btn-hero-primary text-sm disabled:opacity-60"
+    data-text={t.payWithBalance}
+  >
+    <span className="btn-text">{t.payWithBalance}</span>
+  </button>
+</div>
+
           </div>
         </div>
       )}

@@ -255,22 +255,25 @@ prismaWhere.NOT = {
         </select>
 
 <div className="ml-auto flex gap-2">
-  {/* გასუფთავება – სეკონდარი ღილაკი, გრედიანტით */}
+  {/* გასუფთავება – სეკონდარი ღილაკი, გლიჩით */}
   <a
     href={`/${locale}/tasky`}
     className="btn-hero-secondary text-sm"
+    data-text={t.filters.reset}
   >
-    <span>{t.filters.reset}</span>
+    <span className="btn-text">{t.filters.reset}</span>
   </a>
 
-  {/* გაფილტრვა – პრაიმარი ღილაკი, იგივე ეფექტით რაც ჰოუმზე */}
+  {/* გაფილტრვა – პრაიმარი ღილაკი, იგივე გლიჩი */}
   <button
     type="submit"
     className="btn-hero-primary text-sm"
+    data-text={t.filters.apply}
   >
-    <span>{t.filters.apply}</span>
+    <span className="btn-text">{t.filters.apply}</span>
   </button>
 </div>
+
 
       </form>
 
