@@ -32,6 +32,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* ✅ ვინც OS-ში "Reduce motion" აქვს ჩართული, ყველაფერს მივუჭერით მძიმე ანიმაციებს */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Subtle scanline texture */
 body::before {
   content: "";
@@ -220,7 +230,6 @@ body::before {
 }
 
 /* --- Glitch overlay --- */
-/* exactly როგორც submit-btn-ზეა – data-text-იდან იღებს ტექსტს */
 
 .btn-hero-primary:hover::before,
 .btn-hero-primary:hover::after,
@@ -254,7 +263,7 @@ body::before {
 .btn-evidence-danger:hover::after,
 .btn-evidence-danger:focus-visible::before,
 .btn-evidence-danger:focus-visible::after {
-  content: attr(data-text);         /* ღილაკზე უნდა ჰქონდეს data-text="..." რომ ტექსტი გამლიჩდეს */
+  content: attr(data-text);
   position: absolute;
   top: 0;
   left: 0;
@@ -284,12 +293,12 @@ body::before {
 .btn-evidence-danger:hover::before,
 .btn-evidence-danger:focus-visible::before {
   opacity: 1;
-  color: var(--g-secondary-color); /* ოდნავ "წითლად ციმციმი" */
+  color: var(--g-secondary-color);
   animation: glitch-anim var(--glitch-anim-duration)
     cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
-/* მეორე ფენა – შავი ტექსტი, reverse anim (ბოლოს როგორც უნდა დარჩეს) */
+/* მეორე ფენა – შავი ტექსტი, reverse anim */
 .btn-hero-primary:hover::after,
 .btn-hero-primary:focus-visible::after,
 .btn-hero-secondary:hover::after,
@@ -306,7 +315,7 @@ body::before {
 .btn-evidence-warning:focus-visible::after,
 .btn-evidence-danger:hover::after,
 .btn-evidence-danger:focus-visible::after {
-  color: #020617; /* დასასვენებლად შავი, base ტექსტს ერწყმის */
+  color: #020617;
   animation: glitch-anim var(--glitch-anim-duration)
     cubic-bezier(0.25, 0.46, 0.45, 0.94) reverse both;
 }
@@ -377,12 +386,11 @@ body::before {
 
 /* chat FAB-ს უბრალოდ პოზიციონირება სჭირდება */
 .chat-fab {
-  position: fixed; /* გადაფარავს btn-hero-primary-ს relative-ს */
+  position: fixed;
 }
 
 /* --- Requests page status pills --- */
 
-/* დადასტურებულია — მწვანე ნაზი ნეონი */
 .pill-status-approved {
   display: inline-flex;
   align-items: center;
@@ -391,7 +399,7 @@ body::before {
   border-radius: 9999px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #bbf7d0; /* emerald-200 */
+  color: #bbf7d0;
   background:
     radial-gradient(circle at 0% 0%, rgba(16,185,129,0.45), transparent 60%),
     rgba(16,185,129,0.16);
@@ -399,7 +407,6 @@ body::before {
   box-shadow: 0 0 18px rgba(16,185,129,0.45);
 }
 
-/* უარყოფილია — თეთრი/ნაცრისფერი, როგორც დახურვის ღილაკის вайბი */
 .pill-status-rejected {
   display: inline-flex;
   align-items: center;
@@ -424,10 +431,10 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;  /* ~ w-11 */
-  height: 2.75rem; /* ~ h-11 */
-  border-radius: 0.85rem; /* rounded-xl вайბი */
-  background: rgba(15,23,42,0.9); /* მუქი გლასი */
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.85rem;
+  background: rgba(15,23,42,0.9);
   border: 1px solid rgba(148,163,184,0.35);
   overflow: hidden;
   cursor: pointer;
@@ -439,7 +446,7 @@ body::before {
     opacity 0.2s ease-out;
 }
 
-/* შიგნით გრადიენტული overlay (აქტიურზე მეტია, hover-ზე ძლიერდება) */
+/* შიგნით გრადიენტული overlay */
 .leftnav-item::before {
   content: "";
   position: absolute;
@@ -461,12 +468,12 @@ body::before {
   background: rgba(15,23,42,0.9);
 }
 
-/* არააქტიურზე hover → მარტო აიკონი იღებს ფერს, ჩარჩო არა */
+/* არააქტიურზე hover */
 .leftnav-item--idle:hover {
   background: rgba(15,23,42,1);
 }
 
-/* აქტიური აითემი — ჩარჩოშიც, როგორც раньше, + ფერადი glow */
+/* აქტიური აითემი */
 .leftnav-item--active {
   border-color: rgba(0,229,255,0.85);
   box-shadow:
@@ -493,18 +500,18 @@ body::before {
     transform 0.18s ease-out;
 }
 
-/* არააქტიურზე: hover-ისას მხოლოდ აიკონი ფერადდება */
+/* არააქტიურზე hover-ისას */
 .leftnav-item--idle:hover .leftnav-icon {
   color: var(--cyan);
   filter: drop-shadow(0 0 9px rgba(0,229,255,0.8));
   transform: translateY(-1px);
 }
 
-/* აქტიურზე: ყოველთვის ფერადია + „გრადიენტული“ hue-rotate ანიმაცია */
+/* აქტიურზე – გავაქციეთ ერთხელ, აღარ არის infinite */
 .leftnav-item--active .leftnav-icon {
   color: var(--cyan);
   filter: drop-shadow(0 0 12px rgba(0,229,255,0.95));
-  animation: leftnav-icon-hue 6s linear infinite;
+  animation: leftnav-icon-hue 8s linear;
 }
 
 @keyframes leftnav-icon-hue {
@@ -529,16 +536,15 @@ body::before {
       hue-rotate(0deg);
   }
 }
+
 /* --- TOP TABS: active tab = solid cyan, no glitch --- */
 
-/* აქტიური ტაბი სულ იყოს გალურჯებული, შავი ტექსტით */
 .btn-tab-active {
   background-color: var(--cyan);
   color: #020617;
   box-shadow: 0 0 1.5rem var(--cyan);
 }
 
-/* აქტიურზე საერთოდ გამოვრთოთ გლიჩის overlays */
 .btn-tab-active::before,
 .btn-tab-active::after,
 .btn-tab-active:hover::before,
@@ -548,7 +554,8 @@ body::before {
   content: none !important;
   animation: none !important;
 }
-/* === Neon photo upload circle === */
+
+/* === Neon photo upload circle (simplified) === */
 .photo-upload-circle {
   position: relative;
   width: 100px;
@@ -560,42 +567,34 @@ body::before {
   align-items: center;
   overflow: hidden;
 
-  /* სტაბილური glow, არანაირი ანიმაცია default-ზე */
-  box-shadow:
-    0px 0px 40px rgba(1, 235, 252, 0.7),
-    inset 0px 0px 6px rgba(1, 235, 252, 0.8),
-    0px 0px 3px rgba(255, 255, 255, 0.6);
+  /* სტაბილური, ძალიან მსუბუქი ვიზუალი */
+  background: rgba(15, 23, 42, 0.9);
 
   transition:
-    box-shadow 0.25s ease-out,
-    border-color 0.25s ease-out,
-    transform 0.18s ease-out;
+    box-shadow 0.2s ease-out,
+    border-color 0.2s ease-out,
+    transform 0.15s ease-out;
 }
 
-/* hover/focus-ზე უკვე ჩაერთოს flicker */
+/* hover/focus-ზე – უბრალოდ თეთრი რგოლი და ოდნავი move */
 .photo-upload-circle:hover,
 .photo-upload-circle:focus-within {
-  animation: photo-upload-flicker 2s linear infinite;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
   transform: translateY(-1px);
 }
 
+/* აიკონი – სტატიკური, აღარ არის ანიმაცია */
 .photo-upload-icon {
   color: rgb(1, 235, 252);
   font-size: 2rem;
-  /* თვითონ SVG-ს pointer არ სჭირდება, input ზემოდან ფარავს */
   pointer-events: none;
 }
 
-/* hover/focus-ზე აიკონის ციმციმი */
-.photo-upload-circle:hover .photo-upload-icon,
-.photo-upload-circle:focus-within .photo-upload-icon {
-  animation: photo-upload-iconflicker 2s linear infinite;
-}
-
-/* რეალური file input – ზედა გამჭვირვალე ფენა */
+/* file input – ისევ იგივე ლოგიკა */
 .photo-upload-input {
   position: absolute;
-  inset: 0;              /* top/right/bottom/left 0 */
+  inset: 0;
   width: 100%;
   height: 100%;
   opacity: 0;
@@ -603,360 +602,90 @@ body::before {
   z-index: 2;
 }
 
-/* outer circle flicker */
-@keyframes photo-upload-flicker {
-  0% {
-    border: 2px solid rgb(1, 235, 252);
-    box-shadow:
-      0px 0px 100px rgb(1, 235, 252),
-      inset 0px 0px 10px rgb(1, 235, 252),
-      0px 0px 5px rgb(255, 255, 255);
-  }
-  5% {
-    border: none;
-    box-shadow: none;
-  }
-  10% {
-    border: 2px solid rgb(1, 235, 252);
-    box-shadow:
-      0px 0px 100px rgb(1, 235, 252),
-      inset 0px 0px 10px rgb(1, 235, 252),
-      0px 0px 5px rgb(255, 255, 255);
-  }
-  25% {
-    border: none;
-    box-shadow: none;
-  }
-  30% {
-    border: 2px solid rgb(1, 235, 252);
-    box-shadow:
-      0px 0px 100px rgb(1, 235, 252),
-      inset 0px 0px 10px rgb(1, 235, 252),
-      0px 0px 5px rgb(255, 255, 255);
-  }
-  100% {
-    border: 2px solid rgb(1, 235, 252);
-    box-shadow:
-      0px 0px 100px rgb(1, 235, 252),
-      inset 0px 0px 10px rgb(1, 235, 252),
-      0px 0px 5px rgb(255, 255, 255);
-  }
-}
-
-/* icon flicker */
-@keyframes photo-upload-iconflicker {
-  0%   { opacity: 1; }
-  5%   { opacity: 0.2; }
-  10%  { opacity: 1; }
-  25%  { opacity: 0.2; }
-  30%  { opacity: 1; }
-  100% { opacity: 1; }
-}
-
-/* === GLOBAL CYBER LOADER (full screen) === */
+/* === GLOBAL LOADER – simplified === */
 
 .loader-screen {
   position: fixed;
   inset: 0;
   z-index: 9999;
 
-  /* ნაცვლად მყარ ფონზე (#000813) – ნახევრად გამჭვირვალე მუქი */
-  background: rgba(0, 8, 19, 0.55);
+  /* ცოტა გამჭვირვალე overlay */
+  background: rgba(0, 8, 19, 0.8);
 
-  /* რომ უკან ფეიჯი დაიბლუროს */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* მსუბუქი blur – თუ ძალიან გინდა, შეგიძლია საერთოდაც ამოიღო */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   color: #00fff2;
 }
-
 
 .loader-container {
   display: flex;
-  justify-content: center;
   align-items: center;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-
-  /* უფრო „ჰაეროვნად“ რომ იდგეს, ფონს აღარ ვუკეთებთ */
-  background: transparent;
-  perspective: 1000px;
-}
-
-
-.matrix-bg {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  opacity: 0.1;
-}
-
-.matrix-column {
-  position: absolute;
-  width: 20px;
-  font-size: 12px;
-  text-align: center;
-  animation: matrix-rain linear infinite;
-}
-
-.hexagon-container {
-  position: absolute;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  animation: rotate3D 20s linear infinite;
+  background: transparent;
 }
 
-.hexagon {
-  position: absolute;
-  width: 400px;
-  height: 400px;
-  border: 2px solid #00fff233;
-  clip-path: polygon(
-    50% 0%,
-    100% 25%,
-    100% 75%,
-    50% 100%,
-    0% 75%,
-    0% 25%
-  );
-  animation: pulse-hex 4s ease-in-out infinite;
-}
-
+/* მთავარი სპინერი – პატარა, იოლი */
 .loader-wrapper {
-  position: relative;
-  width: 300px;
-  height: 300px;
-  transform-style: preserve-3d;
-  animation: float 6s ease-in-out infinite;
+  width: 80px;
+  height: 80px;
+  border-radius: 9999px;
+  border: 3px solid rgba(0, 255, 242, 0.2);
+  border-top-color: #00fff2;
+  animation: loader-spin 0.8s linear infinite;
 }
 
-.hologram {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px;
-  height: 400px;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, #00fff211 0%, transparent 70%);
-  animation: hologram 4s ease-in-out infinite;
-}
-
-.data-stream {
-  position: absolute;
-  width: 2px;
-  height: 100px;
-  background: linear-gradient(to bottom, transparent, #00fff2, transparent);
-  animation: data-flow 2s linear infinite;
-}
-
-.circle {
-  fill: none;
-  stroke-width: 2;
-  transform-origin: center;
-}
-
-.circle.outer {
-  stroke: #00fff2;
-  stroke-dasharray: 628;
-  stroke-dashoffset: 628;
-  animation: dash 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px #00fff2);
-}
-
-.circle.middle {
-  stroke: #0066ff;
-  stroke-dasharray: 471;
-  stroke-dashoffset: 471;
-  animation: dashReverse 3s ease-in-out infinite;
-  opacity: 0.8;
-}
-
-.circle.inner {
-  stroke: #00ff88;
-  stroke-dasharray: 314;
-  stroke-dashoffset: 314;
-  animation: dash 3s ease-in-out infinite;
-  opacity: 0.6;
-}
-
-.status-text {
-  position: absolute;
-  width: 200px;
-  font-family: monospace;
-  font-size: 12px;
-  color: #00fff2;
-  text-shadow: 0 0 5px #00fff2;
-  opacity: 0.8;
-}
-
-.status-left {
-  left: -250px;
-  text-align: right;
-}
-
-.status-right {
-  right: -250px;
-  text-align: left;
-}
-
-.progress-text {
-  position: absolute;
-  bottom: -80px;
-  width: 100%;
-  text-align: center;
-  font-family: monospace;
-  font-size: 18px;
-  letter-spacing: 2px;
-  text-shadow: 0 0 10px #00fff2;
-  animation: flicker 4s infinite;
-}
-
+/* თუ სადმე დარჩა ეს ელემენტები markup-ში – უბრალოდ დავმალოთ */
+.matrix-bg,
+.hexagon-container,
+.hexagon,
+.hologram,
+.data-stream,
+.circle,
+.status-text,
+.progress-text,
 .scanner {
-  position: absolute;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(to right, transparent, #00fff2, transparent);
-  animation: scan 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 5px #00fff2);
+  display: none !important;
 }
 
-/* --- animations --- */
-
-@keyframes rotate3D {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg);
-  }
-  100% {
-    transform: rotateX(360deg) rotateY(360deg);
+@keyframes loader-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes matrix-rain {
-  0% {
-    transform: translateY(-100%);
-    opacity: 1;
+
+/* PERF: მობილურზე და პატარა ეკრანზე loader-ს ვამარტივებთ */
+@media (max-width: 768px) {
+  .matrix-bg {
+    display: none;
   }
-  100% {
-    transform: translateY(100vh);
-    opacity: 0;
+  .hexagon-container {
+    animation: none;
+  }
+  .hexagon {
+    animation: none;
+  }
+  .data-stream,
+  .scanner {
+    display: none;
   }
 }
 
-@keyframes hologram {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 0.5;
-  }
-}
-
-@keyframes pulse-hex {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.2;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.4;
-  }
-}
-
-@keyframes data-flow {
-  0% {
-    transform: translateY(-100%) translateX(-50%);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100%) translateX(50%);
-    opacity: 0;
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0) rotateX(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotateX(10deg);
-  }
-}
-
-@keyframes dash {
-  0% {
-    stroke-dashoffset: 628;
-  }
-  50% {
-    stroke-dashoffset: 0;
-  }
-  100% {
-    stroke-dashoffset: -628;
-  }
-}
-
-@keyframes dashReverse {
-  0% {
-    stroke-dashoffset: -471;
-  }
-  50% {
-    stroke-dashoffset: 0;
-  }
-  100% {
-    stroke-dashoffset: 471;
-  }
-}
-
-@keyframes scan {
-  0%,
-  100% {
-    top: 0%;
-    opacity: 0;
-  }
-  25%,
-  75% {
-    opacity: 1;
-  }
-  50% {
-    top: 100%;
-  }
-}
-
-@keyframes flicker {
-  0%,
-  19.999%,
-  22%,
-  62.999%,
-  64%,
-  64.999%,
-  70%,
-  100% {
-    opacity: 0.99;
-  }
-  20%,
-  21.999%,
-  63%,
-  63.999%,
-  65%,
-  69.999% {
-    opacity: 0.4;
-  }
-}
 /* === Helper: კონკრეტულ ღილაკებს რომ გლიჩი გამოვრთოთ === */
 .btn-no-glitch::before,
 .btn-no-glitch::after {
   content: none !important;
   animation: none !important;
 }
+
 /* === Neon power switch (home hero) === */
 
 .power-switch,
@@ -965,11 +694,10 @@ body::before {
 }
 
 .power-switch {
-  /* საკუთარი ტოკენები მხოლოდ სვიჩისთვის */
   --hue: 223;
   --off-hue: 3;
-  --on-hue1: 200;   /* ცისფერი-მოწითალო */
-  --on-hue2: 280;   /* იისფერი */
+  --on-hue1: 200;
+  --on-hue2: 280;
   --primary: hsl(var(--hue), 90%, 50%);
   --trans-dur: 0.6s;
   --trans-timing: cubic-bezier(0.65, 0, 0.35, 1);
@@ -978,7 +706,7 @@ body::before {
   display: block;
   width: 5em;
   height: 3em;
-  font-size: 14px; /* სვიჩის საერთო ზომა */
+  font-size: 14px;
 }
 
 .power-switch__base-outer,
@@ -1175,7 +903,7 @@ body::before {
   stroke-dasharray: 45.16 0 45.16 54.19;
   transition-timing-function: steps(1, start), var(--trans-timing);
 }
-/* From Uiverse.io by pharmacist-sabot */ 
+
 /* --- Root Variables & Wrapper --- */
 .glitch-input-wrapper {
   --bg-color: #0d0d0d;
@@ -1185,13 +913,12 @@ body::before {
   --font-family: "Fira Code", Consolas, "Courier New", Courier, monospace;
   --glitch-anim-duration: 0.4s;
 
-  display: block;      /* flex-ის ნაცვლად */
-  width: 100%;         /* ფორმის სიგანე დაიკავოს */
+  display: block;
+  width: 100%;
   font-family: var(--font-family);
   font-size: 16px;
-  padding: 0;          /* აღარ გვინდა 3rem padding */
+  padding: 0;
 }
-
 
 /* --- Container  --- */
 .input-container {
@@ -1199,7 +926,6 @@ body::before {
   width: 100%;
   max-width: 100%;
 }
-
 
 /* --- Input --- */
 .holo-input {
@@ -1440,6 +1166,7 @@ body::before {
     opacity: 0.8;
   }
 }
+
 /* From Uiverse.io by 3HugaDa3 */ 
 .checkbox-wrapper {
   --checkbox-size: 25px;
@@ -1586,6 +1313,7 @@ body::before {
   transform: translateX(10px);
   box-shadow: 0 0 10px var(--checkbox-color);
 }
+
 /* ===========================
    TASKY NEON DROPDOWN (filters)
    =========================== */
@@ -1598,10 +1326,10 @@ body::before {
 
 /* თვითონ ღილაკი – ძველი სტილი, ოდნავ ნეონ ჩარჩოთი */
 .tasky-neon-select button {
-  background: rgba(0, 0, 0, 0.8);              /* შავი ფონით */
-  color: #e5e7eb;                              /* ღია ნაცრისფერი ტექსტი */
+  background: rgba(0, 0, 0, 0.8);
+  color: #e5e7eb;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15); /* თითქმის ის რაც ადრე გქონდა */
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 0.45rem 2.3rem 0.45rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -1622,7 +1350,7 @@ body::before {
   font-size: 0.8rem;
 }
 
-/* hover/open – მხოლოდ ჩარჩო და ლაით glow, არა მთელი დისკო */
+/* hover/open – მხოლოდ ჩარჩო და ლაით glow */
 .tasky-neon-select:hover button,
 .tasky-neon-select:focus-within button,
 .tasky-neon-select[data-open="true"] button {
@@ -1632,7 +1360,7 @@ body::before {
   transform: translateY(-1px);
 }
 
-/*ნეონ ისარი*/
+/* ნეონ ისარი */
 .tasky-neon-select::after {
   content: "";
   position: absolute;
@@ -1648,16 +1376,14 @@ body::before {
     border-top-color 0.18s ease-out;
 }
 
-/* გახსნისას – ისარი ბრუნდება ზემოთ, ფერი ოდნავ მწვანე */
+/* გახსნისას – ისარი ბრუნდება ზემოთ */
 .tasky-neon-select[data-open="true"]::after {
   transform: translateY(1px) rotate(180deg);
   border-top-color: #b6ff2e;
 }
 
-
 /* ===========================
    OPTIONAL – დიდი dropdown box
-   (მეორე სკრინის კერძო პანელი)
    =========================== */
 
 .tasky-neon-dropdown {
@@ -1667,7 +1393,6 @@ body::before {
 }
 
 .tasky-neon-dropdown-trigger {
-  /* იგივე რა select wrapper-ს აქვს */
   border-radius: 9999px;
   padding: 2px;
   background-image: linear-gradient(120deg, #00f5ff, #ff3b9d);
@@ -1733,7 +1458,7 @@ body::before {
   border: none;
   text-align: left;
   background: transparent;
-  color: var(--cyan);              /* ❗ ვარდისფრის მაგივრად */
+  color: var(--cyan);
   font-weight: 500;
   font-size: 0.9rem;
   padding: 0.45rem 0;
@@ -1748,7 +1473,6 @@ body::before {
 .tasky-neon-dropdown-item:hover {
   color: #ffffff;
   text-shadow:
-    0 0 6px rgba(0, 229, 255, 0.85),   /* ❗ ცისფერი glow */
+    0 0 6px rgba(0, 229, 255, 0.85),
     0 0 12px rgba(0, 229, 255, 0.7);
 }
-
