@@ -13,24 +13,28 @@ async function main() {
     create: { email: 'owner@example.com', passwordHash: 'demo', name: 'Demo Owner' },
   });
 
-  // 🔐 ავაგოთ ჰეში პირდაპირ იმავე ფუნქციით, რასაც login იყენებს
   const adminPasswordHash = await hashPassword(ADMIN_PASSWORD);
 
-  // 🛡️ Admin user
+  // TS-ს არ ვაძლევთ უფლებას, გაგვიჩხუბოს `isAdmin` ველზე
+  const adminUpdate: any = {
+    passwordHash: adminPasswordHash,
+    isAdmin: true,
+    name: 'Tasky Admin',
+  };
+
+  const adminCreate: any = {
+    email: ADMIN_EMAIL,
+    passwordHash: adminPasswordHash,
+    name: 'Tasky Admin',
+    isAdmin: true,
+  };
+
   const admin = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
-    update: {
-      passwordHash: adminPasswordHash,
-      isAdmin: true,
-      name: 'Tasky Admin',
-    },
-    create: {
-      email: ADMIN_EMAIL,
-      passwordHash: adminPasswordHash,
-      name: 'Tasky Admin',
-      isAdmin: true,
-    },
+    update: adminUpdate,
+    create: adminCreate,
   });
+
 
   await prisma.task.upsert({
     where: { id: 'demo-task-1' },
