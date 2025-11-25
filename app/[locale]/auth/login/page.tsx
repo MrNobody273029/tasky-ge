@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
 import ka from '../../../../messages/ka.json';
 import en from '../../../../messages/en.json';
 import { useEffect, useRef, useState } from 'react';
@@ -13,6 +14,9 @@ export default function LoginPage({
 }) {
   const m: any = locale === 'ka' ? ka : en;
   const r = useRouter();
+  const search = useSearchParams();
+  const next = search.get('next');
+
 
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
@@ -52,18 +56,42 @@ const loginLabel = m.auth.loginBtn as string;
       }
 
       // ✅ წარმატება: ადგილობრივად ჩავუსვათ auth/uid/email, რომ LeftNav-ს დაენახოს
-const data = await res.json().catch(() => null);
+      const data = await res.json().catch(() => null);
 
 // ✅ გამოვაქვეყნოთ, რომ იუზერი შევსებულია
 try {
   localStorage.setItem('auth', '1');
   if (data?.id) localStorage.setItem('uid', data.id);
   if (data?.email) localStorage.setItem('email', data.email);
+
+  // 🛡️ შევინახოთ ადმინობა
+  if (data?.isAdmin) {
+    localStorage.setItem('isAdmin', '1');
+  } else {
+    localStorage.removeItem('isAdmin');
+  }
+
   window.dispatchEvent(new Event('auth-change'));
 } catch {}
 
 play(okRef.current);
-r.replace(`/${locale}/mypage`);
+
+
+      // 🛡️ თუ admin-ია → ყოველთვის admin პანელზე
+      if (data?.isAdmin) {
+        r.replace(`/${locale}/admin`);
+        return;
+      }
+
+      // სხვა იუზერებისთვის გამოვიყენოთ next ან default mypage
+      const target =
+        next && next.startsWith('/')
+          ? next
+          : `/${locale}/mypage`;
+
+      r.replace(target);
+
+
     } catch {
       setErr(locale === 'ka' ? 'ქსელის შეცდომა.' : 'Network error.');
       play(failRef.current);

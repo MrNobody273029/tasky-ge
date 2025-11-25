@@ -12,6 +12,7 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
 
   /* ---------- Auth state ---------- */
   const [authed, setAuthed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // რბილი ქუქჰელფერი (httpOnly-ს ვერ წაიკითხავს და ესეც ठीकაა)
   const hasCookie = (name: string) => {
@@ -35,12 +36,18 @@ const checkAuth = useCallback(() => {
       !!localStorage.getItem('token') ||
       !!localStorage.getItem('uid') ||
       hasCookie('x-user-id') ||
-      hasCookie('uid'); // ← ყურადღება: 'email' აქ აღარ არის
+      hasCookie('uid');
+
+    const adminFlag = !!localStorage.getItem('isAdmin');
+
     setAuthed(logged);
+    setIsAdmin(adminFlag);
   } catch {
     setAuthed(false);
+    setIsAdmin(false);
   }
 }, []);
+
 
 
   // listeners: storage/focus/visibility + custom 'auth-change'
@@ -127,8 +134,16 @@ const checkAuth = useCallback(() => {
 
   /* ---------- Nav items ---------- */
   const profileOrLogin = authed
-    ? { href: `/${locale}/mypage`, icon: User,  key: 'mypage' }
-    : { href: `/${locale}/auth/login`, icon: LogIn, key: 'login' };
+    ? {
+        href: isAdmin ? `/${locale}/admin` : `/${locale}/mypage`,
+        icon: User,
+        key: isAdmin ? 'admin' : 'mypage',
+      }
+    : {
+        href: `/${locale}/auth/login`,
+        icon: LogIn,
+        key: 'login',
+      };
 
   const links = [
     { href: `/${locale}`,        icon: Home,       key: 'home'  },

@@ -46,6 +46,9 @@ model User {
   ratingWorkerCount Int    @default(0)
   ratingClientAvg   Float  @default(0)
   ratingClientCount Int    @default(0)
+
+    // Admin flag
+  isAdmin Boolean @default(false)
 }
 
 model Task {
