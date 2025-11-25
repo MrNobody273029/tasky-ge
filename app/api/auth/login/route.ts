@@ -11,21 +11,24 @@ export async function POST(req: Request) {
 
 const user = await prisma.user.findUnique({
   where: { email: em },
-  select: { id: true, email: true, passwordHash: true, isAdmin: true },
 });
-    if (!user || !user.passwordHash) {
-      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
-    }
+
+if (!user || !user.passwordHash) {
+  return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+}
+
 
     const ok = await verifyPassword(pw, user.passwordHash);
     if (!ok) {
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
     }
+const isAdmin = (user as any).isAdmin === true;
 
 const res = NextResponse.json(
-  { id: user.id, email: user.email, isAdmin: user.isAdmin },
+  { id: user.id, email: user.email, isAdmin },
   { status: 200 }
 );
+
     res.cookies.set({ name: 'x-user-id', value: user.id, path: '/', sameSite: 'lax' });
     res.cookies.set({ name: 'email', value: user.email, path: '/', sameSite: 'lax' });
     return res;
