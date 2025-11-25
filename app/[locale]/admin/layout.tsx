@@ -23,15 +23,14 @@ export default async function AdminLayout({
     const next = encodeURIComponent(`/${locale}/admin`);
     redirect(`/${locale}/auth/login?next=${next}`);
   }
-
-  const user = await prisma.user.findUnique({
+  const user = (await prisma.user.findUnique({
     where: { id: uid },
-    select: { id: true, isAdmin: true },
-  });
+  })) as any;
 
   if (!user || !user.isAdmin) {
     redirect(`/${locale}`);
   }
+
 
   const m: any = locale === 'ka' ? ka : en;
 
