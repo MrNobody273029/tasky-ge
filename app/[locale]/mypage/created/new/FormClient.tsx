@@ -169,6 +169,161 @@ function calcDueLabel(dateStr:string|null, t:Dict){
   if (days>=1) return t.previewDueIn({days});
   return t.previewDueIn({hours: Math.ceil(ms/3600000)});
 }
+/* =============== HOLO inputs for this page =============== */
+
+function HoloInput({
+  id,
+  label,
+  type = "text",
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="glitch-input-wrapper mb-4">
+      <div className="input-container">
+        <input
+          id={id}
+          type={type}
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="holo-input"
+          placeholder=" "
+          disabled={disabled}
+        />
+
+        <label
+          htmlFor={id}
+          className="input-label"
+          data-text={label}
+        >
+          {label}
+        </label>
+
+        <div className="input-border" />
+        <div className="input-scanline" />
+        <div className="input-glow" />
+
+        <div className="input-data-stream">
+          <div className="stream-bar" style={{ "--i": 0 } as any} />
+          <div className="stream-bar" style={{ "--i": 1 } as any} />
+          <div className="stream-bar" style={{ "--i": 2 } as any} />
+          <div className="stream-bar" style={{ "--i": 3 } as any} />
+          <div className="stream-bar" style={{ "--i": 4 } as any} />
+          <div className="stream-bar" style={{ "--i": 5 } as any} />
+          <div className="stream-bar" style={{ "--i": 6 } as any} />
+          <div className="stream-bar" style={{ "--i": 7 } as any} />
+          <div className="stream-bar" style={{ "--i": 8 } as any} />
+          <div className="stream-bar" style={{ "--i": 9 } as any} />
+        </div>
+
+        <div className="input-corners">
+          <div className="corner corner-tl" />
+          <div className="corner corner-tr" />
+          <div className="corner corner-bl" />
+          <div className="corner corner-br" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HoloTextarea({
+  id,
+  label,
+  value,
+  onChange,
+  disabled,
+  minHeight = 160,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  minHeight?: number;
+}) {
+  return (
+    <div className="glitch-input-wrapper mb-4">
+      <div className="input-container">
+        <textarea
+          id={id}
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="holo-input"
+          placeholder=" "
+          disabled={disabled}
+          style={{ height: "auto", minHeight }}
+        />
+        <label
+          htmlFor={id}
+          className="input-label"
+          data-text={label}
+        >
+          {label}
+        </label>
+
+        <div className="input-border" />
+        <div className="input-scanline" />
+        <div className="input-glow" />
+
+        <div className="input-data-stream">
+          <div className="stream-bar" style={{ "--i": 0 } as any} />
+          <div className="stream-bar" style={{ "--i": 1 } as any} />
+          <div className="stream-bar" style={{ "--i": 2 } as any} />
+          <div className="stream-bar" style={{ "--i": 3 } as any} />
+          <div className="stream-bar" style={{ "--i": 4 } as any} />
+          <div className="stream-bar" style={{ "--i": 5 } as any} />
+          <div className="stream-bar" style={{ "--i": 6 } as any} />
+          <div className="stream-bar" style={{ "--i": 7 } as any} />
+          <div className="stream-bar" style={{ "--i": 8 } as any} />
+          <div className="stream-bar" style={{ "--i": 9 } as any} />
+        </div>
+
+        <div className="input-corners">
+          <div className="corner corner-tl" />
+          <div className="corner corner-tr" />
+          <div className="corner corner-bl" />
+          <div className="corner corner-br" />
+        </div>
+      </div>
+    </div>
+  );
+}
+// HoloStaticBox – პატარა ცვლილება
+function HoloStaticBox({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`glitch-input-wrapper mb-4 ${className ?? ""}`}>
+      <div className="input-container">
+        {children}
+
+        <div className="input-border" />
+        <div className="input-corners">
+          <div className="corner corner-tl" />
+          <div className="corner corner-tr" />
+          <div className="corner corner-bl" />
+          <div className="corner corner-br" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 /* =============== Component =============== */
 export default function FormClient({
@@ -498,101 +653,120 @@ export default function FormClient({
             openPayModal();
           }}
         >
-          <div>
-            <label className="block text-sm text-white/70 mb-1">{t.title}</label>
-            <input
-              className="w-full px-3 py-2 rounded-lg bg-white/5"
-              placeholder={t.titlePh}
-              value={title}
-              onChange={(e)=>setTitle(e.target.value)}
-              required
-            />
-          </div>
 
-          <div>
-            <label className="block text-sm text-white/70 mb-1">{t.desc}</label>
-            <textarea
-              className="w-full px-3 py-2 rounded-lg bg-white/5 min-h-[160px]"
-              placeholder={t.descPh}
-              value={desc}
-              onChange={(e)=>setDesc(e.target.value)}
-              required
-            />
-          </div>
+          <HoloInput
+            id="task-title"
+            label={t.title}
+            value={title}
+            onChange={setTitle}
+            disabled={saving !== "idle"}
+          />
+
+                  <HoloTextarea
+                    id="task-desc"
+                    label={t.desc}
+                    value={desc}
+                    onChange={setDesc}
+                    disabled={saving !== "idle"}
+                    minHeight={160}
+                  />
+
 
           <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-white/70 mb-1">{t.category}</label>
-              <select
-                className="w-full px-3 py-2 rounded-lg bg-black text-white border border-white/10"
-                value={category}
-                onChange={(e)=>setCategory(e.target.value)}
-                required
-              >
-                {t.opt.cat.map(c=> <option key={c} style={optionStyle}>{c}</option>)}
-              </select>
-            </div>
+<div>
+  <label className="block text-sm text-white/70 mb-1">{t.category}</label>
+  <HoloStaticBox>
+    <select
+      className="w-full h-[3.5rem] bg-black/70 text-white px-4
+                 border-none rounded-none outline-none"
+      value={category}
+      onChange={(e)=>setCategory(e.target.value)}
+      required
+    >
+      {t.opt.cat.map(c=> (
+        <option key={c} style={optionStyle}>{c}</option>
+      ))}
+    </select>
+  </HoloStaticBox>
+</div>
 
-            <div>
-              <label className="block text-sm text-white/70 mb-1">{t.skill}</label>
-              <select
-                className="w-full px-3 py-2 rounded-lg bg-black text-white border border-white/10"
-                value={skill}
-                onChange={(e)=>setSkill(e.target.value)}
-                required
-              >
-                {t.opt.skill.map(s=> <option key={s} style={optionStyle}>{s}</option>)}
-              </select>
-            </div>
 
+<div>
+  <label className="block text-sm text-white/70 mb-1">{t.skill}</label>
+  <HoloStaticBox>
+    <select
+      className="w-full h-[3.5rem] bg-black/70 text-white px-4
+                 border-none rounded-none outline-none"
+      value={skill}
+      onChange={(e)=>setSkill(e.target.value)}
+      required
+    >
+      {t.opt.skill.map(s=> (
+        <option key={s} style={optionStyle}>{s}</option>
+      ))}
+    </select>
+  </HoloStaticBox>
+</div>
             <div>
-              <label className="block text-sm text-white/70 mb-1">{t.reward}</label>
-              <input
-                type="number" min={0}
-                className="w-full px-3 py-2 rounded-lg bg-white/5"
-                value={reward}
-                onChange={(e)=>setReward(e.target.value)}
-                required
-              />
-            </div>
+  <label className="block text-sm text-white/70 mb-1">
+    {t.reward}
+  </label>
+
+  <HoloInput
+    id="task-reward"
+    label=""              // აქ ცარიელი სტრინგი დავტოვოთ
+    type="number"
+    value={reward}
+    onChange={setReward}
+    disabled={saving !== "idle"}
+  />
+</div>
+
+
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-white/70 mb-1">{t.deadline}</label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 rounded-lg bg-white/5"
-                value={deadline}
-                onChange={(e)=>setDeadline(e.target.value)}
-                required
-              />
-            </div>
+<div className="grid md:grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm text-white/70 mb-1">{t.deadline}</label>
+    <HoloStaticBox>
+      <input
+        type="date"
+        className="w-full h-[3.5rem] bg-black/70 text-white px-4
+                   border-none rounded-none outline-none"
+        value={deadline}
+        onChange={(e)=>setDeadline(e.target.value)}
+        required
+      />
+    </HoloStaticBox>
+  </div>
 
-            <div>
-              <label className="block text-sm text-white/70 mb-1">{t.location}</label>
-              <select
-                className="w-full px-3 py-2 rounded-lg bg-black text-white border border-white/10"
-                value={where}
-                onChange={(e)=>setWhere(e.target.value as "remote"|"onsite")}
-              >
-                <option value="remote" style={optionStyle}>{t.remote}</option>
-                <option value="onsite" style={optionStyle}>{t.onsite}</option>
-              </select>
-            </div>
-          </div>
+  <div>
+    <label className="block text-sm text-white/70 mb-1">{t.location}</label>
+    <HoloStaticBox>
+      <select
+        className="w-full h-[3.5rem] bg-black/70 text-white px-4
+                   border-none rounded-none outline-none"
+        value={where}
+        onChange={(e)=>setWhere(e.target.value as "remote"|"onsite")}
+      >
+        <option value="remote" style={optionStyle}>{t.remote}</option>
+        <option value="onsite" style={optionStyle}>{t.onsite}</option>
+      </select>
+    </HoloStaticBox>
+  </div>
+</div>
 
-          {where==="onsite" && (
-            <div>
-              <label className="block text-sm text-white/70 mb-1">{t.address}</label>
-              <input
-                className="w-full px-3 py-2 rounded-lg bg-white/5"
-                placeholder={t.addressPh}
-                value={address}
-                onChange={(e)=>setAddress(e.target.value)}
-              />
-            </div>
-          )}
+
+                {where === "onsite" && (
+                  <HoloInput
+                    id="task-address"
+                    label={t.address}
+                    value={address}
+                    onChange={setAddress}
+                    disabled={saving !== "idle"}
+                  />
+                )}
+
 
           <div>
             <label className="block text-sm text-white/70 mb-1">{t.execType}</label>
@@ -737,17 +911,15 @@ export default function FormClient({
 
 
 
-          <div>
-            <label className="block text-sm text:white/70 mb-1">{t.proof}</label>
-            <textarea
-              className="w-full px-3 py-2 rounded-lg bg-white/5 min-h-[110px]"
-              placeholder={t.proofPh}
-              value={proof}
-              onChange={(e)=>setProof(e.target.value)}
-              required
-              disabled={saving!=="idle"}
-            />
-          </div>
+                <HoloTextarea
+                  id="task-proof"
+                  label={t.proof}
+                  value={proof}
+                  onChange={setProof}
+                  disabled={saving !== "idle"}
+                  minHeight={110}
+                />
+
 
           {errorMsg && <div className="text-red-400 text-sm">{errorMsg}</div>}
 

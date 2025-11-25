@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import TaskCard, { TaskCardInput } from "@/components/TaskCard";
 import ka from "../../../messages/ka.json";
 import en from "../../../messages/en.json";
+import TaskyFilterSelect from "@/components/TaskyFilterSelect";
 
 type Locale = "ka" | "en";
 
@@ -176,7 +177,10 @@ prismaWhere.NOT = {
       <h1 className="text-3xl font-bold">{t.title}</h1>
 
       {/* Filters */}
-      <form method="get" className="card p-3 flex flex-wrap items-center gap-2">
+<form
+  method="get"
+  className="card p-3 flex flex-wrap items-center gap-2 relative z-50"
+>
         <input
           name="q"
           defaultValue={q ?? ""}
@@ -184,98 +188,83 @@ prismaWhere.NOT = {
           placeholder={t.search}
         />
 
-        <select
-          name="cat"
-          defaultValue={val(cat, "")}
-          className="px-3 py-2 rounded-lg bg-black text-white border border-white/15 text-sm"
-        >
-          <option value="" style={optionStyle}>
-            {t.filters.all} {t.filters.category}
-          </option>
-          <option value="content" style={optionStyle}>
-            {t.filters.content}
-          </option>
-          <option value="design" style={optionStyle}>
-            {t.filters.design}
-          </option>
-          <option value="dev" style={optionStyle}>
-            {t.filters.dev}
-          </option>
-        </select>
-
-        <select
-          name="skill"
-          defaultValue={val(skill, "")}
-          className="px-3 py-2 rounded-lg bg-black text-white border border-white/15 text-sm"
-        >
-          <option value="" style={optionStyle}>
-            {t.filters.all} {t.filters.skill}
-          </option>
-          <option value="beginner" style={optionStyle}>
-            {t.filters.beginner}
-          </option>
-          <option value="intermediate" style={optionStyle}>
-            {t.filters.intermediate}
-          </option>
-          <option value="expert" style={optionStyle}>
-            {t.filters.expert}
-          </option>
-        </select>
-
-        <select
-          name="where"
-          defaultValue={val(where, "")}
-          className="px-3 py-2 rounded-lg bg-black text-white border border-white/15 text-sm"
-        >
-          <option value="" style={optionStyle}>
-            {t.filters.all} {t.filters.where}
-          </option>
-          <option value="remote" style={optionStyle}>
-            {t.filters.remote}
-          </option>
-          <option value="onsite" style={optionStyle}>
-            {t.filters.onsite}
-          </option>
-        </select>
-
-        <select
-          name="type"
-          defaultValue={val(type, "")}
-          className="px-3 py-2 rounded-lg bg-black text-white border border-white/15 text-sm"
-        >
-          <option value="" style={optionStyle}>
-            {t.filters.all} {t.filters.type}
-          </option>
-          <option value="exclusive" style={optionStyle}>
-            {t.filters.exclusive}
-          </option>
-          <option value="multi" style={optionStyle}>
-            {t.filters.multi}
-          </option>
-        </select>
-
-<div className="ml-auto flex gap-2">
-  {/* გასუფთავება – სეკონდარი ღილაკი, გლიჩით */}
-  <a
-    href={`/${locale}/tasky`}
-    className="btn-hero-secondary text-sm"
-    data-text={t.filters.reset}
-  >
-    <span className="btn-text">{t.filters.reset}</span>
-  </a>
-
-  {/* გაფილტრვა – პრაიმარი ღილაკი, იგივე გლიჩი */}
-  <button
-    type="submit"
-    className="btn-hero-primary text-sm"
-    data-text={t.filters.apply}
-  >
-    <span className="btn-text">{t.filters.apply}</span>
-  </button>
-</div>
+{/* CATEGORY */}
+<TaskyFilterSelect
+  name="cat"
+  size="sm"
+  initialValue={val(cat, "")}
+  placeholder={`${t.filters.all} ${t.filters.category}`}
+  options={[
+    { value: "content", label: t.filters.content },
+    { value: "design", label: t.filters.design },
+    { value: "dev", label: t.filters.dev },
+  ]}
+/>
 
 
+{/* SKILL */}
+<TaskyFilterSelect
+  name="skill"
+  size="sm"
+  initialValue={val(skill, "")}
+  placeholder={`${t.filters.all} ${t.filters.skill}`}
+  options={[
+    { value: "beginner", label: t.filters.beginner },
+    { value: "intermediate", label: t.filters.intermediate },
+    { value: "expert", label: t.filters.expert },
+  ]}
+/>
+
+
+{/* WHERE */}
+<TaskyFilterSelect
+  name="where"
+  size="sm"
+  initialValue={val(where, "")}
+  placeholder={`${t.filters.all} ${t.filters.where}`}
+  options={[
+    { value: "remote", label: t.filters.remote },
+    { value: "onsite", label: t.filters.onsite },
+  ]}
+/>
+
+
+{/* TYPE */}
+<TaskyFilterSelect
+  name="type"
+  size="sm"
+  initialValue={val(type, "")}
+  placeholder={`${t.filters.all} ${t.filters.type}`}
+  options={[
+    { value: "exclusive", label: t.filters.exclusive },
+    { value: "multi", label: t.filters.multi },
+  ]}
+/>
+
+
+        <div className="ml-auto flex gap-2">
+          <a
+            href={`/${locale}/tasky`}
+            className="btn-hero-secondary text-sm"
+            data-text={t.filters.reset}
+          >
+            <span className="btn-text">{t.filters.reset}</span>
+          </a>
+
+          <button
+            type="submit"
+            className="btn-hero-primary text-sm"
+            data-text={t.filters.apply}
+          >
+            <span className="btn-text">{t.filters.apply}</span>
+          </button>
+        </div>
       </form>
+
+
+
+
+     
 
       {/* Results */}
       {tasks.length === 0 ? (
