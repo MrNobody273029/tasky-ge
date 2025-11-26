@@ -511,31 +511,8 @@ body::before {
 .leftnav-item--active .leftnav-icon {
   color: var(--cyan);
   filter: drop-shadow(0 0 12px rgba(0,229,255,0.95));
-  animation: leftnav-icon-hue 8s linear;
 }
 
-@keyframes leftnav-icon-hue {
-  0% {
-    filter:
-      drop-shadow(0 0 12px rgba(0,229,255,0.95))
-      hue-rotate(0deg);
-  }
-  33% {
-    filter:
-      drop-shadow(0 0 14px rgba(236,72,153,0.95))
-      hue-rotate(60deg);
-  }
-  66% {
-    filter:
-      drop-shadow(0 0 14px rgba(190,242,100,0.95))
-      hue-rotate(120deg);
-  }
-  100% {
-    filter:
-      drop-shadow(0 0 12px rgba(0,229,255,0.95))
-      hue-rotate(0deg);
-  }
-}
 
 /* --- TOP TABS: active tab = solid cyan, no glitch --- */
 
