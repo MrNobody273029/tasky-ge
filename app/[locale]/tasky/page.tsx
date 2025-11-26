@@ -69,22 +69,22 @@ export default async function Tasky({
 
   // ❗️დამატებული ლოგიკა:
   // ექსკლუზიური ტასკი, რომელსაც უკვე APPROVED აპლიკაცია აქვს, tasky-ზე აღარ გამოჩნდეს
-prismaWhere.NOT = {
-  OR: [
-    {
-      AND: [
-        { exclusive: true },
-        { applications: { some: { status: "APPROVED" } } },
-      ],
-    },
-    {
-      AND: [
-        { exclusive: false },
-        { evidences: { some: { status: "APPROVED" } } }, // 👈 იხილე შენიშვნა ქვემოთ
-      ],
-    },
-  ],
-};
+  prismaWhere.NOT = {
+    OR: [
+      {
+        AND: [
+          { exclusive: true },
+          { applications: { some: { status: "APPROVED" } } },
+        ],
+      },
+      {
+        AND: [
+          { exclusive: false },
+          { evidences: { some: { status: "APPROVED" } } },
+        ],
+      },
+    ],
+  };
 
   let tasks: any[] = [];
   try {
@@ -97,6 +97,7 @@ prismaWhere.NOT = {
     // fallback: ცარიელი სია, რომ გვერდი არ გადაყირავდეს
     tasks = [];
   }
+
   function toCardInput(db: any): TaskCardInput {
     return {
       id: db.id,
@@ -169,83 +170,91 @@ prismaWhere.NOT = {
   const val = <T extends string>(v: T | undefined | null, fallback: T) =>
     (v as T) ?? fallback;
 
-  // option-ების იფორმატი — შავი ფონით და თეთრი ტექსტით
-  const optionStyle = { backgroundColor: "#000", color: "#fff" } as const;
-
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">{t.title}</h1>
+      {/* Title */}
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+        {t.title}
+      </h1>
 
       {/* Filters */}
-<form
-  method="get"
-  className="card p-3 flex flex-wrap items-center gap-2 relative z-50"
->
-        <input
-          name="q"
-          defaultValue={q ?? ""}
-          className="bg-transparent flex-1 min-w-[180px] px-3 py-2 rounded-lg outline-none placeholder:text-white/40"
-          placeholder={t.search}
-        />
+      <form method="get" className="card p-3 space-y-3 relative z-50">
+        {/* search – სულ ზედა, full-width */}
+        <div>
+          <input
+            name="q"
+            defaultValue={q ?? ""}
+            className="bg-transparent w-full px-3 py-2 rounded-lg outline-none placeholder:text-white/40"
+            placeholder={t.search}
+          />
+        </div>
 
-{/* CATEGORY */}
-<TaskyFilterSelect
-  name="cat"
-  size="sm"
-  initialValue={val(cat, "")}
-  placeholder={`${t.filters.all} ${t.filters.category}`}
-  options={[
-    { value: "content", label: t.filters.content },
-    { value: "design", label: t.filters.design },
-    { value: "dev", label: t.filters.dev },
-  ]}
-/>
+        {/* filters – grid, ყოველთვის ერთად */}
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {/* CATEGORY */}
+          <div>
+            <TaskyFilterSelect
+              name="cat"
+              size="sm"
+              initialValue={val(cat, "")}
+              placeholder={`${t.filters.all} ${t.filters.category}`}
+              options={[
+                { value: "content", label: t.filters.content },
+                { value: "design", label: t.filters.design },
+                { value: "dev", label: t.filters.dev },
+              ]}
+            />
+          </div>
 
+          {/* SKILL */}
+          <div>
+            <TaskyFilterSelect
+              name="skill"
+              size="sm"
+              initialValue={val(skill, "")}
+              placeholder={`${t.filters.all} ${t.filters.skill}`}
+              options={[
+                { value: "beginner", label: t.filters.beginner },
+                { value: "intermediate", label: t.filters.intermediate },
+                { value: "expert", label: t.filters.expert },
+              ]}
+            />
+          </div>
 
-{/* SKILL */}
-<TaskyFilterSelect
-  name="skill"
-  size="sm"
-  initialValue={val(skill, "")}
-  placeholder={`${t.filters.all} ${t.filters.skill}`}
-  options={[
-    { value: "beginner", label: t.filters.beginner },
-    { value: "intermediate", label: t.filters.intermediate },
-    { value: "expert", label: t.filters.expert },
-  ]}
-/>
+          {/* WHERE */}
+          <div>
+            <TaskyFilterSelect
+              name="where"
+              size="sm"
+              initialValue={val(where, "")}
+              placeholder={`${t.filters.all} ${t.filters.where}`}
+              options={[
+                { value: "remote", label: t.filters.remote },
+                { value: "onsite", label: t.filters.onsite },
+              ]}
+            />
+          </div>
 
+          {/* TYPE */}
+          <div>
+            <TaskyFilterSelect
+              name="type"
+              size="sm"
+              initialValue={val(type, "")}
+              placeholder={`${t.filters.all} ${t.filters.type}`}
+              options={[
+                { value: "exclusive", label: t.filters.exclusive },
+                { value: "multi", label: t.filters.multi },
+              ]}
+            />
+          </div>
+        </div>
 
-{/* WHERE */}
-<TaskyFilterSelect
-  name="where"
-  size="sm"
-  initialValue={val(where, "")}
-  placeholder={`${t.filters.all} ${t.filters.where}`}
-  options={[
-    { value: "remote", label: t.filters.remote },
-    { value: "onsite", label: t.filters.onsite },
-  ]}
-/>
-
-
-{/* TYPE */}
-<TaskyFilterSelect
-  name="type"
-  size="sm"
-  initialValue={val(type, "")}
-  placeholder={`${t.filters.all} ${t.filters.type}`}
-  options={[
-    { value: "exclusive", label: t.filters.exclusive },
-    { value: "multi", label: t.filters.multi },
-  ]}
-/>
-
-
-        <div className="ml-auto flex gap-2">
+        {/* actions – სულ ქვემოთ, მარჯვნივ; მობილზე სრულ სიგანეზე */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:justify-end sm:items-center pt-1">
           <a
             href={`/${locale}/tasky`}
-            className="btn-hero-secondary text-sm"
+            className="btn-hero-secondary text-sm w-full sm:w-auto"
             data-text={t.filters.reset}
           >
             <span className="btn-text">{t.filters.reset}</span>
@@ -253,7 +262,7 @@ prismaWhere.NOT = {
 
           <button
             type="submit"
-            className="btn-hero-primary text-sm"
+            className="btn-hero-primary text-sm w-full sm:w-auto"
             data-text={t.filters.apply}
           >
             <span className="btn-text">{t.filters.apply}</span>
@@ -261,16 +270,11 @@ prismaWhere.NOT = {
         </div>
       </form>
 
-
-
-
-     
-
       {/* Results */}
       {tasks.length === 0 ? (
         <div className="text-white/60">{t.empty}</div>
       ) : (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={toCardInput(task)} />
           ))}

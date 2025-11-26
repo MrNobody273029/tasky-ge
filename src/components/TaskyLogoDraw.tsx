@@ -41,7 +41,10 @@ export default function TaskyLogoDraw({
   hoverAccel = true,
   spinDelayMs = 3000,
 }: HoloLogoProps) {
-  const style: CSSProperties = { width: `${size}px`, height: `${size}px` };
+const style: CSSProperties = {
+  width: `min(70vw, ${size}px)`,
+  height: `min(70vw, ${size}px)`,
+};
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);

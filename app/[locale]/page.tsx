@@ -121,11 +121,11 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         <div className="space-y-6">
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">{m.home.title}</h1>
           <p className="text-white/80 text-lg max-w-prose">{m.home.subtitle}</p>
-          <div className="flex gap-4">
+<div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full max-w-sm">
             <Link
               href={startHref}
               onClick={playNav}
-              className="btn-hero-primary"
+              className="btn-hero-primary w-full sm:w-auto"
               data-text={m.cta.getStarted} // <<< გლიჩისთვის
             >
               <span className="btn-text">{m.cta.getStarted}</span>
@@ -134,7 +134,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
             <Link
               href={`/${params.locale}/tasky`}
               onClick={playNav}
-              className="btn-hero-secondary"
+              className="btn-hero-secondary w-full sm:w-auto"
               data-text={m.cta.browseTasks} // <<< გლიჩისთვის
             >
               <span className="btn-text">{m.cta.browseTasks}</span>
@@ -143,7 +143,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         </div>
 
         {/* Logo + Power switch */}
-        <div className="relative w-full h-[min(42vw,420px)] md:h-[min(42vw,420px)] flex flex-col items-center justify-center gap-4">
+<div className="relative w-full h-auto min-h-[260px] md:h-[min(42vw,420px)] flex flex-col items-center justify-center gap-4">
           <TaskyLogoDraw
             size={400}
             spin

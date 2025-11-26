@@ -232,15 +232,18 @@ export default function RegisterPage({
     }
   }
 
-  return (
-    <div className="mx-auto max-w-2xl">
-      <div className="card rounded-2xl p-8">
-        <h1 className="text-center text-3xl font-extrabold mb-2">{m.auth.createTitle}</h1>
+return (
+  <div className="mx-auto max-w-2xl px-4">
+    <div className="card rounded-2xl p-6 sm:p-8">
+
+<h1 className="text-center text-2xl sm:text-3xl font-extrabold mb-2">
+  {m.auth.createTitle}
+</h1>
         <p className="text-center text-white/70 mb-8">{m.auth.createSubtitle}</p>
 
         <form onSubmit={onSubmit} className="space-y-5">
           {/* Username – HOLO input */}
-          <div className="glitch-input-wrapper mb-4">
+<div className="glitch-input-wrapper mb-4 w-full">
             <div className="input-container">
               <input
                 id="reg-username"
@@ -289,7 +292,7 @@ export default function RegisterPage({
           </div>
 
           {/* Email – HOLO input */}
-          <div className="glitch-input-wrapper mb-4">
+<div className="glitch-input-wrapper mb-4 w-full">
             <div className="input-container">
               <input
                 id="reg-email"
@@ -362,7 +365,7 @@ export default function RegisterPage({
     </div>
   </div>
     {/* ადგილობრივი ნომერი – HOLO სტილით, როგორც უკვე გქონდა */}
-    <div className="flex-1 glitch-input-wrapper">
+<div className="flex-1 glitch-input-wrapper w-full">
       <div className="input-container w-full">
         <input
           id="reg-phone"
@@ -529,7 +532,7 @@ export default function RegisterPage({
           </div>
 
  {/* Agree – neon checkbox + ძველი ტექსტი/ლინკები */}
-<label className="checkbox-wrapper mt-2">
+<label className="checkbox-wrapper mt-4">
   {/* ნამდვილი checkbox (inchvisible) */}
   <input
     type="checkbox"
