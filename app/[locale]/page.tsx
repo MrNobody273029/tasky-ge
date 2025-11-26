@@ -145,7 +145,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         {/* Logo + Power switch */}
         <div className="relative w-full h-[min(42vw,420px)] md:h-[min(42vw,420px)] flex flex-col items-center justify-center gap-4">
           <TaskyLogoDraw
-            size={280}
+            size={400}
             spin
             spinSpeedSec={8}
             maxMulHover={40}
@@ -159,7 +159,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           />
 
           <NeonPowerSwitch
-            className="mt-12"
+            
             checked={powerOn}
             onChange={setPowerOn}
           />
