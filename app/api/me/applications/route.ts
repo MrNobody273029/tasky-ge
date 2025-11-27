@@ -62,45 +62,76 @@ export async function GET(req: Request) {
     },
   });
 
+  // ↓↓↓ NEW: ერთი query ყველა შესაბამის thread-ზე ↓↓↓
+  const pairMap = new Map<string, { taskId: string; applicantId: string }>();
+  for (const a of apps) {
+    const key = `${a.taskId}::${a.applicantId}`;
+    if (!pairMap.has(key)) pairMap.set(key, { taskId: a.taskId, applicantId: a.applicantId });
+  }
+
+  let threadMap = new Map<string, {
+    id: string;
+    taskId: string;
+    applicantId: string;
+    hasUnreadForOwner: boolean;
+    hasUnreadForApplicant: boolean;
+    updatedAt: Date;
+  }>();
+
+  if (pairMap.size > 0) {
+    const threadList = await prisma.chatThread.findMany({
+      where: {
+        OR: Array.from(pairMap.values()).map(p => ({
+          taskId: p.taskId,
+          applicantId: p.applicantId,
+        })),
+      },
+      select: {
+        id: true,
+        taskId: true,
+        applicantId: true,
+        hasUnreadForOwner: true,
+        hasUnreadForApplicant: true,
+        updatedAt: true,
+      },
+    });
+
+    threadMap = new Map(
+      threadList.map(th => [`${th.taskId}::${th.applicantId}`, th] as const),
+    );
+  }
+  // ↑↑↑ END NEW PART ↑↑↑
+
   // ---- attach chat thread + unread flag for current role ----
-  const enriched = await Promise.all(
-    apps.map(async (a) => {
-      const thread = await prisma.chatThread.findUnique({
-        where: { taskId_applicantId: { taskId: a.taskId, applicantId: a.applicantId } },
-        select: {
-          id: true,
-          hasUnreadForOwner: true,
-          hasUnreadForApplicant: true,
-          updatedAt: true,
-        },
-      }).catch(() => null);
+  const enriched = apps.map((a) => {
+    const key = `${a.taskId}::${a.applicantId}`;
+    const thread = threadMap.get(key);
 
-      const unread =
-        role === 'owner'
-          ? Boolean(thread?.hasUnreadForOwner)
-          : Boolean(thread?.hasUnreadForApplicant);
+    const unread =
+      role === 'owner'
+        ? Boolean(thread?.hasUnreadForOwner)
+        : Boolean(thread?.hasUnreadForApplicant);
 
-      return {
-        id: a.id,
-        status: a.status,
-        message: a.message,
-        createdAt: a.createdAt,
-        decidedAt: a.decidedAt,
-        task: {
-          id: a.task.id,
-          title: a.task.title,
-          reward: a.task.reward,
-          deadline: a.task.deadline ? a.task.deadline.toISOString() : null,
-          exclusive: a.task.exclusive,
-          status: a.task.status,
-        },
-        applicant: a.applicant,
-        threadId: thread?.id || null,
-        unread,
-        threadUpdatedAt: thread?.updatedAt?.toISOString() || null,
-      };
-    })
-  );
+    return {
+      id: a.id,
+      status: a.status,
+      message: a.message,
+      createdAt: a.createdAt,
+      decidedAt: a.decidedAt,
+      task: {
+        id: a.task.id,
+        title: a.task.title,
+        reward: a.task.reward,
+        deadline: a.task.deadline ? a.task.deadline.toISOString() : null,
+        exclusive: a.task.exclusive,
+        status: a.task.status,
+      },
+      applicant: a.applicant,
+      threadId: thread?.id || null,
+      unread,
+      threadUpdatedAt: thread?.updatedAt?.toISOString() || null,
+    };
+  });
 
   // ---- counters for red-dot badges ----
   const unreadTotal = await prisma.chatThread.count({

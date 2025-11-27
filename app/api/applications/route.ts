@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
           status: true, photos: true, proof: true,
         },
       },
-            applicant: {
+      applicant: {
         select: {
           id: true,
           name: true,
@@ -44,27 +44,46 @@ export async function GET(req: NextRequest) {
           ratingWorkerCount: true,
         },
       },
-
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  const items = await Promise.all(apps.map(async (a) => {
-    let threadId: string | null = null;
-    try {
-      const th = await prisma.chatThread.findUnique({
-        where: { taskId_applicantId: { taskId: a.taskId, applicantId: a.applicantId } },
-        select: { id: true },
-      });
-      threadId = th?.id ?? null;
-    } catch {}
+  // ↓↓↓ NEW: ყველა შესაბამისი thread ერთ query-ში ↓↓↓
+  const pairMap = new Map<string, { taskId: string; applicantId: string }>();
+  for (const a of apps) {
+    const key = `${a.taskId}::${a.applicantId}`;
+    if (!pairMap.has(key)) pairMap.set(key, { taskId: a.taskId, applicantId: a.applicantId });
+  }
+
+  let threadMap = new Map<string, { id: string }>();
+
+  if (pairMap.size > 0) {
+    const threadList = await prisma.chatThread.findMany({
+      where: {
+        OR: Array.from(pairMap.values()).map(p => ({
+          taskId: p.taskId,
+          applicantId: p.applicantId,
+        })),
+      },
+      select: { id: true, taskId: true, applicantId: true },
+    });
+
+    threadMap = new Map(
+      threadList.map(th => [`${th.taskId}::${th.applicantId}`, { id: th.id }] as const),
+    );
+  }
+  // ↑↑↑ END NEW PART ↑↑↑
+
+  const items = apps.map((a) => {
+    const key = `${a.taskId}::${a.applicantId}`;
+    const thread = threadMap.get(key);
 
     return {
       id: a.id,
       status: a.status,
       createdAt: a.createdAt.toISOString(),
       message: a.message || '',
-      threadId,
+      threadId: thread?.id ?? null,
       task: {
         id: a.task.id,
         locale: a.task.locale as 'ka' | 'en',
@@ -78,19 +97,24 @@ export async function GET(req: NextRequest) {
         address: a.task.address,
         exclusive: a.task.exclusive,
         status: a.task.status,
-        photos: (() => { try { return JSON.parse(a.task.photos || '[]') as string[]; } catch { return [] as string[]; } })(),
+        photos: (() => {
+          try {
+            return JSON.parse(a.task.photos || '[]') as string[];
+          } catch {
+            return [] as string[];
+          }
+        })(),
         proof: a.task.proof,
       },
-         worker: {
+      worker: {
         id: a.applicant.id,
         name: a.applicant.name,
         image: a.applicant.image,
         ratingWorkerAvg: a.applicant.ratingWorkerAvg,
         ratingWorkerCount: a.applicant.ratingWorkerCount,
       },
-
     };
-  }));
+  });
 
   return NextResponse.json({ items }, { status: 200 });
 }

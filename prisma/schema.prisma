@@ -86,6 +86,9 @@ model Task {
 
   // Wallet tx (publish fee, payout და ა.შ.)
   walletTransactions WalletTransaction[] @relation("TaskWalletTx")
+  @@index([status])
+  @@index([status, category])
+  @@index([authorId, status])
 }
 
 model TaskClaim {
@@ -97,8 +100,10 @@ model TaskClaim {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
-
   @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
+  
 }
 
 enum TaskStatus {
@@ -127,6 +132,10 @@ model TaskApplication {
   decidedAt   DateTime?
 
   @@unique([taskId, applicantId])
+  @@index([taskId])
+  @@index([applicantId])
+  @@index([taskId, status])
+  @@index([applicantId, status])
 }
 
 enum ApplicationStatus {
@@ -174,6 +183,8 @@ model TaskEvidence {
 
   // დაკავშირებული ტრანზაქციები (პირადად payout და სხვ.)
   walletTransactions WalletTransaction[]
+  @@index([taskId])
+  @@index([authorId])
 }
 
 enum EvidenceStatus {
@@ -211,6 +222,10 @@ model ChatThread {
 
   // თითო ტასკზე თითო აპლიკანტთან ერთი თრედი
   @@unique([taskId, applicantId])
+  @@index([ownerId, updatedAt])
+  @@index([applicantId, updatedAt])
+  @@index([ownerId, hasUnreadForOwner])
+  @@index([applicantId, hasUnreadForApplicant])
 }
 
 model ChatMessage {
@@ -224,6 +239,7 @@ model ChatMessage {
 
   body      String
   createdAt DateTime @default(now())
+  @@index([threadId, createdAt])
 }
 
 /**
@@ -297,6 +313,8 @@ model WalletTransaction {
 
   @@index([userId, createdAt])
   @@index([taskId])
+  @@index([userId, status])
+
 }
 
 enum WalletTxType {
