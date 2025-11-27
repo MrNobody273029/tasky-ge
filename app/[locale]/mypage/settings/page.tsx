@@ -13,6 +13,7 @@ type Me = {
   name: string | null;
   phone: string | null;
   image: string | null;
+  commissionPct: number; // 🆕 ინდივიდუალური საკომისიო
 };
 
 export default function SettingsPage({
@@ -30,6 +31,7 @@ export default function SettingsPage({
       username: 'მომხმარებელი',
       email: 'მეილი',
       mobile: 'მობილური',
+      commission: 'საკომისიო', // 🆕
       reviewsTitle: 'შეფასებები და კომენტარები',
       tabClient: 'დამკვეთი',
       tabWorker: 'შემსრულებელი',
@@ -63,6 +65,7 @@ export default function SettingsPage({
       username: 'Username',
       email: 'Email',
       mobile: 'Mobile',
+      commission: 'Commission', // 🆕
       reviewsTitle: 'Reviews & comments',
       tabClient: 'Client',
       tabWorker: 'Worker',
@@ -97,6 +100,7 @@ export default function SettingsPage({
   const [username, setUsername] = useState<string>('User');
   const [phone, setPhone] = useState<string>('');
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [commissionPct, setCommissionPct] = useState<number | null>(null); // 🆕
 
   const [loading, setLoading] = useState(true);
   const [authErr, setAuthErr] = useState<string>('');
@@ -127,6 +131,9 @@ export default function SettingsPage({
         setUsername(u.name || (em ? em.split('@')[0] : 'User'));
         setPhone(u.phone || '');
         setAvatar(u.image || null);
+        setCommissionPct(
+          Number.isFinite(u.commissionPct as any) ? u.commissionPct : 10,
+        ); // 🆕
       })
       .catch((e) => {
         if (!alive) return;
@@ -236,7 +243,7 @@ export default function SettingsPage({
   const [tab, setTab] = useState<Role>('client');
   const [reviews, setReviews] = useState<Review[]>([]);
 
-  // ახალი: ვკითხულობთ რეიტინგებს ბექიდან, აღარ ვიყენებთ localStorage-ს
+  // რეიტინგები ბექიდან
   useEffect(() => {
     let alive = true;
 
@@ -331,6 +338,7 @@ export default function SettingsPage({
     </div>
   );
 
+  /* ---------------- RENDER ---------------- */
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">{t.pageTitle}</h1>
@@ -362,15 +370,14 @@ export default function SettingsPage({
             />
 
             <div className="space-x-3">
-              {/* ახლის ატვირთვა – გლიჩი */}
-       <button
-  onClick={onPick}
-  className="btn-hero-secondary btn-no-glitch text-sm inline-flex items-center gap-2 disabled:opacity-60"
->
-  <Upload className="w-4 h-4" />
-  <span>{t.uploadNew}</span>
-</button>
-
+              {/* ახლის ატვირთვა – გლიჩის გარეშე ღილაკი */}
+              <button
+                onClick={onPick}
+                className="btn-hero-secondary btn-no-glitch text-sm inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                <Upload className="w-4 h-4" />
+                <span>{uploadLabel}</span>
+              </button>
 
               {/* წაშლა – წითელი, უგლიჩოდ */}
               <button
@@ -393,7 +400,7 @@ export default function SettingsPage({
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4 pt-2">
+          <div className="grid sm:grid-cols-4 gap-4 pt-2">
             <div>
               <div className="text-xs text-white/60">{t.username}</div>
               <div className="font-medium">{username || '—'}</div>
@@ -406,13 +413,18 @@ export default function SettingsPage({
               <div className="text-xs text-white/60">{t.mobile}</div>
               <div className="font-medium">{phone || '—'}</div>
             </div>
+            <div>
+              <div className="text-xs text-white/60">{t.commission}</div>
+              <div className="font-medium">
+                {commissionPct !== null ? `${commissionPct}%` : '10%'}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* REVIEWS (read-only list) */}
         <div className="card p-6 space-y-4">
           <div className="font-semibold">{t.reviewsTitle}</div>
-
 
           <div className="flex items-center gap-2">
             {[
@@ -462,9 +474,7 @@ export default function SettingsPage({
                     </div>
                   </div>
                   {r.text && (
-                    <div className="mt-2 text-sm text-white/90">
-                      {r.text}
-                    </div>
+                    <div className="mt-2 text-sm text-white/90">{r.text}</div>
                   )}
                 </div>
               ))
@@ -473,16 +483,14 @@ export default function SettingsPage({
         </div>
       </div>
 
-      {/* PASSWORD (local-only demo; სერვერზე_PARოლი ცალკე API-სით გავაკეთებთ) */}
+      {/* PASSWORD (local-only demo) */}
       <form
         onSubmit={onChangePassword}
         className="card p-6 space-y-4 max-w-3xl"
       >
         <div className="font-semibold">{t.pwdTitle}</div>
         {!hasPwd && (
-          <div className="text-xs text-white/60">
-            {t.pwdNoteNoCurrent}
-          </div>
+          <div className="text-xs text-white/60">{t.pwdNoteNoCurrent}</div>
         )}
 
         <input
@@ -520,7 +528,6 @@ export default function SettingsPage({
         >
           <span className="btn-text">{pwdUpdateLabel}</span>
         </button>
-
       </form>
 
       {/* REMOVE AVATAR MODAL */}
@@ -562,7 +569,6 @@ export default function SettingsPage({
                 <span>{t.remove2}</span>
               </button>
             </div>
-
           </div>
         </div>
       )}

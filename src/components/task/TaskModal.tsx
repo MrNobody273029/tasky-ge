@@ -234,11 +234,14 @@ export default function TaskModal({
   open,
   taskId,
   onClose,
+  readOnly = false,   // 🆕
 }: {
   open: boolean;
   taskId: string | null;
   onClose: () => void;
+  readOnly?: boolean; // 🆕
 }) {
+
   const params = useParams<{ locale?: string }>();
   const locale = (params?.locale === "en" ? "en" : "ka") as "ka" | "en";
   const t = dict[locale];
@@ -795,58 +798,37 @@ const handleSubmitProof = () => {
 </div>
 
 
+  {/* ---- Footer buttons ---- */}
+  {readOnly ? (
+    // 🧊 Read-only რეჟიმი – მარტო დახურვა
+    <div className="sticky bottom-0 p-5 md:p-6 pt-3 flex justify-end border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
+      <button
+        onClick={onClose}
+        className="btn-modal-close text-sm"
+        data-text={closeLabel}
+      >
+        <span className="btn-text">{closeLabel}</span>
+      </button>
+    </div>
+  ) : (
+    <>
+      <div className="sticky bottom-0 p-5 md:p-6 pt-3 flex justify-end gap-3 border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
+        {/* Close – glitch */}
+        <button
+          onClick={onClose}
+          className="btn-modal-close text-sm"
+          data-text={closeLabel}
+        >
+          <span className="btn-text">{closeLabel}</span>
+        </button>
 
-
-<div className="sticky bottom-0 p-5 md:p-6 pt-3 flex justify-end gap-3 border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
-  {/* Close – glitch */}
-  <button
-    onClick={onClose}
-    className="btn-modal-close text-sm"
-    data-text={closeLabel}
-  >
-    <span className="btn-text">{closeLabel}</span>
-  </button>
-
-  {data && !data.isMine && (
-    evidenceApproved ? (
-      <>
-        {/* Approved badge – შეიძლება უბრალო დარჩეს ან გინდ glitch კლასადაც */}
-        <div className="px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/40 text-sm">
-          {locale === 'ka' ? 'დადასტურებულია' : 'Approved'}
-        </div>
-
-        {threadId ? (
-          <button
-            onClick={() => openFloatingChat(threadId)}
-            className="btn-hero-secondary text-sm"
-            data-text={openChatLabel}
-          >
-            <span className="btn-text">{openChatLabel}</span>
-          </button>
-        ) : null}
-      </>
-    ) : (
-      <>
-        {data.exclusive ? (
-          /* --- EXCLUSIVE --- */
-          appStatus === 'REJECTED' ? (
-            <button
-              className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-              data-text={t.rejectedBadge}
-              aria-disabled="true"
-            >
-              <span className="btn-text">{t.rejectedBadge}</span>
-            </button>
-          ) : appStatus === 'PENDING' ? (
+        {data && !data.isMine && (
+          evidenceApproved ? (
             <>
-              <button
-                aria-disabled="true"
-                className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                title={t.awaitingApproval}
-                data-text={t.awaitingApproval}
-              >
-                <span className="btn-text">{t.awaitingApproval}</span>
-              </button>
+              {/* Approved badge */}
+              <div className="px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/40 text-sm">
+                {locale === "ka" ? "დადასტურებულია" : "Approved"}
+              </div>
 
               {threadId ? (
                 <button
@@ -856,119 +838,240 @@ const handleSubmitProof = () => {
                 >
                   <span className="btn-text">{openChatLabel}</span>
                 </button>
-              ) : (
-                <button
-                  aria-disabled="true"
-                  className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                  title={t.chatUnavailable}
-                  data-text={openChatLabel}
-                >
-                  <span className="btn-text">{openChatLabel}</span>
-                </button>
-              )}
-            </>
-          ) : appStatus === 'APPROVED' || hasTaken ? (
-            <>
-              {hasEvidence ? (
-                <button
-                  type="button"
-                  className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                  aria-disabled="true"
-                  data-text={submitProofDisabledLabel}
-                >
-                  <span className="btn-text">{submitProofDisabledLabel}</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmitProof}
-                  className="btn-hero-primary text-sm inline-flex items-center gap-2"
-                  data-text={submitProofLabel}
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="btn-text">{submitProofLabel}</span>
-                </button>
-              )}
-
-              {threadId ? (
-                <button
-                  onClick={() => openFloatingChat(threadId)}
-                  className="btn-hero-secondary text-sm"
-                  data-text={openChatLabel}
-                >
-                  <span className="btn-text">{openChatLabel}</span>
-                </button>
-              ) : (
-                <button
-                  aria-disabled="true"
-                  className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                  title={t.chatUnavailable}
-                  data-text={openChatLabel}
-                >
-                  <span className="btn-text">{openChatLabel}</span>
-                </button>
-              )}
+              ) : null}
             </>
           ) : (
-            <button
-              onClick={() => setApplyOpen(true)}
-              className="btn-hero-secondary text-sm"
-              data-text={applyLabel}
-            >
-              <span className="btn-text">{applyLabel}</span>
-            </button>
+            <>
+              {data.exclusive ? (
+                /* --- EXCLUSIVE --- */
+                appStatus === "REJECTED" ? (
+                  <button
+                    className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                    data-text={t.rejectedBadge}
+                    aria-disabled="true"
+                  >
+                    <span className="btn-text">{t.rejectedBadge}</span>
+                  </button>
+                ) : appStatus === "PENDING" ? (
+                  <>
+                    <button
+                      aria-disabled="true"
+                      className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                      title={t.awaitingApproval}
+                      data-text={t.awaitingApproval}
+                    >
+                      <span className="btn-text">{t.awaitingApproval}</span>
+                    </button>
+
+                    {threadId ? (
+                      <button
+                        onClick={() => openFloatingChat(threadId)}
+                        className="btn-hero-secondary text-sm"
+                        data-text={openChatLabel}
+                      >
+                        <span className="btn-text">{openChatLabel}</span>
+                      </button>
+                    ) : (
+                      <button
+                        aria-disabled="true"
+                        className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                        title={t.chatUnavailable}
+                        data-text={openChatLabel}
+                      >
+                        <span className="btn-text">{openChatLabel}</span>
+                      </button>
+                    )}
+                  </>
+                ) : appStatus === "APPROVED" || hasTaken ? (
+                  <>
+                    {hasEvidence ? (
+                      <button
+                        type="button"
+                        className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                        aria-disabled="true"
+                        data-text={submitProofDisabledLabel}
+                      >
+                        <span className="btn-text">
+                          {submitProofDisabledLabel}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSubmitProof}
+                        className="btn-hero-primary text-sm inline-flex items-center gap-2"
+                        data-text={submitProofLabel}
+                      >
+                        <Send className="w-4 h-4" />
+                        <span className="btn-text">{submitProofLabel}</span>
+                      </button>
+                    )}
+
+                    {threadId ? (
+                      <button
+                        onClick={() => openFloatingChat(threadId)}
+                        className="btn-hero-secondary text-sm"
+                        data-text={openChatLabel}
+                      >
+                        <span className="btn-text">{openChatLabel}</span>
+                      </button>
+                    ) : (
+                      <button
+                        aria-disabled="true"
+                        className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                        title={t.chatUnavailable}
+                        data-text={openChatLabel}
+                      >
+                        <span className="btn-text">{openChatLabel}</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setApplyOpen(true)}
+                    className="btn-hero-secondary text-sm"
+                    data-text={applyLabel}
+                  >
+                    <span className="btn-text">{applyLabel}</span>
+                  </button>
+                )
+              ) : hasTaken ? (
+                /* --- არაექსკლუზიური, უკვე აღებული --- */
+                <>
+                  {hasEvidence ? (
+                    <button
+                      type="button"
+                      className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+                      aria-disabled="true"
+                      data-text={submitProofDisabledLabel}
+                    >
+                      <span className="btn-text">
+                        {submitProofDisabledLabel}
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmitProof}
+                      className="btn-hero-primary text-sm inline-flex items-center gap-2"
+                      data-text={submitProofLabel}
+                    >
+                      <Send className="w-4 h-4" />
+                      <span className="btn-text">{submitProofLabel}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleReturnClick}
+                    disabled={returning}
+                    className={
+                      "btn-logout btn-no-glitch inline-flex items-center gap-2 text-sm " +
+                      (hasEvidence
+                        ? "opacity-60 cursor-not-allowed"
+                        : "disabled:opacity-60")
+                    }
+                    title={
+                      hasEvidence ? t.cannotReturnAfterEvidence : undefined
+                    }
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>{returnLabel}</span>
+                  </button>
+                </>
+              ) : (
+                /* --- არაექსკლუზიური, ჯერ არ არის აღებული --- */
+                <button
+                  onClick={handleTake}
+                  disabled={taking}
+                  className="btn-hero-primary text-sm disabled:opacity-60"
+                  data-text={takeLabel}
+                >
+                  <span className="btn-text">{takeLabel}</span>
+                </button>
+              )}
+            </>
           )
-        ) : hasTaken ? (
-          /* --- არაექსკლუზიური, უკვე აღებული --- */
-          <>
-            {hasEvidence ? (
-              <button
-                type="button"
-                className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                aria-disabled="true"
-                data-text={submitProofDisabledLabel}
-              >
-                <span className="btn-text">{submitProofDisabledLabel}</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmitProof}
-                className="btn-hero-primary text-sm inline-flex items-center gap-2"
-                data-text={submitProofLabel}
-              >
-                <Send className="w-4 h-4" />
-                <span className="btn-text">{submitProofLabel}</span>
-              </button>
-            )}
+        )}
+      </div>
 
+      {/* Exclusive Apply Popup */}
+      {applyOpen && data?.exclusive && !data.isMine && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
+          <div className="w-[min(92vw,560px)] rounded-2xl bg-[#0b0f16] ring-1 ring-white/15 p-5 md:p-6 relative">
             <button
-              onClick={handleReturnClick}
-              disabled={returning}
-              className={
-                'btn-logout btn-no-glitch inline-flex items-center gap-2 text-sm ' +
-                (hasEvidence ? 'opacity-60 cursor-not-allowed' : 'disabled:opacity-60')
-              }
-              title={hasEvidence ? t.cannotReturnAfterEvidence : undefined}
+              onClick={closeApply}
+              className="absolute top-3 right-3 p-2 rounded-lg bg-white/10 hover:bg-white/15"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span>{returnLabel}</span>
+              <X className="w-5 h-5" />
             </button>
 
-          </>
-        ) : (
-          /* --- არაექსკლუზიური, ჯერ არ არის აღებული --- */
-          <button
-            onClick={handleTake}
-            disabled={taking}
-            className="btn-hero-primary text-sm disabled:opacity-60"
-            data-text={takeLabel}
-          >
-            <span className="btn-text">{takeLabel}</span>
-          </button>
-        )}
-      </>
-    )
+            <div className="text-xl font-bold mb-2">{t.applyTitle}</div>
+            <div className="text-white/70 text-sm mb-4">
+              {t.applyHint}{" "}
+              <span className="text-white/50">({t.optional})</span>
+            </div>
+
+            {applyDone ? (
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-300">
+                  {t.sent}
+                </div>
+
+                {applyDone.threadId ? (
+                  <button
+                    onClick={() => openFloatingChat(applyDone.threadId)}
+                    className="btn-hero-secondary text-sm"
+                    data-text={t.goToChat}
+                  >
+                    <span className="btn-text">{t.goToChat}</span>
+                  </button>
+                ) : null}
+
+                <button
+                  onClick={closeApply}
+                  className="btn-modal-close text-sm"
+                  data-text={closeLabel}
+                >
+                  <span className="btn-text">{closeLabel}</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={applyMsg}
+                  onChange={(e) => setApplyMsg(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 p-3 outline-none"
+                  placeholder="…"
+                />
+                {applyErr && (
+                  <div className="mt-3 p-2 rounded-lg bg-red-500/10 text-red-300 text-sm">
+                    {applyErr}
+                  </div>
+                )}
+
+                <div className="mt-4 flex justify-end gap-3">
+                  <button
+                    onClick={closeApply}
+                    className="btn-modal-close text-sm"
+                    data-text={cancelLabel}
+                  >
+                    <span className="btn-text">{cancelLabel}</span>
+                  </button>
+                  <button
+                    onClick={submitApplication}
+                    disabled={applyBusy}
+                    className="btn-hero-secondary text-sm disabled:opacity-60"
+                    data-text={sendLabel}
+                  >
+                    <span className="btn-text">{sendLabel}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   )}
-</div>
 
 
           {/* Exclusive Apply Popup */}

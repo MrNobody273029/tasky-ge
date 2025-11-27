@@ -56,11 +56,13 @@ export default function TaskCard({
   task,
   ctaLabel,
   statusBadge,
+  onOpenTask, 
 }: {
   task: TaskCardInput;
   ctaLabel?: string;
   /** optional little chip rendered inside the card (bottom-left) */
   statusBadge?: StatusBadge;
+  onOpenTask?: (id: string) => void; 
 }) {
   const locale: Locale = task.locale === "ka" ? "ka" : "en";
   const t =
@@ -221,20 +223,26 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
             >
               <span className="btn-text">{ctaText}</span>
             </Link>
-          ) : (
+      
+                ) : (
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                openTaskModal(task.id);
+                if (onOpenTask) {
+                  onOpenTask(task.id);      // 🆕 ადმინისთვის
+                } else {
+                  openTaskModal(task.id);   // 🧊 ჩვეულებრივი იუზერები – ძველი ქცევა
+                }
               }}
               className="ml-auto btn-hero-secondary text-sm"
-              data-text={ctaText}              // <<< გლიჩის ტექსტი
+              data-text={ctaText}
             >
               <span className="btn-text">{ctaText}</span>
             </button>
           )}
+
 
 
         </div>

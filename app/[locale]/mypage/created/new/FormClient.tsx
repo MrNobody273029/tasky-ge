@@ -60,11 +60,11 @@ const KA: Dict = {
   payWithBalance: "ბალანსით გადახდა",
   payWithCard: "ბარათით გადახდა",
   currentBalance: "მიმდინარე ბალანსი",
-  platformFee: "საიტის საკომისიო (10%)",
+  platformFee: "საიტის საკომისიო ",
   totalToPay: "სულ გადასახდელი",
   notEnoughBalance: "ბალანსზე საკმარისი თანხა არ არის. სცადე ბარათით გადახდა.",
   cancel: "გაუქმება",
-  feeNote: "ჯილდო + 10% საკომისიო",
+  feeNote: "ჯილდო + საკომისიო",
   publishedOk: "დავალება წარმატებით გამოქვეყნდა!",
   savedDraftOk: "დავალება წარმატებით შეინახა დრაფტად",
 };
@@ -93,11 +93,11 @@ const EN: Dict = {
   payWithBalance: "Pay with Balance",
   payWithCard: "Pay by Card",
   currentBalance: "Current balance",
-  platformFee: "Platform fee (10%)",
+  platformFee: "Platform fee ",
   totalToPay: "Total to pay",
   notEnoughBalance: "Insufficient balance. Please pay by card.",
   cancel: "Cancel",
-  feeNote: "Reward + 10% fee",
+  feeNote: "Reward + fee",
   publishedOk: "Task published successfully!",
   savedDraftOk: "Draft saved successfully.",
 };
@@ -352,6 +352,7 @@ export default function FormClient({
 
   // ბალანსი უკვე სერვერიდან /api/my/wallet-ით
   const [balance, setBalance] = React.useState<number>(0);
+const [commissionPct, setCommissionPct] = React.useState<number>(10);
 
   React.useEffect(() => {
     let alive = true;
@@ -370,6 +371,31 @@ export default function FormClient({
     loadBalance();
     return () => { alive = false; };
   }, []);
+React.useEffect(() => {
+  let alive = true;
+
+  async function loadMe() {
+    try {
+      const res = await fetch('/api/me', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!alive) return;
+      setCommissionPct(
+        typeof data?.commissionPct === 'number'
+          ? data.commissionPct
+          : 10,
+      );
+    } catch {
+      if (!alive) return;
+      setCommissionPct(10);
+    }
+  }
+
+  loadMe();
+  return () => {
+    alive = false;
+  };
+}, []);
 
   // ---- initial (prefilled) values ----
   const [title, setTitle]       = React.useState<string>(initialDraft?.title ?? "");
@@ -400,9 +426,12 @@ export default function FormClient({
   const [payOpen, setPayOpen] = React.useState(false);
   const [payErr, setPayErr] = React.useState<string | null>(null);
 
-  const rewardNum = Number(reward||0);
-  const fee = Math.max(0, Math.round(rewardNum * 0.10)); // 10% commission
-  const totalToPay = Math.max(0, rewardNum + fee);
+const rewardNum = Number(reward || 0);
+const fee = Math.max(
+  0,
+  Math.round((rewardNum * commissionPct) / 100),
+); // ინდივიდუალური საკომისიო (%)
+const totalToPay = Math.max(0, rewardNum + fee);
 
   const dueLabel = React.useMemo(()=>calcDueLabel(deadline||null, t),[deadline, t]);
 
@@ -1033,16 +1062,27 @@ export default function FormClient({
                 <div className="text-white/70">{t.reward}</div>
                 <div className="text-lg font-semibold">₾{Math.max(0, rewardNum)}</div>
               </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <div className="text-white/70">{t.platformFee}</div>
-                <div className="text-lg font-semibold">₾{fee}</div>
-              </div>
-            </div>
+             <div className="bg-white/5 rounded-lg p-3">
+  <div className="text-white/70">
+    {t.platformFee}{' '}
+    <span className="text-xs text-white/50">
+      ({commissionPct}%)
+    </span>
+  </div>
+  <div className="text-lg font-semibold">₾{fee}</div>
+</div>
 
-            <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
-              <div className="text-white/70">{t.totalToPay} <span className="text-xs">({t.feeNote})</span></div>
-              <div className="text-xl font-semibold">₾{totalToPay}</div>
             </div>
+<div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+  <div className="text-white/70">
+    {t.totalToPay}{' '}
+    <span className="text-xs">
+      ({t.feeNote} {commissionPct}%)
+    </span>
+  </div>
+  <div className="text-xl font-semibold">₾{totalToPay}</div>
+</div>
+
 
             <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
               <div className="text-white/70">{t.currentBalance}</div>
