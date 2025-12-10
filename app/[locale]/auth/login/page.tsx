@@ -116,9 +116,10 @@ export default function LoginPage({
   return (
    <div className="w-full max-w-md sm:max-w-lg mx-auto px-4 sm:px-8">
     <div className="card w-full rounded-2xl px-4 py-6 sm:px-8 sm:py-8">
-        <h1 className="text-center text-2xl sm:text-3xl md:text-4xl font-extrabold mb-3">
-          {m.auth.welcomeBack}
-        </h1>
+      <h1 className="text-center text-2xl sm:text-3xl md:text-4xl font-extrabold mb-3 break-words">
+        {m.auth.welcomeBack}
+      </h1>
+
         <p className="text-center text-white/70 mb-8 text-sm sm:text-base">
           {m.auth.loginSubtitle}
         </p>

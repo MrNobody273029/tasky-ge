@@ -59,6 +59,17 @@ body::before {
   max-width: 1280px;
   margin: 0 auto;
 }
+/* 手机 / პატარა ეკრანები – ნავბარისთვის სივრცეს აღარ ვიტოვებთ */
+@media (max-width: 768px) {
+  :root {
+    --navw: 0px;
+  }
+
+  .container-page {
+    padding-left: 1rem;   /* ≈ 16px */
+    padding-right: 1rem;
+  }
+}
 
 /* Glass card */
 .card {
