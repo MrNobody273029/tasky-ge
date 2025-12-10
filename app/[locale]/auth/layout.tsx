@@ -8,9 +8,12 @@ export default function AuthLayout({
   params: { locale: 'ka' | 'en' };
 }) {
   return (
-    <main className="container-page px-6 py-10">
+    <main className="min-h-screen flex items-center justify-center px-4 py-10">
       <AudioUnlock />
-      {children}
+      {/* აქ ვზღუდავთ სიგანეს, რომ კვადრატი არც ზედმეტად ფართო იყოს, არც ვიწრო */}
+      <div className="w-full max-w-md sm:max-w-lg md:max-w-xl">
+        {children}
+      </div>
     </main>
   );
 }
