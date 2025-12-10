@@ -178,7 +178,7 @@ export default async function Tasky({
       </h1>
 
       {/* Filters */}
-      <form method="get" className="card p-3 space-y-3 relative z-50">
+      <form method="get" className="card p-3 space-y-3 relative">
         {/* search – სულ ზედა, full-width */}
         <div>
           <input

@@ -1279,7 +1279,7 @@ body::before {
 
 .tasky-neon-dropdown {
   position: relative;
-  z-index: 9999;
+  z-index: 40;        /* 0-ზე მეტი, მაგრამ LeftNav-ზე ნაკლები */
   display: inline-block;
 }
 
@@ -1308,7 +1308,7 @@ body::before {
 
 /* drop panel – მეორე სკრინი */
 .tasky-neon-dropdown-menu {
-  z-index: 9999 !important;
+  z-index: 60;
   position: absolute;
   top: calc(100% + 10px);
   left: 50%;

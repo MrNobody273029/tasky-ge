@@ -174,7 +174,8 @@ const IconBtn = ({
 );
 
   return (
-    <div className="group/nav fixed left-3 top-1/2 -translate-y-1/2 z-40">
+    <div className="group/nav fixed left-3 top-1/2 -translate-y-1/2 z-[120]">
+
       {/* ჰამბურგერი – collapsed; hover-ზე იძლევა ხმას მხოლოდ unlock-ის შემდეგ */}
       <button
         aria-label="open-nav"
