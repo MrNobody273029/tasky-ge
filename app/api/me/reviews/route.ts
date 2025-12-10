@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureUserFromReq } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * აბრუნებს ყველა review-ს, სადაც შენ ხარ valued user,
  * დაჯგუფების ლოგიკა: client | worker

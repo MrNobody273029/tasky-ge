@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /** ამოიკითხოს viewer-ის userId: cookie → header → cookie(email)→DB lookup */
 async function resolveUserIdFromReq(req: Request): Promise<string | null> {
   // cookie: x-user-id (Next.js-ის cookies() სერვერზე უსაფრთხოა)

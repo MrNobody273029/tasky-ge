@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function getViewerId(): string | null {
   const id = cookies().get('x-user-id')?.value?.trim();
   return id && id.length > 0 ? id : null;
