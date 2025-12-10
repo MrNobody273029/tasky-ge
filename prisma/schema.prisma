@@ -47,8 +47,9 @@ model User {
   ratingClientAvg   Float  @default(0)
   ratingClientCount Int    @default(0)
 
-    // Admin flag
+  // Admin flag
   isAdmin Boolean @default(false)
+
   // 🆕 ინდივიდუალური საკომისიო (%); default = 10
   commissionPct Int @default(10)
 
