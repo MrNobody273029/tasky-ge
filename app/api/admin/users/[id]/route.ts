@@ -47,11 +47,15 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const me = await ensureUserFromReq(req);
-    if (!me || !me.isAdmin) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
-    }
+try {
+  const me = await ensureUserFromReq(req);
+
+  // isAdmin-ს any-ით ამოვიღებთ, რომ ტიპზე არ იწუწუნოს
+  const isAdmin = (me as any)?.isAdmin === true;
+
+  if (!me || !isAdmin) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
 
     const id = (params.id || "").trim();
     if (!id) {
