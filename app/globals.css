@@ -563,6 +563,36 @@ body::before {
     border-color 0.2s ease-out,
     transform 0.15s ease-out;
 }
+/* სპეციალური ghost ღილაკი მხოლოდ TopTabs მენიუზე –
+   idle-ზე აქვს მყარი შავი ფონი, გლიჩი అదే რჩება */
+.btn-hero-ghost.btn-topbar-solid {
+  background-color: #050313;              /* მუქი, ბექგრაუნდთან ახლო შავი */
+  /* სურვილის შემთხვევაში ოდნავ გამჭვირვალეც შეგიძლია:
+     background-color: rgba(5, 3, 19, 0.96); */
+
+  /* border / ტექსტის ფერი ისევ მემკვიდრდება btn-hero-ghost-იდან */
+}
+/* Logout ღილაკი მყარ წითელ ფონზე მხოლოდ TopTabs dropdown-ში */
+.btn-logout.btn-logout-solid {
+  background-color: #2b0509;              /* მუქი წითელი, ბექგრაუნდთან ახლო */
+  /* თუ გინდა ცოტა გამჭვირვალე: 
+     background-color: rgba(127, 29, 29, 0.95); */
+}
+/* Avatar dropdown – უფრო კომპაქტური ღილაკები */
+.btn-avatar-menu {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+
+/* დიდ ეკრანზე ოდნავ იყოფა */
+@media (min-width: 640px) {
+  .btn-avatar-menu {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    font-size: 0.875rem;
+  }
+}
 
 /* hover/focus-ზე – უბრალოდ თეთრი რგოლი და ოდნავი move */
 .photo-upload-circle:hover,
@@ -1308,7 +1338,7 @@ body::before {
 
 /* drop panel – მეორე სკრინი */
 .tasky-neon-dropdown-menu {
-  z-index: 60;
+  z-index: 60 !important;
   position: absolute;
   top: calc(100% + 10px);
   left: 50%;
@@ -1366,4 +1396,59 @@ body::before {
   text-shadow:
     0 0 6px rgba(0, 229, 255, 0.85),
     0 0 12px rgba(0, 229, 255, 0.7);
+}
+/* === TOPBAR შავი ღილაკები – გლიჩის გარეშე === */
+
+/* არააქტიური topbar tabs (შავი ფონით) */
+.btn-topbar-solid {
+  background-color: rgba(15, 23, 42, 0.96); /* მუქი ფონზე */
+  color: var(--g-primary-color);            /* იგივე ცისფერი ტექსტი */
+}
+
+/* hover/focus – ზუსტად როგორც აქტიური tab: ლურჯი ფონი + შავი ტექტსი */
+.btn-topbar-solid:hover,
+.btn-topbar-solid:focus-visible {
+  background-color: var(--g-primary-color); /* var(--cyan) */
+  color: #020617;
+  box-shadow: 0 0 1.5rem var(--g-primary-color);
+  transform: translateY(-1.5px);
+}
+
+/* ამ ღილაკებზე გლიჩის ფენები სრულად ვთიშოთ */
+.btn-topbar-solid::before,
+.btn-topbar-solid::after,
+.btn-topbar-solid:hover::before,
+.btn-topbar-solid:hover::after,
+.btn-topbar-solid:focus-visible::before,
+.btn-topbar-solid:focus-visible::after {
+  content: none !important;
+  animation: none !important;
+}
+
+
+/* === Logout ღილაკი – წითელი solid, გლიჩის გარეშე === */
+
+.btn-logout-solid {
+  background-color: rgba(127, 29, 29, 0.95); /* მუქი წითელი ფონზე */
+  color: #fecaca;                             /* ღია წითელი ტექსტი */
+}
+
+/* hover/focus – როგორც წითელი active ღილაკი */
+.btn-logout-solid:hover,
+.btn-logout-solid:focus-visible {
+  background-color: #f97373; /* იგივე რაც btn-logout-ის primary */
+  color: #020617;
+  box-shadow: 0 0 1.5rem rgba(248, 113, 113, 0.9);
+  transform: translateY(-1.5px);
+}
+
+/* logout-ზეც ვთიშოთ glitch overlay */
+.btn-logout-solid::before,
+.btn-logout-solid::after,
+.btn-logout-solid:hover::before,
+.btn-logout-solid:hover::after,
+.btn-logout-solid:focus-visible::before,
+.btn-logout-solid:focus-visible::after {
+  content: none !important;
+  animation: none !important;
 }

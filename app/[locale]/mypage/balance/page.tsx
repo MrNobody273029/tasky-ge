@@ -286,19 +286,13 @@ export default function Balance({
     <div className="space-y-6">
       {/* Header + actions */}
 
-<div className="flex items-center justify-between">
-  <h1 className="text-3xl font-bold">{t.title}</h1>
-  <div className="flex gap-2">
-    {/* Statements – ghost / secondary */}
-    <button
-      className="btn-hero-secondary text-sm"
-      data-text={t.statements}
-      type="button"
-    >
-      <span className="btn-text">{t.statements}</span>
-    </button>
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  {/* სათაური მარცხნივ */}
+  <h1 className="text-2xl sm:text-3xl font-bold">{t.title}</h1>
 
-    {/* Add payout method – ghost / secondary */}
+  {/* Actions – მობილურზე ქვევით, დესკტოპზე მარჯვნივ */}
+  <div className="flex flex-wrap gap-2">
+    {/* Add payout method – secondary */}
     <button
       className="btn-hero-secondary text-sm"
       data-text={t.addPayout}
@@ -307,7 +301,7 @@ export default function Balance({
       <span className="btn-text">{t.addPayout}</span>
     </button>
 
-    {/* Withdraw – მთავარი action, primary */}
+    {/* Withdraw – primary */}
     <button
       className="btn-hero-primary text-sm"
       data-text={t.withdraw}
@@ -317,6 +311,7 @@ export default function Balance({
     </button>
   </div>
 </div>
+
 
 
       {/* Loading / error პატარა შეტყობინება ზედა ნაწილში */}
@@ -355,49 +350,41 @@ export default function Balance({
 
       {/* Transactions */}
       <div className="card p-6">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="font-semibold">{t.tx}</div>
-          <div className="flex items-center gap-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={t.search}
-              className="px-3 py-2 rounded-lg bg-white/5 text-sm"
-            />
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="px-3 py-2 rounded-lg bg-white/5 text-sm"
-            >
-              <option value="ALL">{t.allTypes}</option>
-              <option value="Earning">{t.earning}</option>
-              <option value="PublishFee">{t.publishFee}</option>
-              <option value="Withdrawal">{t.withdrawal}</option>
-              <option value="Other">{t.other}</option>
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 rounded-lg bg-white/5 text-sm"
-            >
-              <option value="ALL">{t.anyStatus}</option>
-              <option value="Completed">{t.completed}</option>
-              <option value="Pending">{t.pendingS}</option>
-              <option value="OnHold">{t.onHoldS}</option>
-              <option value="Failed">{t.failed}</option>
-            </select>
 
-<button
-  onClick={() => downloadCSV('transactions.csv', rows)}
-  className="btn-hero-secondary text-sm"
-  data-text={t.export}
-  type="button"
->
-  <span className="btn-text">{t.export}</span>
-</button>
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div className="font-semibold">{t.tx}</div>
 
-          </div>
-        </div>
+  <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
+    <input
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+      placeholder={t.search}
+      className="px-3 py-2 rounded-lg bg-white/5 text-sm w-full sm:w-56"
+    />
+
+    <select
+      value={typeFilter}
+      onChange={(e) => setTypeFilter(e.target.value as any)}
+      className="px-3 py-2 rounded-lg bg-black border border-white/40 text-sm text-white w-full sm:w-48"
+    >
+      <option value="ALL">{t.allTypes}</option>
+      <option value="Earning">{t.earning}</option>
+      <option value="PublishFee">{t.publishFee}</option>
+      <option value="Withdrawal">{t.withdrawal}</option>
+      <option value="Other">{t.other}</option>
+    </select>
+
+    <button
+      onClick={() => downloadCSV('transactions.csv', rows)}
+      className="btn-hero-secondary text-sm w-full sm:w-auto justify-center"
+      data-text={t.export}
+      type="button"
+    >
+      <span className="btn-text">{t.export}</span>
+    </button>
+  </div>
+</div>
+
 
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-[880px] w-full text-sm">

@@ -107,43 +107,37 @@ function toCardInput(db: any): TaskCardInput {
   const inactiveTab = "btn-hero-ghost text-sm";
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">{t.title}</h1>
-        <div className="flex items-center gap-2">
-          {/* ↔️ მარცხნივ გამოქვეყნებული, მარჯვივ დრაფტები */}
 
+<div className="flex flex-col items-start gap-4">
+  <div className="flex flex-wrap gap-2">
+    <Link
+      href={`/${locale}/mypage/created?tab=published`}
+      className={tab === "published" ? activeTab : inactiveTab}
+      data-text={t.published}
+    >
+      <span className="btn-text">{t.published}</span>
+    </Link>
 
-<Link
-  href={`/${locale}/mypage/created?tab=published`}
-  className={tab === "published" ? activeTab : inactiveTab}
-  data-text={t.published}
->
-  <span className="btn-text">{t.published}</span>
-</Link>
+    <Link
+      href={`/${locale}/mypage/created?tab=drafts`}
+      className={tab === "drafts" ? activeTab : inactiveTab}
+      data-text={t.drafts}
+    >
+      <span className="btn-text">{t.drafts}</span>
+    </Link>
 
+    <Link
+      href={`/${locale}/mypage/created/new`}
+      className="btn-hero-secondary text-sm"
+      data-text={t.create}
+    >
+      <span className="btn-text">{t.create}</span>
+    </Link>
+  </div>
 
-<Link
-  href={`/${locale}/mypage/created?tab=drafts`}
-  className={tab === "drafts" ? activeTab : inactiveTab}
-  data-text={t.drafts}
->
-  <span className="btn-text">{t.drafts}</span>
-</Link>
+  <h1 className="text-3xl font-bold">{t.title}</h1>
+</div>
 
-
-
-<Link
-  href={`/${locale}/mypage/created/new`}
-  className="btn-hero-secondary text-sm"
-  data-text={t.create}
->
-  <span className="btn-text">{t.create}</span>
-</Link>
-
-
-
-        </div>
-      </div>
 
       {tasks.length === 0 ? (
         <div className="text-white/60">

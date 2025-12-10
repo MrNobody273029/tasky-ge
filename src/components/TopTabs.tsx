@@ -1,13 +1,20 @@
-// src/components/TopTabs.tsx
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import { LogOut } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import ka from '../../messages/ka.json';
 import en from '../../messages/en.json';
+
+/** მინიმალური Me type – ზუსტად რაც აქ გვჭირდება */
+type Me = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+};
 
 export default function TopTabs({
   base,
@@ -25,7 +32,10 @@ export default function TopTabs({
 
   /* ---------- Audio unlock + preload ---------- */
   const [canSound, setCanSound] = useState<boolean>(
-    !!(navigator as any).userActivation?.hasBeenActive
+    !!(
+      typeof navigator !== 'undefined' &&
+      (navigator as any).userActivation?.hasBeenActive
+    )
   );
   useEffect(() => {
     const unlock = () => setCanSound(true);
@@ -97,7 +107,6 @@ export default function TopTabs({
         for (const it of arr) {
           const id = String(it?.id || '');
           const status = String(it?.status || '');
-          // ვთვლით მხოლოდ PENDING მოთხოვნებს, რომლებზეც ჯერ „seen“ არ გვიდევს
           if (id && status === 'PENDING' && !isReqSeen(id)) {
             count++;
           }
@@ -113,13 +122,9 @@ export default function TopTabs({
       load().catch(() => {});
     };
 
-    // პირველად ჩატვირთვა
     refetch();
-
-    // პერიოდული პოლინგი
     const id = window.setInterval(refetch, 30000);
 
-    // ფოკუსზე და ჩვენი custom event-ზე გადატვირთვა
     window.addEventListener('focus', refetch);
     window.addEventListener('requests-updated', refetch as EventListener);
 
@@ -129,9 +134,9 @@ export default function TopTabs({
       window.removeEventListener('focus', refetch);
       window.removeEventListener('requests-updated', refetch as EventListener);
     };
-  }, [base]); // base იცვლება როცა locale ან root იცვლება
+  }, [base]);
 
-  /* ---------- Tabs ---------- */
+  /* ---------- Tabs list ---------- */
 
   const left = [
     {
@@ -158,100 +163,213 @@ export default function TopTabs({
     { key: 'settings', href: `${base}/settings`, label: m.mypage.tabs.settings },
   ];
 
-const renderLink = (it: { href: string; label: string; key: string }) => {
-  const hrefPath = it.href.split("?")[0];
-  const active = p.startsWith(hrefPath);
-  const label = it.label;
+  const renderMenuLink = (it: { href: string; label: string; key: string }) => {
+    const hrefPath = it.href.split('?')[0];
+    const active = p.startsWith(hrefPath);
+    const label = it.label;
 
+    const badge =
+      it.key === 'requests' && reqCount > 0 ? (
+        <span
+          className="
+            ml-1 min-w-[18px] h-[18px] px-1
+            rounded-full bg-red-500 text-white text-[11px] leading-[18px]
+            text-center font-bold
+          "
+        >
+          {reqCount > 99 ? '99+' : reqCount}
+        </span>
+      ) : null;
 
-  if (active) {
-  // აქტიური ტაბი – შევსებული, გლიჩის გარეშე
+if (active) {
   return (
     <Link
       key={it.href}
       href={it.href}
       onClick={playTab}
-      className="btn-tab-active text-sm"
+      className="btn-tab-active btn-avatar-menu text-sm w-full justify-center"
     >
-      <span className="inline-flex items-center gap-1">
-        <span>{label}</span>
-        {it.key === "requests" && reqCount > 0 && (
-          <span
-            className="
-              ml-1 min-w-[18px] h-[18px] px-1
-              rounded-full bg-red-500 text-white text-[11px] leading-[18px]
-              text-center font-bold
-            "
-          >
-            {reqCount > 99 ? "99+" : reqCount}
+          <span className="inline-flex items-center gap-1">
+            <span>{label}</span>
+            {badge}
           </span>
-        )}
-      </span>
-    </Link>
-  );
-}
+        </Link>
+      );
+    }
 
+return (
+  <Link
+    key={it.href}
+    href={it.href}
+    onClick={playTab}
+    className="btn-hero-ghost btn-topbar-solid btn-avatar-menu text-sm w-full justify-center"
+    data-text={label}
+  >
+        <span className="btn-text inline-flex items-center gap-1">
+          <span>{label}</span>
+          {badge}
+        </span>
+      </Link>
+    );
 
-  // არააქტიური ტაბი – იგივე, მაგრამ btn-hero-ghost-ით
-  return (
-    <Link
-      key={it.href}
-      href={it.href}
-      onClick={playTab}
-      className="btn-hero-ghost text-sm"
-      data-text={label}                      // <<< გლიჩის ტექსტი
-    >
-      <span className="btn-text inline-flex items-center gap-1">
-        <span>{label}</span>
-        {it.key === "requests" && reqCount > 0 && (
-          <span
-            className="
-              ml-1 min-w-[18px] h-[18px] px-1
-              rounded-full bg-red-500 text-white text-[11px] leading-[18px]
-              text-center font-bold
-            "
-          >
-            {reqCount > 99 ? "99+" : reqCount}
-          </span>
-        )}
-      </span>
-    </Link>
-  );
-};
+  };
 
+  /* ---------- Avatar dropdown ---------- */
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // 🔹 ეს effect ზუსტად SettingsPage-ის ლოგიკით გვაძლევს ჩემს User-ს
+  const [me, setMe] = useState<Me | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/me', { cache: 'no-store' })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('fetch_failed');
+        return (await r.json()) as Me;
+      })
+      .then((u) => {
+        if (!alive) return;
+        setMe({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          image: u.image,
+        });
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMe(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   const confirmText =
-    locale === 'ka' ? 'ნამდვილად გსურს გამოსვლა?' : 'Are you sure you want to log out?';
+    locale === 'ka'
+      ? 'ნამდვილად გსურს გამოსვლა?'
+      : 'Are you sure you want to log out?';
 
   const onLogoutClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const ok = window.confirm(confirmText);
     if (!ok) return;
     playLogout();
-    // მცირე დაყოვნება, რომ ხმა დაიწყოს და მერე წავიდეს redirect
     setTimeout(() => router.push(`${base}/logout`), 120);
   };
 
+  const titleText =
+    m?.mypage?.title ?? (locale === 'ka' ? 'ჩემი გვერდი' : 'My page');
+
+  const displayName =
+    me?.name || (me?.email ? me.email.split('@')[0] : 'User');
+
   return (
-    <div className="sticky top-4 z-30 pl-[var(--nav-offset,0px)]">
-      <div className="card px-4 py-2 flex items-center gap-4">
-        {left.map(renderLink)}
-        <div className="ml-auto" />
-        {/* Logout */}
-<Link
-  href={`${base}/logout`}
-  onClick={onLogoutClick}
-  className="btn-logout"
->
-  <span className="inline-flex items-center gap-2">
-    <LogOut className="w-4 h-4" />
-    {logoutLabel}
-  </span>
-</Link>
+    <div className="sticky top-2 z-30 px-2 sm:px-0 sm:pl-[var(--nav-offset,0px)]">
+      <div className="card px-3 sm:px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+        {/* პატარა სათაური მარცხნივ (ოპციური) */}
+        <div className="text-sm sm:text-base font-semibold text-white/80">
+          {titleText}
+        </div>
 
+        {/* Avatar + dropdown */}
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className={clsx(
+              'flex items-center gap-2 rounded-full border border-white/20',
+              'bg-black/70 px-2 py-1',
+              'hover:border-cyan-400 hover:shadow-neon',
+              'transition-colors transition-shadow'
+            )}
+          >
+            <span
+              className={clsx(
+                'inline-flex items-center justify-center',
+                'w-9 h-9 rounded-full overflow-hidden ring-1 ring-white/15 bg-black/60'
+              )}
+            >
+              {me?.image ? (
+                <img
+                  src={me.image}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <UserIcon className="w-5 h-5 text-white/80" />
+              )}
+            </span>
+            <span className="hidden sm:block text-sm font-medium text-white/90 max-w-[120px] truncate">
+              {displayName}
+            </span>
+          </button>
 
+{menuOpen && (
+  <div
+    className="
+      absolute right-1 sm:right-0 mt-2
+      w-[min(14rem,calc(100vw-3rem))]  /* მობილურზე უფრო ვიწრო */
+      sm:w-64                           /* დიდ ეკრანზე 16rem≈256px */
+      z-40
+    "
+  >
+    <div
+      className="
+        card
+        p-2.5 sm:p-3
+        flex flex-col
+        gap-1.5
+        max-h-[70vh] overflow-y-auto    /* თუ ბევრი აითემია – შიდა scroll */
+        shadow-neon
+      "
+    >
+
+                {/* Tabs როგორც vertical menu */}
+
+                {left.map((it) => (
+                  <div key={it.href}>{renderMenuLink(it)}</div>
+                ))}
+
+                {/* Logout – ქვედა ნაწილი */}
+                <div className="pt-2 mt-2 border-top border-white/10" />
+                <div className="pt-1">
+                  <Link
+                    href={`${base}/logout`}
+                    onClick={onLogoutClick}
+                    className="btn-logout btn-logout-solid w-full justify-center"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <LogOut className="w-4 h-4" />
+                      {logoutLabel}
+                    </span>
+                  </Link>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -205,8 +205,8 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
           </div>
         </div>
 
-        {/* Bottom row: status badge + CTA */}
-        <div className="mt-auto pt-3 flex items-center justify-between gap-3">
+        {/* Bottom row: status badge + CTA (mobile-friendly) */}
+        <div className="mt-auto pt-3 flex flex-wrap items-center gap-3">
           {statusBadge && (
             <div
               className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold ring-1 ${badgeCls}`}
@@ -218,34 +218,28 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
           {isDraft ? (
             <Link
               href={ctaHref}
-              className="ml-auto btn-hero-secondary text-sm"
-              data-text={ctaText}              // <<< გლიჩის ტექსტი
+              className="ml-auto btn-hero-secondary text-sm w-full sm:w-auto"
+              data-text={ctaText}
             >
-              <span className="btn-text">{ctaText}</span>
+              <span className="btn-text w-full text-center">{ctaText}</span>
             </Link>
-      
-                ) : (
+          ) : (
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (onOpenTask) {
-                  onOpenTask(task.id);      // 🆕 ადმინისთვის
-                } else {
-                  openTaskModal(task.id);   // 🧊 ჩვეულებრივი იუზერები – ძველი ქცევა
-                }
+                if (onOpenTask) onOpenTask(task.id);
+                else openTaskModal(task.id);
               }}
-              className="ml-auto btn-hero-secondary text-sm"
+              className="ml-auto btn-hero-secondary text-sm w-full sm:w-auto"
               data-text={ctaText}
             >
-              <span className="btn-text">{ctaText}</span>
+              <span className="btn-text w-full text-center">{ctaText}</span>
             </button>
           )}
-
-
-
         </div>
+
 
       </div>
     </div>
