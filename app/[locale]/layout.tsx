@@ -1,4 +1,7 @@
 // app/[locale]/layout.tsx
+'use client';
+
+import { usePathname } from 'next/navigation';
 import LeftNav from '@/components/LeftNav';
 import TaskModalHost from '@/components/task/TaskModalHost';
 import AudioUnlock from '@/components/AudioUnlock';
@@ -11,9 +14,24 @@ export default function LocaleLayout({
   children: React.ReactNode;
   params: { locale: 'ka' | 'en' };
 }) {
+  const pathname = usePathname();
+
+  // ვამოწმებთ: auth გვერდია? (/ka/auth/... ან /en/auth/...)
+  const isAuthRoute = pathname?.startsWith(`/${locale}/auth`);
+
+  // ✅ auth გვერდებზე:
+  //  - არ გვინდა LeftNav
+  //  - არ გვინდა container-page
+  //  - არც FloatingChatButton / TaskModalHost
+  //  - AudioUnlock-ს უკვე თვითონ auth/layout აკეთებს
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
+
+  // ✅ დანარჩენი ყველა გვერდი – ძველი layout
   return (
     <>
-      {/* 🔊 აუდიოს განბლოკავი — პირველივე ინტერაქციაზე გაათავისუფლებს ხმას */}
+      {/* 🔊 აუდიოს განბლოკავი */}
       <AudioUnlock />
 
       <LeftNav locale={locale} />

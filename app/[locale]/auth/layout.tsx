@@ -10,8 +10,8 @@ export default function AuthLayout({
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-10">
       <AudioUnlock />
-      {/* აქ ვზღუდავთ სიგანეს, რომ კვადრატი არც ზედმეტად ფართო იყოს, არც ვიწრო */}
-      <div className="w-full max-w-md sm:max-w-lg md:max-w-xl">
+      {/* auth გვერდების კონტეინერი */}
+      <div className="w-full max-w-md sm:max-w-lg">
         {children}
       </div>
     </main>
