@@ -193,6 +193,9 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
 
   return (
     <>
+      {/* MOBILE spacer – ზემოთ ვტოვებთ ცარიელ სივრცეს, სადაც ნავბარი ჩაჯდება */}
+      <div className="md:hidden h-20" aria-hidden="true" />
+
       {/* DESKTOP – მარცხენა ვერტიკალური ნავბარი */}
       <div className="hidden md:block fixed left-3 top-1/2 -translate-y-1/2 z-[120]">
         <div className="card px-2 py-3 w-16 rounded-[22px] flex flex-col items-center gap-2">
@@ -238,4 +241,5 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
       </div>
     </>
   );
+
 }

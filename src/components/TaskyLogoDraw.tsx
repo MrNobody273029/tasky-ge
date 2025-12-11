@@ -130,7 +130,7 @@ export default function TaskyLogoDraw({
 
     let last = performance.now();
     const baseDegPerSec = 360 / spinSpeedSec;
-    const EXPLODE_AFTER = 5.0;
+    const EXPLODE_AFTER = 3.0;
 
     const tick = () => {
       const now = performance.now();
