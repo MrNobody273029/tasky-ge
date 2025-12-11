@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Menu, Home, ListChecks, User, Globe, LogIn } from 'lucide-react';
+import { Home, ListChecks, User, Globe, LogIn } from 'lucide-react';
 
 export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
   const pathname = usePathname();
@@ -14,7 +14,6 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
   const [authed, setAuthed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // რბილი ქუქჰელფერი (httpOnly-ს ვერ წაიკითხავს და ესეც ठीकაა)
   const hasCookie = (name: string) => {
     try {
       return document.cookie
@@ -28,29 +27,25 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
     }
   };
 
-  // ერთიანი შემმოწმებელი — LS ან ქუქი რომ იგრძნოს
-const checkAuth = useCallback(() => {
-  try {
-    const logged =
-      !!localStorage.getItem('auth') ||
-      !!localStorage.getItem('token') ||
-      !!localStorage.getItem('uid') ||
-      hasCookie('x-user-id') ||
-      hasCookie('uid');
+  const checkAuth = useCallback(() => {
+    try {
+      const logged =
+        !!localStorage.getItem('auth') ||
+        !!localStorage.getItem('token') ||
+        !!localStorage.getItem('uid') ||
+        hasCookie('x-user-id') ||
+        hasCookie('uid');
 
-    const adminFlag = !!localStorage.getItem('isAdmin');
+      const adminFlag = !!localStorage.getItem('isAdmin');
 
-    setAuthed(logged);
-    setIsAdmin(adminFlag);
-  } catch {
-    setAuthed(false);
-    setIsAdmin(false);
-  }
-}, []);
+      setAuthed(logged);
+      setIsAdmin(adminFlag);
+    } catch {
+      setAuthed(false);
+      setIsAdmin(false);
+    }
+  }, []);
 
-
-
-  // listeners: storage/focus/visibility + custom 'auth-change'
   useEffect(() => {
     checkAuth();
     window.addEventListener('storage', checkAuth);
@@ -66,7 +61,6 @@ const checkAuth = useCallback(() => {
     };
   }, [checkAuth]);
 
-  // გზის შეცვლაზეც ერთხელ ჩავხედოთ
   useEffect(() => {
     checkAuth();
   }, [pathname, checkAuth]);
@@ -107,11 +101,9 @@ const checkAuth = useCallback(() => {
     if (!a || !canSound) return;
     try {
       a.currentTime = 0;
-      a.play()?.catch((e) =>
-        console.warn('Audio play blocked:', e?.name || e, e?.message || '')
-      );
-    } catch (e) {
-      console.warn('Audio play error:', e);
+      a.play()?.catch(() => {});
+    } catch {
+      /* ignore */
     }
   };
 
@@ -119,7 +111,8 @@ const checkAuth = useCallback(() => {
   const playNav   = () => playSafe(navRef.current);
 
   /* ---------- Routing helpers ---------- */
-  const normalize = (p: string) => (p !== '/' && p.endsWith('/') ? p.slice(0, -1) : p);
+  const normalize = (p: string) =>
+    p !== '/' && p.endsWith('/') ? p.slice(0, -1) : p;
   const path = normalize(pathname);
   const base = `/${locale}`;
   const isActive = (href: string) => {
@@ -131,6 +124,26 @@ const checkAuth = useCallback(() => {
   const other = locale === 'ka' ? 'en' : 'ka';
   const switchLocaleHref =
     pathname.replace(/^\/(ka|en)(?=\/|$)/, `/${other}`) || `/${other}`;
+
+  /* ---------- Tooltip text (single language per locale) ---------- */
+  const tooltipTexts =
+    locale === 'ka'
+      ? {
+          home:   'მთავარი გვერდი',
+          tasky:  'ტასკები',
+          login:  'შესვლა',
+          mypage: 'ჩემი გვერდი',
+          admin:  'ადმინის პანელი',
+          lang:   other === 'ka' ? 'ქართული' : 'ინგლისური',
+        }
+      : {
+          home:   'Home Page',
+          tasky:  'Tasks',
+          login:  'Log in',
+          mypage: 'My Page',
+          admin:  'Admin Panel',
+          lang:   other === 'ka' ? 'Georgian' : 'English',
+        };
 
   /* ---------- Nav items ---------- */
   const profileOrLogin = authed
@@ -146,82 +159,83 @@ const checkAuth = useCallback(() => {
       };
 
   const links = [
-    { href: `/${locale}`,        icon: Home,       key: 'home'  },
-    { href: `/${locale}/tasky`,  icon: ListChecks, key: 'tasky' },
+    { href: `/${locale}`,       icon: Home,       key: 'home'  },
+    { href: `/${locale}/tasky`, icon: ListChecks, key: 'tasky' },
     profileOrLogin,
   ];
 
-const IconBtn = ({
-  href,
-  Icon,
-  active,
-}: {
-  href: string;
-  Icon: any;
-  active: boolean;
-}) => (
-  <Link
-    href={href}
-    onClick={playNav}
-    className={clsx(
-      'leftnav-item',
-      active ? 'leftnav-item--active' : 'leftnav-item--idle'
-    )}
-    aria-label="nav-item"
-  >
-    <Icon className="w-5 h-5 leftnav-icon" />
-  </Link>
-);
+  /* ---------- Icon button ---------- */
+  const IconBtn = ({
+    href,
+    Icon,
+    active,
+    tooltip,
+  }: {
+    href: string;
+    Icon: any;
+    active: boolean;
+    tooltip: string;
+  }) => (
+    <Link
+      href={href}
+      onClick={playNav}
+      onMouseEnter={playHover}
+      className={clsx(
+        'leftnav-item',
+        active ? 'leftnav-item--active' : 'leftnav-item--idle'
+      )}
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      <Icon className="w-5 h-5 leftnav-icon" />
+    </Link>
+  );
 
   return (
-    <div className="group/nav fixed left-3 top-1/2 -translate-y-1/2 z-[120]">
-
-      {/* ჰამბურგერი – collapsed; hover-ზე იძლევა ხმას მხოლოდ unlock-ის შემდეგ */}
-<button
-  aria-label="open-nav"
-  onPointerDown={playHover}
-  onMouseEnter={playHover}
-  className="
-    relative z-10 flex items-center justify-center
-    w-12 h-12
-    rounded-2xl
-    bg-slate-950              /* მუქი, 0 გამჭვირვალობა */
-    text-white                /* Menu აიკონის ხაზები იქნება თეთრი */
-    border border-cyan-400    /* ცისფერი ჩარჩო */
-    shadow-neon
-    transition-opacity duration-500 ease-out
-    group-hover/nav:opacity-0 group-hover/nav:pointer-events-none
-  "
->
-  <Menu className="w-6 h-6" />
-</button>
-
-
-
-      {/* ნავბარი – hover-ზე ჩნდება უფრო ნელა */}
-      <aside
-        className="absolute left-0 top-1/2 -translate-y-1/2
-                   opacity-0 pointer-events-none -translate-x-2
-                   group-hover/nav:opacity-100 group-hover/nav:pointer-events-auto group-hover/nav:translate-x-0
-                   transition-all duration-500 ease-out"
-      >
+    <>
+      {/* DESKTOP – მარცხენა ვერტიკალური ნავბარი */}
+      <div className="hidden md:block fixed left-3 top-1/2 -translate-y-1/2 z-[120]">
         <div className="card px-2 py-3 w-16 rounded-[22px] flex flex-col items-center gap-2">
           {links.map(({ href, icon: Icon, key }) => (
-            <IconBtn key={key} href={href} Icon={Icon} active={isActive(href)} />
+            <IconBtn
+              key={key}
+              href={href}
+              Icon={Icon}
+              active={isActive(href)}
+              tooltip={(tooltipTexts as any)[key]}
+            />
           ))}
 
-          {/* ენის გადამრთველი */}
-          <Link
+          <IconBtn
             href={switchLocaleHref}
-            onClick={playNav}
-            className="leftnav-item leftnav-item--idle"
-            aria-label="language-switch"
-          >
-            <Globe className="w-5 h-5 leftnav-icon" />
-          </Link>
-
+            Icon={Globe}
+            active={false}
+            tooltip={tooltipTexts.lang}
+          />
         </div>
-      </aside>
-    </div>
+      </div>
+
+      {/* MOBILE – ზედა ჰორიზონტალური ნავბარი */}
+      <div className="md:hidden fixed top-3 left-1/2 -translate-x-1/2 z-[120]">
+        <div className="card px-3 py-2 rounded-2xl flex items-center gap-2">
+          {links.map(({ href, icon: Icon, key }) => (
+            <IconBtn
+              key={key}
+              href={href}
+              Icon={Icon}
+              active={isActive(href)}
+              tooltip={(tooltipTexts as any)[key]}
+            />
+          ))}
+
+          <IconBtn
+            href={switchLocaleHref}
+            Icon={Globe}
+            active={false}
+            tooltip={tooltipTexts.lang}
+          />
+        </div>
+      </div>
+    </>
   );
 }

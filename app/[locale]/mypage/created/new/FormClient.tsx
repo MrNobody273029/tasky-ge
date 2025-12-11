@@ -421,6 +421,7 @@ React.useEffect(() => {
   const [saving, setSaving] = React.useState<"idle"|"draft"|"publish">("idle");
   const [errorMsg, setErrorMsg] = React.useState<string|null>(null);
   const [uploadingPhotos, setUploadingPhotos] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
 
   // payment modal state
   const [payOpen, setPayOpen] = React.useState(false);
@@ -449,6 +450,9 @@ const totalToPay = Math.max(0, rewardNum + fee);
   async function uploadAllTaskPhotos(files: File[]): Promise<string[]> {
     if (!files?.length) return [];
 
+    // 0%-დან დავიწყოთ
+    setUploadProgress(0);
+
     // მოვითხოვოთ სერვერიდან ხელმოწერა + cloud info
     const signRes = await fetch("/api/upload/sign", {
       method: "POST",
@@ -461,7 +465,6 @@ const totalToPay = Math.max(0, rewardNum + fee);
     }
     const raw = await signRes.json();
 
-    // მხარს ვუჭერთ ორივე ფორმატს (nested თუ flat)
     const signature = raw.signature;
     const timestamp = raw.timestamp;
     const folder    = raw.folder;
@@ -474,6 +477,9 @@ const totalToPay = Math.max(0, rewardNum + fee);
 
     const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
 
+    let completed = 0;
+    const total = files.length;
+
     const uploads = files.map(async (file) => {
       const fd = new FormData();
       fd.append("file", file);
@@ -485,11 +491,18 @@ const totalToPay = Math.max(0, rewardNum + fee);
       const r = await fetch(endpoint, { method: "POST", body: fd });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error?.message || "Upload failed");
+
+      // ერთი ფოტოს წარმატებით დასრულების მერე ვანახლებთ progress-ს
+      completed += 1;
+      const pct = Math.round((completed / total) * 100);
+      setUploadProgress(pct);
+
       return j.secure_url as string;
     });
 
     return Promise.all(uploads);
   }
+
 
 
     function removeFile(idx:number){
@@ -510,24 +523,36 @@ const totalToPay = Math.max(0, rewardNum + fee);
   const optionStyle = { backgroundColor:"#000", color:"#fff" } as const;
 
   async function saveTask(status: "draft" | "published") {
-
     try {
       setErrorMsg(null);
       setSaving(status === "draft" ? "draft" : "publish");
 
-      // 1) ფოტოების ატვირთვა (თუ არის არჩეული)
-      setUploadingPhotos(true);
-      const newPhotoUrls = await uploadAllTaskPhotos(files).catch((e) => {
-        throw new Error(e?.message || "Photo upload failed");
-      });
-      setUploadingPhotos(false);
+      let newPhotoUrls: string[] = [];
 
-      // 2) დავტოვოთ უკვე არსებული + ახალთან ერთად
+      // 1) ფოტოების ატვირთვა (თუ არის არჩეული)
+      if (files.length > 0) {
+        setUploadingPhotos(true);
+        setUploadProgress(0);
+
+        newPhotoUrls = await uploadAllTaskPhotos(files).catch((e) => {
+          throw new Error(e?.message || "Photo upload failed");
+        });
+
+        // წარმატებით დასრულების შემდეგ
+        setUploadingPhotos(false);
+        setUploadProgress(null);
+      }
+
+      // 2) უკვე არსებული + ახალი ფოტოები ერთად
       const allPhotos = [...existingPhotos, ...newPhotoUrls];
 
-      // 3) შევკრიბოთ payload (დანარჩენი ლოგიკა უცვლელია)
+      // 3) payload
       const payload = {
-        locale, title, desc, category, skill,
+        locale,
+        title,
+        desc,
+        category,
+        skill,
         reward: Number(reward),
         deadline: deadline ? new Date(deadline).toISOString() : null,
         where,
@@ -541,7 +566,6 @@ const totalToPay = Math.max(0, rewardNum + fee);
       let id = "";
 
       if (draftId) {
-        // update existing draft (or publish it)
         const res = await fetch(`/api/tasks/${draftId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -553,7 +577,6 @@ const totalToPay = Math.max(0, rewardNum + fee);
         }
         id = draftId;
       } else {
-        // create new task
         const res = await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -569,18 +592,22 @@ const totalToPay = Math.max(0, rewardNum + fee);
 
       alert(status === "draft" ? t.savedDraftOk : t.publishedOk);
 
-      // saveTask-ის ბოლოში — არსებულ ლოგიკას არ ვცვლი
       if (status === "draft") {
         router.push(`/${locale}/mypage/created?tab=drafts`);
       } else {
-        try { localStorage.setItem("tasky.openTask", id); } catch {}
+        try {
+          localStorage.setItem("tasky.openTask", id);
+        } catch {}
         router.push(`/${locale}?task=${id}`);
       }
     } catch (err: any) {
+      setUploadingPhotos(false);
+      setUploadProgress(null);
       setErrorMsg(err?.message || "Something went wrong");
       setSaving("idle");
     }
   }
+
 
   // ----- Payment actions -----
   function openPayModal(){
@@ -994,11 +1021,34 @@ return (
 
           </div>
 
-          {uploadingPhotos && (
-            <div className="text-white/60 text-sm mt-2">
-              {locale === "ka" ? "იტვირთება ფოტოები…" : "Uploading photos…"}
+       {/* ===== Upload progress overlay ===== */}
+      {uploadingPhotos && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          {/* dark blur background */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+          {/* center card */}
+          <div className="relative card px-6 py-5 w-[min(420px,92vw)] space-y-4 text-center">
+            <div className="text-sm text-white/70">
+              {locale === "ka"
+                ? "მიმდინარეობს ფოტოების ატვირთვა"
+                : "Uploading photos"}
             </div>
-          )}
+
+            <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden shadow-[0_0_20px_rgba(34,211,238,0.4)]">
+  <div
+    className="h-full bg-[#00e5ff] shadow-[0_0_20px_rgba(0,229,255,0.9)] transition-[width] duration-200 ease-out"
+    style={{ width: `${uploadProgress ?? 0}%` }}
+              />
+            </div>
+
+            <div className="text-xs text-white/60">
+              {uploadProgress ?? 0}% 
+            </div>
+          </div>
+        </div>
+      )}
+
         </form>
 
         {/* RIGHT: live preview */}
