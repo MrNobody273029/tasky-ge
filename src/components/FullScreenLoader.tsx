@@ -28,7 +28,7 @@ export default function FullScreenLoader() {
     <div className="full-loader-bg">
       <div className="full-loader-content">
         <img src="/full-load.png" className="full-loader-logo" />
-        <div className="full-loader-text">Tasky.ge</div>
+        <div className="full-loader-text">Tasky</div>
       </div>
     </div>
   );

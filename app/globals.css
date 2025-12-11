@@ -1481,10 +1481,11 @@ body::before {
 }
 
 .full-loader-text {
-  font-size: 20px;
+  font-size: 30px;
   color: white;
   opacity: 0.8;
   letter-spacing: 1px;
+  font-weight: 700;
 }
 
 /* Logo pop animation */
