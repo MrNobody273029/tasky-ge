@@ -627,12 +627,10 @@ body::before {
   inset: 0;
   z-index: 9999;
 
-  /* ცოტა გამჭვირვალე overlay */
-  background: rgba(0, 8, 19, 0.8);
-
-  /* მსუბუქი blur – თუ ძალიან გინდა, შეგიძლია საერთოდაც ამოიღო */
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  /* ❌ შავი/blur overlay აღარ გვინდა – ბექგრაუნდს cyberbg_* აკეთებს */
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 
   display: flex;
   align-items: center;
@@ -640,6 +638,8 @@ body::before {
 
   color: #00fff2;
 }
+
+
 
 .loader-container {
   display: flex;

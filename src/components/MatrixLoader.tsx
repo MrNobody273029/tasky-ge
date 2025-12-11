@@ -1,122 +1,40 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export default function MatrixLoader() {
-  const matrixRef = useRef<HTMLDivElement | null>(null);
-  const progressRef = useRef<HTMLDivElement | null>(null);
+  const [srcBust, setSrcBust] = useState('');
 
+  // ყოველი mount-ზე ახალი query => SVG თავიდან ჩაიტვირთოს და თავიდან დახატოს
   useEffect(() => {
-    console.log('🔥 MATRIX LOADER MOUNTED');
-  }, []);
-
-  useEffect(() => {
-    const matrixEl = matrixRef.current;
-    if (!matrixEl) return;
-
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
-    const columns: HTMLDivElement[] = [];
-
-    for (let i = 0; i < 50; i++) {
-      const column = document.createElement('div');
-      column.className = 'matrix-column';
-      column.style.left = `${i * 20}px`;
-      column.style.animationDuration = `${Math.random() * 2 + 1}s`;
-
-      let content = '';
-      for (let j = 0; j < 50; j++) {
-        content +=
-          characters[Math.floor(Math.random() * characters.length)] + '\n';
-      }
-      column.innerText = content;
-      matrixEl.appendChild(column);
-      columns.push(column);
-    }
-
-    let dotIndex = 0;
-    const dots = ['', '.', '..', '...'];
-    const interval = setInterval(() => {
-      if (!progressRef.current) return;
-      progressRef.current.textContent =
-        'QUANTUM CORE INITIALIZATION' + dots[dotIndex];
-      dotIndex = (dotIndex + 1) % dots.length;
-    }, 500);
-
-    return () => {
-      clearInterval(interval);
-      columns.forEach((c) => c.remove());
-    };
+    setSrcBust(`/loader.svg?t=${Date.now()}`);
   }, []);
 
   return (
-    <div className="loader-screen">
-      <div className="loader-container">
-        <div className="matrix-bg" ref={matrixRef} />
-        <div className="hexagon-container">
-          <div className="hexagon" />
-        </div>
-        <div className="hologram" />
+    <div className="loader-screen fixed inset-0 z-[2147483647] flex items-center justify-center">
+      {/* 👉 იგივე ბექგრაუნდი, რაც CyberBG-ում გაქვს */}
+      <div className="absolute inset-0 cyberbg_vignette" />
+      <div className="absolute inset-0 cyberbg_grid" />
 
-        <div className="loader-wrapper">
-          <div
-            className="data-stream"
-            style={{ left: '-100px', animationDelay: '0s' }}
-          />
-          <div
-            className="data-stream"
-            style={{ left: '100px', animationDelay: '1s' }}
-          />
-          <div
-            className="data-stream"
-            style={{ right: '-100px', animationDelay: '0.5s' }}
-          />
-
-          <div className="status-text status-left">
-            {'> INITIALIZING SYSTEMS'}
-            <br />
-            {'> SCANNING NETWORK'}
-            <br />
-            {'> ANALYZING DATA'}
-            <br />
-            {'> QUANTUM SYNC: ACTIVE'}
-          </div>
-
-          <div className="status-text status-right">
-            STATUS: PROCESSING
-            <br />
-            BUFFER: 87%
-            <br />
-            UPLINK: STABLE
-            <br />
-            SECURITY: ENCRYPTED
-          </div>
-
-          <div className="scanner" />
-
-          <svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 100 100"
-            style={{ transform: 'rotate(-90deg)' }}
-          >
-            <circle className="circle outer" cx="50" cy="50" r="45" />
-            <circle className="circle middle" cx="50" cy="50" r="35" />
-            <circle className="circle inner" cx="50" cy="50" r="25" />
-            <path
-              className="circle outer"
-              d="M10,50 L90,50"
-              style={{ opacity: 0.3 }}
+      {/* content ფენა – ლოგო ცენტრში */}
+      <div className="relative flex items-center justify-center">
+        <div
+          className="loader-wrapper flex items-center justify-center"
+          style={{
+            border: 'none',
+            animation: 'none',        // ძველი სპინერი გამორთული
+            width: 'min(70vw, 360px)', // 🔥 აქედან იზრდება ზომა
+            height: 'min(70vw, 360px)',
+            borderRadius: 0,
+          }}
+        >
+          {srcBust && (
+            <img
+              src={srcBust}
+              alt="Tasky loading"
+              className="w-full h-full" // ავსებს wrapper-ს
             />
-            <path
-              className="circle outer"
-              d="M50,10 L50,90"
-              style={{ opacity: 0.3 }}
-            />
-          </svg>
-
-          <div className="progress-text" ref={progressRef}>
-            QUANTUM CORE INITIALIZATION...
-          </div>
+          )}
         </div>
       </div>
     </div>
