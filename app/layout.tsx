@@ -9,7 +9,12 @@ export const metadata: Metadata = {
   description: 'Find tasks. Do the work. Get paid.',
   manifest: '/manifest.webmanifest',
   themeColor: '#020617',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 };
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
