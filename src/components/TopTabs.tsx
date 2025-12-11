@@ -163,62 +163,72 @@ export default function TopTabs({
     { key: 'settings', href: `${base}/settings`, label: m.mypage.tabs.settings },
   ];
 
-  const renderMenuLink = (it: { href: string; label: string; key: string }) => {
-    const hrefPath = it.href.split('?')[0];
-    const active = p.startsWith(hrefPath);
-    const label = it.label;
+const renderMenuLink = (it: { href: string; label: string; key: string }) => {
+  const hrefPath = it.href.split('?')[0];
+  const active = p.startsWith(hrefPath);
+  const label = it.label;
 
-    const badge =
-      it.key === 'requests' && reqCount > 0 ? (
-        <span
-          className="
-            ml-1 min-w-[18px] h-[18px] px-1
-            rounded-full bg-red-500 text-white text-[11px] leading-[18px]
-            text-center font-bold
-          "
-        >
-          {reqCount > 99 ? '99+' : reqCount}
-        </span>
-      ) : null;
+  const badge =
+    it.key === 'requests' && reqCount > 0 ? (
+      <span
+        className="
+          ml-1 min-w-[18px] h-[18px] px-1
+          rounded-full bg-red-500 text-white text-[11px] leading-[18px]
+          text-center font-bold
+        "
+      >
+        {reqCount > 99 ? '99+' : reqCount}
+      </span>
+    ) : null;
 
-if (active) {
-  return (
-    <Link
-      key={it.href}
-      href={it.href}
-      onClick={playTab}
-      className="btn-tab-active btn-avatar-menu text-sm w-full justify-center"
-    >
-          <span className="inline-flex items-center gap-1">
-            <span>{label}</span>
-            {badge}
-          </span>
-        </Link>
-      );
-    }
-
-return (
-  <Link
-    key={it.href}
-    href={it.href}
-    onClick={playTab}
-    className="btn-hero-ghost btn-topbar-solid btn-avatar-menu text-sm w-full justify-center"
-    data-text={label}
-  >
-        <span className="btn-text inline-flex items-center gap-1">
+  if (active) {
+    // 🔵 აქტიური ტაბი – ლურჯი, BEZ გლიჩის
+    return (
+      <Link
+        key={it.href}
+        href={it.href}
+        onClick={() => {
+          playTab();
+          setMenuOpen(false);
+        }}
+        className="btn-tab-active btn-avatar-menu text-sm w-full justify-center"
+      >
+        <span className="inline-flex items-center gap-1">
           <span>{label}</span>
           {badge}
         </span>
       </Link>
     );
+  }
 
-  };
+  // ⚫ არააქტიური – შავი ფონით, გლიჩით
+  return (
+    <Link
+      key={it.href}
+      href={it.href}
+      onClick={() => {
+        playTab();
+        setMenuOpen(false);
+      }}
+      className="btn-hero-ghost btn-topbar-solid btn-avatar-menu text-sm w-full justify-center"
+      data-text={label}
+    >
+      <span className="btn-text inline-flex items-center gap-1">
+        <span>{label}</span>
+        {badge}
+      </span>
+    </Link>
+  );
+};
+
 
   /* ---------- Avatar dropdown ---------- */
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [p]);
   // 🔹 ეს effect ზუსტად SettingsPage-ის ლოგიკით გვაძლევს ჩემს User-ს
   const [me, setMe] = useState<Me | null>(null);
 
