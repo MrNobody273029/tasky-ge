@@ -355,7 +355,7 @@ export default function SettingsPage({
         <div className="card p-6 space-y-4">
           <div className="font-semibold">{t.profile}</div>
 
-          <div className="flex items-center gap-4">
+<div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div
               className="w-20 h-20 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10"
               style={
@@ -369,7 +369,7 @@ export default function SettingsPage({
               }
             />
 
-            <div className="space-x-3">
+<div className="flex flex-wrap gap-2 sm:gap-3">
               {/* ახლის ატვირთვა – გლიჩის გარეშე ღილაკი */}
               <button
                 onClick={onPick}
@@ -400,7 +400,7 @@ export default function SettingsPage({
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-4 gap-4 pt-2">
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
             <div>
               <div className="text-xs text-white/60">{t.username}</div>
               <div className="font-medium">{username || '—'}</div>
@@ -426,35 +426,35 @@ export default function SettingsPage({
         <div className="card p-6 space-y-4">
           <div className="font-semibold">{t.reviewsTitle}</div>
 
-          <div className="flex items-center gap-2">
-            {[
-              { k: 'client', label: t.tabClient },
-              { k: 'worker', label: t.tabWorker },
-            ].map((tt) => {
-              const isActive = tab === (tt.k as Role);
-              return (
-                <button
-                  key={tt.k}
-                  onClick={() => setTab(tt.k as Role)}
-                  className={clsx(
-                    'text-sm',
-                    isActive ? 'btn-tab-active' : 'btn-hero-ghost',
-                  )}
-                  data-text={tt.label}
-                >
-                  <span className="btn-text">{tt.label}</span>
-                </button>
-              );
-            })}
+<div className="flex flex-wrap items-center gap-2 gap-y-3">
+  {[
+    { k: 'client', label: t.tabClient },
+    { k: 'worker', label: t.tabWorker },
+  ].map((tt) => {
+    const isActive = tab === (tt.k as Role);
+    return (
+      <button
+        key={tt.k}
+        onClick={() => setTab(tt.k as Role)}
+        className={clsx(
+          'text-sm',
+          isActive ? 'btn-tab-active' : 'btn-hero-ghost',
+        )}
+        data-text={tt.label}
+      >
+        <span className="btn-text">{tt.label}</span>
+      </button>
+    );
+  })}
 
-            <div className="ml-auto" />
-            <div className="flex items-center gap-3 text-sm">
-              <StarRowCmp value={stats.avg || 0} />
-              <div className="text-white/80">
-                {stats.avg || 0}/5 • {stats.count} {t.reviews}
-              </div>
-            </div>
-          </div>
+  <div className="flex items-center gap-3 text-sm mt-2 sm:mt-0 sm:ml-auto">
+    <StarRowCmp value={stats.avg || 0} />
+    <div className="text-white/80">
+      {stats.avg || 0}/5 • {stats.count} {t.reviews}
+    </div>
+  </div>
+</div>
+
 
           <div className="space-y-3">
             {roleReviews.length === 0 ? (

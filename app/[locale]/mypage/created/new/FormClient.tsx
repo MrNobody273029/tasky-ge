@@ -668,11 +668,24 @@ const totalToPay = Math.max(0, rewardNum + fee);
     }
   }
 
-  return (
-    <div className="space-y-6">
+return (
+  <div className="space-y-6">
+      {/* უკან დაბრუნება */}
+<button
+  type="button"
+  onClick={() => router.back()}
+  className="btn-hero-ghost btn-topbar-solid text-sm flex items-center gap-2 px-4 py-2 rounded-xl"
+>
+  <span>←</span>
+  <span>{locale === "ka" ? "უკან" : "Back"}</span>
+</button>
+
+
+
       <h1 className="text-3xl font-bold">{t.pageTitle}</h1>
 
       <div className="grid lg:grid-cols-3 gap-6">
+
         {/* LEFT: form */}
         <form
           className="lg:col-span-2 card p-6 space-y-4"
