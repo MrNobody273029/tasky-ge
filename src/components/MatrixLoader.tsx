@@ -1,52 +1,47 @@
-// app/[locale]/loading.tsx
-"use client";
+'use client';
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from 'react';
 
-export default function Loading() {
+export default function MatrixLoader() {
   const matrixRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
 
-  // просто ლოგი, რომ დავრწმუნდეთ რომ ლოადერი ჩაირთო
   useEffect(() => {
-    console.log("🔥 GLOBAL LOADER MOUNTED");
+    console.log('🔥 MATRIX LOADER MOUNTED');
   }, []);
 
   useEffect(() => {
     const matrixEl = matrixRef.current;
     if (!matrixEl) return;
 
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*";
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
     const columns: HTMLDivElement[] = [];
 
-    // შევქმნათ "წვიმის" სვეტები
     for (let i = 0; i < 50; i++) {
-      const column = document.createElement("div");
-      column.className = "matrix-column";
+      const column = document.createElement('div');
+      column.className = 'matrix-column';
       column.style.left = `${i * 20}px`;
       column.style.animationDuration = `${Math.random() * 2 + 1}s`;
 
-      let content = "";
+      let content = '';
       for (let j = 0; j < 50; j++) {
         content +=
-          characters[Math.floor(Math.random() * characters.length)] + "\n";
+          characters[Math.floor(Math.random() * characters.length)] + '\n';
       }
       column.innerText = content;
       matrixEl.appendChild(column);
       columns.push(column);
     }
 
-    // progress ტექსტის წერტილები
     let dotIndex = 0;
-    const dots = ["", ".", "..", "..."];
+    const dots = ['', '.', '..', '...'];
     const interval = setInterval(() => {
       if (!progressRef.current) return;
       progressRef.current.textContent =
-        "QUANTUM CORE INITIALIZATION" + dots[dotIndex];
+        'QUANTUM CORE INITIALIZATION' + dots[dotIndex];
       dotIndex = (dotIndex + 1) % dots.length;
     }, 500);
 
-    // cleanup
     return () => {
       clearInterval(interval);
       columns.forEach((c) => c.remove());
@@ -56,41 +51,34 @@ export default function Loading() {
   return (
     <div className="loader-screen">
       <div className="loader-container">
-        {/* Matrix rain background */}
         <div className="matrix-bg" ref={matrixRef} />
-
-        {/* Rotating hexagon container */}
         <div className="hexagon-container">
-          <div className="hexagon"></div>
+          <div className="hexagon" />
         </div>
-
-        {/* Hologram effect */}
-        <div className="hologram"></div>
+        <div className="hologram" />
 
         <div className="loader-wrapper">
-          {/* Data streams */}
           <div
             className="data-stream"
-            style={{ left: "-100px", animationDelay: "0s" }}
+            style={{ left: '-100px', animationDelay: '0s' }}
           />
           <div
             className="data-stream"
-            style={{ left: "100px", animationDelay: "1s" }}
+            style={{ left: '100px', animationDelay: '1s' }}
           />
           <div
             className="data-stream"
-            style={{ right: "-100px", animationDelay: "0.5s" }}
+            style={{ right: '-100px', animationDelay: '0.5s' }}
           />
 
-          {/* Status text */}
           <div className="status-text status-left">
-            {"> INITIALIZING SYSTEMS"}
+            {'> INITIALIZING SYSTEMS'}
             <br />
-            {"> SCANNING NETWORK"}
+            {'> SCANNING NETWORK'}
             <br />
-            {"> ANALYZING DATA"}
+            {'> ANALYZING DATA'}
             <br />
-            {"> QUANTUM SYNC: ACTIVE"}
+            {'> QUANTUM SYNC: ACTIVE'}
           </div>
 
           <div className="status-text status-right">
@@ -103,14 +91,13 @@ export default function Loading() {
             SECURITY: ENCRYPTED
           </div>
 
-          {/* Scanner */}
           <div className="scanner" />
 
           <svg
             width="100%"
             height="100%"
             viewBox="0 0 100 100"
-            style={{ transform: "rotate(-90deg)" }}
+            style={{ transform: 'rotate(-90deg)' }}
           >
             <circle className="circle outer" cx="50" cy="50" r="45" />
             <circle className="circle middle" cx="50" cy="50" r="35" />

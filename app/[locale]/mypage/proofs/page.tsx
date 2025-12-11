@@ -12,6 +12,7 @@ import {
   Star,
   X,
 } from 'lucide-react';
+import MatrixLoader from "@/components/MatrixLoader";
 
 type Locale = 'ka' | 'en';
 
@@ -511,7 +512,7 @@ export default function MyPageProofs({
     search.get('tab') === 'outgoing' ? 'outgoing' : 'incoming';
   const [tab, setTab] = useState<'incoming' | 'outgoing'>(initialTab);
   const [items, setItems] = useState<EvidenceItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<EvidenceItem | null>(null);
     const handleEvidenceUpdated = (id: string, patch: Partial<EvidenceItem>) => {
@@ -618,8 +619,9 @@ export default function MyPageProofs({
 
       {/* content */}
       {loading ? (
-        <div className="card p-5 text-sm text-white/70">
-          {labels.loading}
+        // ✅ როცა იტვირთება (ორივე ტაბზე) – მთელ ეკრანზე MatrixLoader
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80">
+          <MatrixLoader />
         </div>
       ) : err ? (
         <div className="card p-5 text-sm text-red-300">{err}</div>

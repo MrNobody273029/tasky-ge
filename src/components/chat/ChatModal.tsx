@@ -10,6 +10,7 @@ import {
   MoreVertical,
   Star,
 } from 'lucide-react';
+import MatrixLoader from '@/components/MatrixLoader';
 
 type ThreadItem = {
   id: string;
@@ -136,7 +137,7 @@ export default function ChatModal({
   const t = dict[lang];
 
   const [threads, setThreads] = useState<ThreadItem[]>([]);
-  const [loadingThreads, setLoadingThreads] = useState(false);
+  const [loadingThreads, setLoadingThreads] = useState(true);
   const [threadsErr, setThreadsErr] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(threadId ?? null);
@@ -513,8 +514,27 @@ export default function ChatModal({
       document.removeEventListener('keydown', handleEsc);
     };
   }, [menuOpenId]);
+// როცა მოდალი იხსნება – გავასუფთავოთ და დავაყენოთ loading=true,
+// რომ პირველი კადრი იყოს MatrixLoader
+useEffect(() => {
+  if (!open) return;
+  setThreads([]);
+  setActiveId(threadId ?? null);
+  setLoadingThreads(true);
+  setThreadsErr(null);
+}, [open, threadId]);
 
   if (!open) return null;
+
+// სანამ ჩატების სია იტვირთება და ჯერ არც ერთი თრედია
+if (loadingThreads && threads.length === 0) {
+  return (
+    <div className="fixed inset-0 z-[2147483647]">
+      <MatrixLoader />
+    </div>
+  );
+}
+
 
   return (
     <div className="fixed inset-0 z-[2147483647]">

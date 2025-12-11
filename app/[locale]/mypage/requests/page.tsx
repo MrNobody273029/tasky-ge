@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import TaskCard, { TaskCardInput } from '@/components/TaskCard';
+import MatrixLoader from "@/components/MatrixLoader";
 
 /* ---------- Types ---------- */
 type Locale = 'ka' | 'en';
@@ -138,7 +139,13 @@ export default function RequestsPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80">
+        <MatrixLoader />
+      </div>
+    );
+  }
   function openChatInternal(threadId?: string | null) {
     try {
       if (threadId) localStorage.setItem('chat:openThread', threadId);

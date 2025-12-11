@@ -2,6 +2,8 @@
 'use client';
 
 import * as React from 'react';
+import MatrixLoader from '@/components/MatrixLoader'; // ⬅️ ეს დაამატე
+
 
 type Locale = 'ka' | 'en';
 
@@ -201,6 +203,9 @@ export default function Balance({
       alive = false;
     };
   }, []);
+  if (!loaded && !loadErr) {
+    return <MatrixLoader />;
+  }
 
   // computed summaries UI-სთვის
   const wallet = summary?.available ?? 0;
@@ -314,15 +319,13 @@ export default function Balance({
 
 
 
-      {/* Loading / error პატარა შეტყობინება ზედა ნაწილში */}
-      {!loaded && (
-        <div className="text-sm text-white/60">{t.loading}</div>
-      )}
-      {loaded && loadErr && (
+      {/* Error შეტყობინება ზედა ნაწილში */}
+      {loadErr && (
         <div className="text-sm text-red-300">
           {t.loadError} ({loadErr})
         </div>
       )}
+
 
       {/* Summary cards */}
       <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
@@ -400,13 +403,7 @@ export default function Balance({
             </thead>
 
             <tbody>
-              {!loaded ? (
-                <tr className="border-t border-white/10">
-                  <td className="py-3 text-white/60" colSpan={6}>
-                    {t.loading}
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr className="border-t border-white/10">
                   <td className="py-3 text-white/60" colSpan={6}>
                     {t.noTx}
@@ -414,6 +411,8 @@ export default function Balance({
                 </tr>
               ) : (
                 rows.map((r, i) => {
+                  
+
                   const tp = toType(r.type);
                   const st = toStatus(r.status);
                   const isPlus = r.amount >= 0;

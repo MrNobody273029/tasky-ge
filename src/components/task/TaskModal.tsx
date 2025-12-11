@@ -19,6 +19,8 @@ import {
   Send,
 } from "lucide-react";
 
+import MatrixLoader from "@/components/MatrixLoader";   // ⬅️ ახალი
+
 /* ---------- Types ---------- */
 type TaskResp = {
   id: string;
@@ -263,7 +265,7 @@ export default function TaskModal({
 
   const [data, setData] = useState<TaskResp | null>(null);
   const [owner, setOwner] = useState<OwnerInfo | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [taking, setTaking] = useState(false);
   const [returning, setReturning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -289,21 +291,29 @@ export default function TaskModal({
     setApplyBusy(false);
     setApplyMsg("");
   };
+// reset per-open
+useEffect(() => {
+  if (!open) return;
 
-  // reset per-open
-  useEffect(() => {
-    if (!open) return;
-    setErr(null);
-    setMsg(null);
-    setApplyOpen(false);
-    setApplyDone(null);
-    setApplyErr(null);
-    setTaking(false);
-    setReturning(false);
-    setAppStatus("NONE");
-    setThreadId(null);
-    setHasTaken(false);
-  }, [open, taskId]);
+  // 🧹 გავასუფთავოთ ყველაფერი, რომ ძველი ტასკის მონაცემები არ გამოჩნდეს
+  setData(null);
+  setOwner(null);
+  setHasEvidence(false);
+  setEvidenceApproved(false);
+  setLoading(true);   // 👉 გახსნის მომენტში ეგრევე ლოადერი გამოჩნდეს
+
+  setErr(null);
+  setMsg(null);
+  setApplyOpen(false);
+  setApplyDone(null);
+  setApplyErr(null);
+  setTaking(false);
+  setReturning(false);
+  setAppStatus("NONE");
+  setThreadId(null);
+  setHasTaken(false);
+}, [open, taskId]);
+
 // გავიგოთ, ამ ტასკზე ხომ არ არსებობს უკვე ჩემი (worker) ევიდენსი "APPROVED"
 useEffect(() => {
   if (!open || !taskId) return;
@@ -338,7 +348,6 @@ useEffect(() => {
   // load task
   useEffect(() => {
     if (!open || !taskId) return;
-    setLoading(true);
     setErr(null);
     setMsg(null);
 
@@ -428,6 +437,14 @@ useEffect(() => {
   }, [open, applyOpen, onClose]);
 
   if (!open) return null;
+  if (loading && !data) {
+    // სანამ API-დან საერთოდ არ გვაქვს ტასკი – მთელ ეკრანზე მატრიქს-ლოადერი
+    return (
+      <div className="fixed inset-0 z-[2147483648]">
+        <MatrixLoader />
+      </div>
+    );
+  }
 
 
   async function handleTake() {
@@ -1072,89 +1089,6 @@ const handleSubmitProof = () => {
       )}
     </>
   )}
-
-
-          {/* Exclusive Apply Popup */}
-          {applyOpen && data?.exclusive && !data.isMine && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
-              <div className="w-[min(92vw,560px)] rounded-2xl bg-[#0b0f16] ring-1 ring-white/15 p-5 md:p-6 relative">
-                <button
-                  onClick={closeApply}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-white/10 hover:bg-white/15"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-
-                <div className="text-xl font-bold mb-2">{t.applyTitle}</div>
-                <div className="text-white/70 text-sm mb-4">
-                  {t.applyHint}{" "}
-                  <span className="text-white/50">({t.optional})</span>
-                </div>
-
-
-{applyDone ? (
-  <div className="space-y-4">
-    <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-300">
-      {t.sent}
-    </div>
-
-    {applyDone.threadId ? (
-      <button
-        onClick={() => openFloatingChat(applyDone.threadId)}
-        className="btn-hero-secondary text-sm"
-        data-text={t.goToChat}
-      >
-        <span className="btn-text">{t.goToChat}</span>
-      </button>
-    ) : null}
-
-    <button
-      onClick={closeApply}
-      className="btn-modal-close text-sm"
-      data-text={closeLabel}
-    >
-      <span className="btn-text">{closeLabel}</span>
-    </button>
-  </div>
-) : (
-  <>
-    {/* textarea + errors უცვლელად */}
-    <textarea
-      value={applyMsg}
-      onChange={(e) => setApplyMsg(e.target.value)}
-      rows={5}
-      className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 p-3 outline-none"
-      placeholder="…"
-    />
-    {applyErr && (
-      <div className="mt-3 p-2 rounded-lg bg-red-500/10 text-red-300 text-sm">
-        {applyErr}
-      </div>
-    )}
-
-    <div className="mt-4 flex justify-end gap-3">
-      <button
-        onClick={closeApply}
-        className="btn-modal-close text-sm"
-        data-text={cancelLabel}
-      >
-        <span className="btn-text">{cancelLabel}</span>
-      </button>
-      <button
-        onClick={submitApplication}
-        disabled={applyBusy}
-        className="btn-hero-secondary text-sm disabled:opacity-60"
-        data-text={sendLabel}
-      >
-        <span className="btn-text">{sendLabel}</span>
-      </button>
-    </div>
-  </>
-)}
-
-              </div>
-            </div>
-          )}
 
 
         </div>
