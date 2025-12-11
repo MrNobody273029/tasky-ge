@@ -1,4 +1,3 @@
-// src/components/LeftNav.tsx
 'use client';
 
 import Link from 'next/link';
@@ -164,6 +163,42 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
     profileOrLogin,
   ];
 
+  /* ---------- Mobile scroll hide/show ---------- */
+  const [showMobileNav, setShowMobileNav] = useState(true);
+  const lastScrollYRef = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY || 0;
+      const lastY = lastScrollYRef.current;
+      const delta = currentY - lastY;
+
+      // მხოლოდ მობილურისთვის – როცა ეკრანი md-ზე პატარაა
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      if (!isMobile) {
+        setShowMobileNav(true);
+        lastScrollYRef.current = currentY;
+        return;
+      }
+
+      if (currentY <= 0) {
+        // ზედა ნაწილი – ნავბარი ყოველთვის გამოჩნდეს
+        setShowMobileNav(true);
+      } else if (delta > 4) {
+        // ქვევით სქროლი -> დავმალოთ
+        setShowMobileNav(false);
+      } else if (delta < -4) {
+        // ზემოთ სქროლი -> გამოვაჩინოთ
+        setShowMobileNav(true);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   /* ---------- Icon button ---------- */
   const IconBtn = ({
     href,
@@ -218,28 +253,48 @@ export default function LeftNav({ locale }: { locale: 'ka' | 'en' }) {
         </div>
       </div>
 
-      {/* MOBILE – ზედა ჰორიზონტალური ნავბარი */}
+      {/* MOBILE – ზედა ჰორიზონტალური ნავბარი (scroll-ზე ქრება/ჩნდება) */}
       <div className="md:hidden fixed top-3 left-1/2 -translate-x-1/2 z-[120]">
-        <div className="card px-3 py-2 rounded-2xl flex items-center gap-2">
-          {links.map(({ href, icon: Icon, key }) => (
-            <IconBtn
-              key={key}
-              href={href}
-              Icon={Icon}
-              active={isActive(href)}
-              tooltip={(tooltipTexts as any)[key]}
-            />
-          ))}
+        <div
+          className={clsx(
+            'mobile-nav-shell',
+            !showMobileNav && 'mobile-nav-shell--hidden'
+          )}
+        >
+          <div className="card px-3 py-2 rounded-2xl flex items-center gap-2">
+            {links.map(({ href, icon: Icon, key }) => (
+              <IconBtn
+                key={key}
+                href={href}
+                Icon={Icon}
+                active={isActive(href)}
+                tooltip={(tooltipTexts as any)[key]}
+              />
+            ))}
 
-          <IconBtn
-            href={switchLocaleHref}
-            Icon={Globe}
-            active={false}
-            tooltip={tooltipTexts.lang}
-          />
+            <IconBtn
+              href={switchLocaleHref}
+              Icon={Globe}
+              active={false}
+              tooltip={tooltipTexts.lang}
+            />
+          </div>
         </div>
       </div>
+
+      {/* პატარა CSS მხოლოდ ამ კომპონენტისთვის */}
+      <style jsx global>{`
+        .mobile-nav-shell {
+          transition: opacity 0.25s ease, transform 0.25s ease;
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .mobile-nav-shell--hidden {
+          opacity: 0;
+          transform: translateY(-18px);
+          pointer-events: none;
+        }
+      `}</style>
     </>
   );
-
 }

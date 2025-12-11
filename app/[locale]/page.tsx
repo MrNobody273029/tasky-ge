@@ -255,13 +255,12 @@ export default function Home({ params }: { params: { locale: Locale } }) {
               <h3 className="feature-title font-semibold text-lg mb-1">{t.title}</h3>
               <p className="feature-body text-sm leading-relaxed">{t.body}</p>
             </button>
-
           );
         })}
       </section>
 
       {/* HOW IT WORKS */}
-<section className="space-y-8 mt-16 md:mt-24">
+      <section className="space-y-8 mt-16 md:mt-24">
         <h2 className="text-2xl font-bold text-center">{m.home.howItWorks.title}</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {m.home.howItWorks.steps.map((s: any, i: number) => {
@@ -362,27 +361,29 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         .feature-btn {
           font-size: 1.05rem;
           padding: 1.4rem 1.6rem;
-          border: none;
+          border: 1px solid rgba(148, 163, 184, 0.35);
           outline: none;
           border-radius: 0.9rem;
           cursor: pointer;
-          background-color: rgb(14, 14, 26);
+          /* default – პრაქტიკულად გამჭვირვალე */
+          background-color: rgba(15, 23, 42, 0.12);
           color: rgb(234, 234, 234);
           font-weight: 500;
           transition: 0.6s;
           box-shadow: 0px 0px 60px #1f4c65;
-          -webkit-box-reflect: below 10px linear-gradient(
-            to bottom,
-            rgba(0, 0, 0, 0),
-            rgba(0, 0, 0, 0.4)
-          );
+          -webkit-box-reflect: below 10px
+            linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.4));
           display: flex;
           flex-direction: column;
           align-items: flex-start;
           justify-content: flex-start;
           gap: 0.35rem;
           text-align: left;
-          background-image: radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent);
+          background-image: radial-gradient(
+            circle at top left,
+            rgba(56, 189, 248, 0.16),
+            transparent
+          );
         }
 
         .feature-btn:active {
@@ -390,30 +391,37 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         }
 
         .feature-btn:hover {
-          background: rgb(2, 29, 78);
           background: linear-gradient(
             270deg,
-            rgba(2, 29, 78, 0.681) 0%,
-            rgba(31, 215, 232, 0.873) 60%
+            rgba(2, 29, 78, 0.45) 0%,
+            rgba(31, 215, 232, 0.65) 60%
           );
           color: rgb(4, 4, 38);
         }
-            .feature-icon {
-            color: #22d3ee; /* ნორმალურ მდგომარეობაში იყოს ცისფერი */
-            transition: color 0.3s ease;
-              }
 
-              .feature-title,
-              .feature-body {
-                transition: color 0.3s ease;
-              }
+        .feature-icon {
+          color: #22d3ee; /* ნორმალურ მდგომარეობაში ცისფერი აიკონი */
+          transition: color 0.3s ease;
+        }
 
-              /* ჰოუვერზე – ყველაფერს ვაშავებთ: აიკონს, სათაურს, ტექსტს */
-              .feature-btn:hover .feature-icon,
-              .feature-btn:hover .feature-title,
-              .feature-btn:hover .feature-body {
-                color: rgb(4, 4, 38);
-              }
+        .feature-title,
+        .feature-body {
+          transition: color 0.3s ease;
+        }
+
+        /* ჰოუვერზე – ყველაფერს ვაშავებთ: აიკონს, სათაურს, ტექსტს */
+        .feature-btn:hover .feature-icon,
+        .feature-btn:hover .feature-title,
+        .feature-btn:hover .feature-body {
+          color: rgb(4, 4, 38);
+        }
+        /* პატარა ეკრანზე ... – ანარეკლი ითიშება */
+        @media (max-width: 767px) {
+          .feature-btn {
+            -webkit-box-reflect: initial !important; /* ანარეკლის სრულად გამორთვა */
+            box-shadow: 0px 0px 30px #1f4c65;
+          }
+        }
 
       `}</style>
     </div>
