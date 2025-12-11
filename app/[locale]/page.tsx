@@ -80,6 +80,30 @@ export default function Home({ params }: { params: { locale: Locale } }) {
   const m: any = params.locale === 'ka' ? ka : en;
   const infoTexts = INFO_MODAL_CONTENT[params.locale];
 
+  // Install app ტექსტები
+  const installCopy =
+    params.locale === 'ka'
+      ? {
+          button: 'დააინსტალირე Tasky აპი',
+          title: 'Tasky როგორც აპლიკაცია',
+          lines: [
+            'თუ შენი ბრაუზერი უშვებს აპის დაყენებას, ზუსტად ამ ღილაკიდან გამოგიტანს სისტემურ ფანჯარას „Install app“. უბრალოდ დაადასტურე.',
+            'თუ iOS / Safari-ს იყენებ: დააჭირე Share ღილაკს (ზედა ან ქვედა პანელზე) და შემდეგ აირჩიე „Add to Home Screen“.',
+            'ამის შემდეგ Tasky გაჩნდება ჰომსქრინზე როგორც ჩვეულებრივი აპლიკაცია და გაიხსნება ბრაუზერის ზოლის გარეშე.'
+          ],
+          close: 'კარგი, გასაგებია'
+        }
+      : {
+          button: 'Install Tasky app',
+          title: 'Use Tasky as an app',
+          lines: [
+            'If your browser supports installation, this button will trigger the native “Install app” dialog. Just confirm it.',
+            'If you are on iOS / Safari: tap the Share button (top or bottom toolbar) and choose “Add to Home Screen”.',
+            'After that, Tasky will appear on your home screen like a normal app and open without the browser URL bar.'
+          ],
+          close: 'Got it'
+        };
+
   // Sound
   const navRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
@@ -119,6 +143,51 @@ export default function Home({ params }: { params: { locale: Locale } }) {
 
   // Power switch -> ლოგოს აჩქარება
   const [powerOn, setPowerOn] = useState(false);
+
+  // Install app state
+  const [canInstall, setCanInstall] = useState(false);
+  const installPromptRef = useRef<any | null>(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  // beforeinstallprompt event पकड़ვა
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      installPromptRef.current = e;
+      setCanInstall(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeinstallprompt', handler as any);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeinstallprompt', handler as any);
+      }
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    playNav();
+
+    const promptEvent = installPromptRef.current;
+
+    if (promptEvent) {
+      try {
+        promptEvent.prompt();
+        await promptEvent.userChoice?.catch(() => null);
+      } catch {
+        /* ignore */
+      }
+      // ერთხელ რომ გააკეთებს, event აღარ იმუშავებს
+      installPromptRef.current = null;
+      setCanInstall(false);
+    } else {
+      // სადაც პროგრამული install არ მუშაობს (მაგ. iOS) – ვაჩვენოთ ინსტრუქციის მოდალი
+      setShowInstallHelp(true);
+    }
+  };
 
   // ზარი TaskyLogoDraw-დან — როცა ნაწილაკები უკვე შეკრებილნი არიან ცენტრში
   const handleExplode = useCallback(async () => {
@@ -196,6 +265,17 @@ export default function Home({ params }: { params: { locale: Locale } }) {
             >
               <span className="btn-text">{m.cta.browseTasks}</span>
             </Link>
+          </div>
+
+          {/* Install app ღილაკი – მობილურზე კარგად ჯდება, desktop-ზეც ნორმალურად */}
+          <div className="mt-4 w-full max-w-sm">
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="w-full text-sm font-medium rounded-xl border border-cyan-400/60 bg-cyan-500/10 hover:bg-cyan-500/20 px-4 py-2 transition"
+            >
+              {installCopy.button}
+            </button>
           </div>
         </div>
 
@@ -300,9 +380,32 @@ export default function Home({ params }: { params: { locale: Locale } }) {
               <button
                 type="button"
                 onClick={() => setInfoOpen(null)}
-                className="px-4 py-2 text-sm font-medium border border-white/25 rounded-lg hover:bg-white/10 transition"
+                className="px-4 py-2 text-sm font-medium border border-white/25 rounded-lg hover:bg_WHITE/10 transition"
               >
                 {closeLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Install helper modal */}
+      {showInstallHelp && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center modal-overlay bg-black/70">
+          <div className="tasky-modal max-w-md w-[90%] rounded-2xl bg-slate-950/95 border border-cyan-500/40 p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold mb-3">{installCopy.title}</h3>
+            {installCopy.lines.map((line, idx) => (
+              <p key={idx} className="text-sm text-white/80 mb-2">
+                {line}
+              </p>
+            ))}
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowInstallHelp(false)}
+                className="px-4 py-2 text-sm font-medium border border_WHITE/25 rounded-lg hover:bg-white/10 transition"
+              >
+                {installCopy.close}
               </button>
             </div>
           </div>
@@ -353,7 +456,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         @media (prefers-reduced-motion: reduce) {
           .tasky-modal,
           .modal-overlay {
-            animation: none !important;
+            animation: none !IMPORTANT;
           }
         }
 
@@ -415,6 +518,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         .feature-btn:hover .feature-body {
           color: rgb(4, 4, 38);
         }
+
         /* პატარა ეკრანზე ... – ანარეკლი ითიშება */
         @media (max-width: 767px) {
           .feature-btn {
@@ -422,7 +526,6 @@ export default function Home({ params }: { params: { locale: Locale } }) {
             box-shadow: 0px 0px 30px #1f4c65;
           }
         }
-
       `}</style>
     </div>
   );

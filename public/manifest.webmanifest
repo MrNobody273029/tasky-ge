@@ -1,0 +1,23 @@
+{
+  "name": "Tasky.ge",
+  "short_name": "Tasky",
+  "start_url": "/ka",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#020617",
+  "description": "Find tasks. Do the work. Get paid.",
+  "icons": [
+    {
+      "src": "/og.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
