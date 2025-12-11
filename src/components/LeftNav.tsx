@@ -177,16 +177,26 @@ const IconBtn = ({
     <div className="group/nav fixed left-3 top-1/2 -translate-y-1/2 z-[120]">
 
       {/* ჰამბურგერი – collapsed; hover-ზე იძლევა ხმას მხოლოდ unlock-ის შემდეგ */}
-      <button
-        aria-label="open-nav"
-        onPointerDown={playHover}
-        onMouseEnter={playHover}
-        className="relative z-10 flex items-center justify-center w-11 h-11 rounded-xl bg-white/5 text-white/90 shadow-sm
-                   transition-opacity duration-500 ease-out
-                   group-hover/nav:opacity-0 group-hover/nav:pointer-events-none"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+<button
+  aria-label="open-nav"
+  onPointerDown={playHover}
+  onMouseEnter={playHover}
+  className="
+    relative z-10 flex items-center justify-center
+    w-12 h-12
+    rounded-2xl
+    bg-slate-950              /* მუქი, 0 გამჭვირვალობა */
+    text-white                /* Menu აიკონის ხაზები იქნება თეთრი */
+    border border-cyan-400    /* ცისფერი ჩარჩო */
+    shadow-neon
+    transition-opacity duration-500 ease-out
+    group-hover/nav:opacity-0 group-hover/nav:pointer-events-none
+  "
+>
+  <Menu className="w-6 h-6" />
+</button>
+
+
 
       {/* ნავბარი – hover-ზე ჩნდება უფრო ნელა */}
       <aside
