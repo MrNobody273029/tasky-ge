@@ -103,8 +103,12 @@ export default function LoginPage({
       }
 
       // სხვა იუზერებისთვის გამოვიყენოთ next ან default mypage
-      const target =
-        next && next.startsWith('/') ? next : `/${locale}/mypage`;
+      const isSafeNext =
+        typeof next === 'string' &&
+        next.startsWith('/') &&
+        !next.includes('/auth/');
+
+      const target = isSafeNext ? next : `/${locale}/mypage`;
 
       r.replace(target);
     } catch {
