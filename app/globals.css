@@ -1452,3 +1452,51 @@ body::before {
   content: none !important;
   animation: none !important;
 }
+/* --- FULLSCREEN LOADER --- */
+.full-loader-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* იგივე ბექგრაუნდი როგორიც საიტს აქვს */
+  background: radial-gradient(circle at 20% 20%, #0f172a, #000000 80%),
+    url("/bg-grid.png"); /* თუ გაქვს grid PNG/SVG */
+  background-size: cover;
+}
+
+.full-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.full-loader-logo {
+  width: 160px;
+  height: auto;
+  animation: popIn 0.5s ease-out;
+}
+
+.full-loader-text {
+  font-size: 20px;
+  color: white;
+  opacity: 0.8;
+  letter-spacing: 1px;
+}
+
+/* Logo pop animation */
+@keyframes popIn {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}

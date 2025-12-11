@@ -3,6 +3,7 @@ import './globals.css';
 import CyberBG from '@/components/CyberBG';
 import DebugEvents from '@/components/DebugEvents';
 import PWARegister from '@/components/PWARegister';
+import FullScreenLoader from "@/components/FullScreenLoader";
 
 export const metadata: Metadata = {
   title: { default: 'Tasky.ge', template: '%s • Tasky.ge' },
@@ -22,6 +23,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-black">
         {/* PWA service worker რეგისტრაცია */}
         <PWARegister />
+        <FullScreenLoader />
+
 
         {/* CyberBG დაბრუნებულია (გასწორებული ვერსია) */}
         <CyberBG />
