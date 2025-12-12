@@ -430,14 +430,14 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-            <Image
-              src="/install/1.png"
-              alt="Step 1 - Share"
-              width={1200}
-              height={800}
-              className="w-full h-auto max-h-[45vh] object-contain"
-              priority
-            />
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img
+  src="/install/1.png"
+  alt="Step 1 - Share"
+  className="w-full h-auto max-h-[45vh] object-contain"
+/>
+
+
           </div>
         </div>
 
@@ -452,13 +452,13 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-            <Image
-              src="/install/2.png"
-              alt="Step 2 - Add to Home Screen"
-              width={1200}
-              height={800}
-              className="w-full h-auto max-h-[45vh] object-contain"
-            />
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img
+  src="/install/2.png"
+  alt="Step 2 - Add to Home Screen"
+  className="w-full h-auto max-h-[45vh] object-contain"
+/>
+
           </div>
         </div>
 
@@ -481,13 +481,13 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-            <Image
-              src="/install/3.png"
-              alt="Step 3 - Add"
-              width={1200}
-              height={800}
-              className="w-full h-auto max-h-[45vh] object-contain"
-            />
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img
+  src="/install/3.png"
+  alt="Step 3 - Add"
+  className="w-full h-auto max-h-[45vh] object-contain"
+/>
+
           </div>
         </div>
 
