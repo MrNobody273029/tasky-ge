@@ -9,7 +9,6 @@ import { ShoppingBag, ShieldCheck, ClipboardList } from 'lucide-react';
 import NeonPowerSwitch from '@/components/NeonPowerSwitch';
 import TaskyLogoDraw from '@/components/TaskyLogoDraw';
 import TaskModal from '@/components/task/TaskModal';
-import Image from "next/image";
 
 type Locale = 'ka' | 'en';
 type InfoKey = 'payments' | 'clarity';
@@ -386,13 +385,13 @@ export default function Home({ params }: { params: { locale: Locale } }) {
 {/* Install helper modal (iOS guide with images) */}
 {showInstallHelp && (
   <div
-    className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-3 py-6"
+    className="fixed inset-0 z-40 bg-black/70 px-3 py-6"
     onClick={() => setShowInstallHelp(false)}
     role="dialog"
     aria-modal="true"
   >
     <div
-      className="w-[94vw] max-w-md rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
+      className="mx-auto w-full max-w-md rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
                  max-h-[85vh] flex flex-col overflow-hidden"
       onClick={(e) => e.stopPropagation()}
     >
@@ -430,14 +429,12 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-{/* eslint-disable-next-line @next/next/no-img-element */}
-<img
-  src="/install/1.png"
-  alt="Step 1 - Share"
-  className="w-full h-auto max-h-[45vh] object-contain"
-/>
-
-
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/install/1.png"
+              alt="Step 1 - Share"
+              className="w-full h-auto max-h-[45vh] object-contain"
+            />
           </div>
         </div>
 
@@ -452,13 +449,12 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-{/* eslint-disable-next-line @next/next/no-img-element */}
-<img
-  src="/install/2.png"
-  alt="Step 2 - Add to Home Screen"
-  className="w-full h-auto max-h-[45vh] object-contain"
-/>
-
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/install/2.png"
+              alt="Step 2 - Add to Home Screen"
+              className="w-full h-auto max-h-[45vh] object-contain"
+            />
           </div>
         </div>
 
@@ -481,17 +477,15 @@ export default function Home({ params }: { params: { locale: Locale } }) {
           </div>
 
           <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-{/* eslint-disable-next-line @next/next/no-img-element */}
-<img
-  src="/install/3.png"
-  alt="Step 3 - Add"
-  className="w-full h-auto max-h-[45vh] object-contain"
-/>
-
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/install/3.png"
+              alt="Step 3 - Add"
+              className="w-full h-auto max-h-[45vh] object-contain"
+            />
           </div>
         </div>
 
-        {/* tiny bottom spacer so last image isn't hidden behind footer while scrolling */}
         <div className="h-2" />
       </div>
 
@@ -511,6 +505,7 @@ export default function Home({ params }: { params: { locale: Locale } }) {
     </div>
   </div>
 )}
+
 
 
 
