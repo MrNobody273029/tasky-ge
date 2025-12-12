@@ -27,7 +27,7 @@ export default function TaskModalHost() {
 
       // URL-ში ასახვა (?task=) — რომ refresh/back-ზე დაიჭიროს
       const qs = new URLSearchParams(search.toString());
-      qs.set("task", id);
+      qs.set("modalTask", id);
       router.replace(`${pathname}?${qs.toString()}`, { scroll: false });
     };
 
@@ -37,7 +37,7 @@ export default function TaskModalHost() {
 
   // გახსნა URL (?task=) ან localStorage('tasky.openTask')-იდან; back/forward მხარდაჭერა
   useEffect(() => {
-    const idFromUrl = search.get("task");
+    const idFromUrl = search.get("modalTask");
     let idFromLS: string | null = null;
 
     if (typeof window !== "undefined") {
@@ -66,7 +66,7 @@ export default function TaskModalHost() {
 
     // URL-დან ?task წაშლა
     const qs = new URLSearchParams(search.toString());
-    qs.delete("task");
+    qs.delete("modalTask");
     router.replace(`${pathname}${qs.toString() ? `?${qs.toString()}` : ""}`, { scroll: false });
   };
 

@@ -13,7 +13,7 @@ export default function TaskModalOpener({ locale }: { locale: 'ka' | 'en' }) {
 
   // თუ URL-შია ?task= ან localStorage-ში დაგვრჩა – გავხსნათ მოდალი
   useEffect(() => {
-    const fromUrl = search.get('task');
+    const fromUrl = search.get('modalTask');
     const fromLS =
       typeof window !== 'undefined' ? localStorage.getItem('tasky.openTask') : null;
 
@@ -31,7 +31,7 @@ export default function TaskModalOpener({ locale }: { locale: 'ka' | 'en' }) {
     setTaskId(null);
 
     const qs = new URLSearchParams(search.toString());
-    qs.delete('task');
+    qs.delete('modalTask');
     router.replace(`/${locale}${qs.toString() ? `?${qs.toString()}` : ''}`, {
       scroll: false,
     });

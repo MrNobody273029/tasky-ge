@@ -209,8 +209,6 @@ export default function Balance({
 
   // computed summaries UI-სთვის
   const wallet = summary?.available ?? 0;
-  const pendingAmount = summary?.pending ?? 0;
-  const holdAmount = summary?.hold ?? 0;
   const lifetime = summary?.lifetime ?? 0;
 
   const allTx: Tx[] = summary?.tx ?? [];
@@ -328,22 +326,10 @@ export default function Balance({
 
 
       {/* Summary cards */}
-      <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
+<div className="grid md:grid-cols-2 gap-4">
         <div className="card p-5">
           <div className="text-white/60 text-sm">{t.available}</div>
           <div className="text-2xl font-semibold">₾{fmt(wallet)}</div>
-        </div>
-        <div className="card p-5">
-          <div className="text-white/60 text-sm">{t.pending}</div>
-          <div className="text-2xl font-semibold">
-            ₾{fmt(Math.max(0, pendingAmount))}
-          </div>
-        </div>
-        <div className="card p-5">
-          <div className="text-white/60 text-sm">{t.hold}</div>
-          <div className="text-2xl font-semibold">
-            ₾{fmt(Math.max(0, holdAmount))}
-          </div>
         </div>
         <div className="card p-5">
           <div className="text-white/60 text-sm">{t.lifetime}</div>
@@ -374,17 +360,8 @@ export default function Balance({
       <option value="Earning">{t.earning}</option>
       <option value="PublishFee">{t.publishFee}</option>
       <option value="Withdrawal">{t.withdrawal}</option>
-      <option value="Other">{t.other}</option>
     </select>
 
-    <button
-      onClick={() => downloadCSV('transactions.csv', rows)}
-      className="btn-hero-secondary text-sm w-full sm:w-auto justify-center"
-      data-text={t.export}
-      type="button"
-    >
-      <span className="btn-text">{t.export}</span>
-    </button>
   </div>
 </div>
 

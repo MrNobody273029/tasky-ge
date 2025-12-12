@@ -560,11 +560,15 @@ const handleSubmitProof = () => {
     }
   } catch {}
 
-  // ჯერ დავხუროთ მოდალი
+  const href = `/${locale}/mypage/proofs/submit?task=${data.id}`;
+
+  // ✅ ჯერ დავხუროთ მოდალი
   onClose();
 
-  // ואז გადავდივართ submit გვერდზე
-  router.push(`/${locale}/mypage/proofs/submit?task=${data.id}`);
+  // ✅ შემდეგ ტიკზე გადავიდეთ გვერდზე (რომ close აუცილებლად მოასწროს)
+  setTimeout(() => {
+    router.push(href);
+  }, 0);
 };
 
 
@@ -829,7 +833,7 @@ const handleSubmitProof = () => {
     </div>
   ) : (
     <>
-      <div className="sticky bottom-0 p-5 md:p-6 pt-3 flex justify-end gap-3 border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
+      <div className="sticky bottom-0 p-4 md:p-6 pt-3 flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 border-t border-white/10 bg-[#0b0f16]/95 backdrop-blur-sm">
         {/* Close – glitch */}
         <button
           onClick={onClose}
@@ -843,7 +847,7 @@ const handleSubmitProof = () => {
           evidenceApproved ? (
             <>
               {/* Approved badge */}
-              <div className="px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/40 text-sm">
+              <div className="w-full sm:w-auto px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/40 text-sm">
                 {locale === "ka" ? "დადასტურებულია" : "Approved"}
               </div>
 

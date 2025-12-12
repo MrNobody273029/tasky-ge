@@ -178,7 +178,7 @@ export default async function Tasky({
       </h1>
 
       {/* Filters */}
-      <form method="get" className="card p-3 space-y-3 relative">
+<form method="get" className="card p-3 space-y-3 relative z-[200]">
         {/* search – სულ ზედა, full-width */}
         <div>
           <input
@@ -250,31 +250,13 @@ export default async function Tasky({
           </div>
         </div>
 
-        {/* actions – სულ ქვემოთ, მარჯვნივ; მობილზე სრულ სიგანეზე */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:justify-end sm:items-center pt-1">
-          <a
-            href={`/${locale}/tasky`}
-            className="btn-hero-secondary text-sm w-full sm:w-auto"
-            data-text={t.filters.reset}
-          >
-            <span className="btn-text">{t.filters.reset}</span>
-          </a>
-
-          <button
-            type="submit"
-            className="btn-hero-primary text-sm w-full sm:w-auto"
-            data-text={t.filters.apply}
-          >
-            <span className="btn-text">{t.filters.apply}</span>
-          </button>
-        </div>
       </form>
 
       {/* Results */}
       {tasks.length === 0 ? (
         <div className="text-white/60">{t.empty}</div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 relative z-0">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={toCardInput(task)} />
           ))}
