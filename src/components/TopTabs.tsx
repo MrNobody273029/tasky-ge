@@ -136,6 +136,76 @@ export default function TopTabs({
     };
   }, [base]);
 
+  /* ---------- Evidence notification badge (incoming + outgoing + system) ---------- */
+
+  const [evCount, setEvCount] = useState(0);
+  const totalCount = reqCount + evCount;
+
+  const EVI_IN_API = '/api/my/evidences?tab=incoming';
+  const EVI_OUT_API = '/api/my/evidences?tab=outgoing';
+
+  useEffect(() => {
+    let stop = false;
+
+    async function load() {
+      try {
+        const [rin, rout] = await Promise.all([
+          fetch(EVI_IN_API, { cache: 'no-store' }),
+          fetch(EVI_OUT_API, { cache: 'no-store' }),
+        ]);
+        if (!rin.ok || !rout.ok) throw new Error('ev_fail');
+        const incoming: any[] = await rin.json();
+        const outgoing: any[] = await rout.json();
+
+        let count = 0;
+
+        // client-side notifs: pending incoming + system events + worker review notif + rating prompt (expired)
+        for (const it of incoming) {
+          const status = String(it?.status || '');
+          if (status === 'PENDING') count++;
+
+          // autoApproved/expired system events: clientSystemSeen=false
+          if ((status === 'APPROVED' || status === 'EXPIRED') && it?.clientSystemSeen === false) count++;
+
+          // client sees worker->client review
+          if (it?.clientSawWorkerReview === false) count++;
+
+          // expired rating prompt
+          if (status === 'EXPIRED' && it?.clientSawRatingPrompt === false) count++;
+        }
+
+        // worker-side notifs: client decision + client review + expired rating prompt
+        for (const it of outgoing) {
+          const status = String(it?.status || '');
+
+          if ((status === 'APPROVED' || status === 'NEEDS_FIXES' || status === 'EXPIRED') && it?.workerDecisionSeen === false) count++;
+
+          if (it?.workerSawClientReview === false) count++;
+
+          if (status === 'EXPIRED' && it?.workerSawRatingPrompt === false) count++;
+        }
+
+        if (!stop) setEvCount(count);
+      } catch {
+        if (!stop) setEvCount(0);
+      }
+    }
+
+    const refetch = () => { load().catch(() => {}); };
+
+    refetch();
+    const id = window.setInterval(refetch, 30000);
+    window.addEventListener('focus', refetch);
+    window.addEventListener('evidences-updated', refetch as EventListener);
+
+    return () => {
+      stop = true;
+      clearInterval(id);
+      window.removeEventListener('focus', refetch);
+      window.removeEventListener('evidences-updated', refetch as EventListener);
+    };
+  }, [base]);
+
   /* ---------- Tabs list ---------- */
 
   const left = [
@@ -163,26 +233,55 @@ export default function TopTabs({
     { key: 'settings', href: `${base}/settings`, label: m.mypage.tabs.settings },
   ];
 
-const renderMenuLink = (it: { href: string; label: string; key: string }) => {
-  const hrefPath = it.href.split('?')[0];
-  const active = p.startsWith(hrefPath);
-  const label = it.label;
+  const renderMenuLink = (it: { href: string; label: string; key: string }) => {
+    const hrefPath = it.href.split('?')[0];
+    const active = p.startsWith(hrefPath);
+    const label = it.label;
 
-  const badge =
-    it.key === 'requests' && reqCount > 0 ? (
-      <span
-        className="
-          ml-1 min-w-[18px] h-[18px] px-1
-          rounded-full bg-red-500 text-white text-[11px] leading-[18px]
-          text-center font-bold
-        "
-      >
-        {reqCount > 99 ? '99+' : reqCount}
-      </span>
-    ) : null;
+    const badge =
+      it.key === 'requests' && reqCount > 0 ? (
+        <span
+          className="
+            ml-1 min-w-[18px] h-[18px] px-1
+            rounded-full bg-red-500 text-white text-[11px] leading-[18px]
+            text-center font-bold
+          "
+        >
+          {reqCount > 99 ? '99+' : reqCount}
+        </span>
+      ) : it.key === 'proofs' && evCount > 0 ? (
+        <span
+          className="
+            ml-1 min-w-[18px] h-[18px] px-1
+            rounded-full bg-red-500 text-white text-[11px] leading-[18px]
+            text-center font-bold
+          "
+        >
+          {evCount > 99 ? '99+' : evCount}
+        </span>
+      ) : null;
 
-  if (active) {
-    // 🔵 აქტიური ტაბი – ლურჯი, BEZ გლიჩის
+    if (active) {
+      // 🔵 აქტიური ტაბი – ლურჯი, BEZ გლიჩის
+      return (
+        <Link
+          key={it.href}
+          href={it.href}
+          onClick={() => {
+            playTab();
+            setMenuOpen(false);
+          }}
+          className="btn-tab-active btn-avatar-menu text-sm w-full justify-center"
+        >
+          <span className="inline-flex items-center gap-1">
+            <span>{label}</span>
+            {badge}
+          </span>
+        </Link>
+      );
+    }
+
+    // ⚫ არააქტიური – შავი ფონით, გლიჩით
     return (
       <Link
         key={it.href}
@@ -191,36 +290,16 @@ const renderMenuLink = (it: { href: string; label: string; key: string }) => {
           playTab();
           setMenuOpen(false);
         }}
-        className="btn-tab-active btn-avatar-menu text-sm w-full justify-center"
+        className="btn-hero-ghost btn-topbar-solid btn-avatar-menu text-sm w-full justify-center"
+        data-text={label}
       >
-        <span className="inline-flex items-center gap-1">
+        <span className="btn-text inline-flex items-center gap-1">
           <span>{label}</span>
           {badge}
         </span>
       </Link>
     );
-  }
-
-  // ⚫ არააქტიური – შავი ფონით, გლიჩით
-  return (
-    <Link
-      key={it.href}
-      href={it.href}
-      onClick={() => {
-        playTab();
-        setMenuOpen(false);
-      }}
-      className="btn-hero-ghost btn-topbar-solid btn-avatar-menu text-sm w-full justify-center"
-      data-text={label}
-    >
-      <span className="btn-text inline-flex items-center gap-1">
-        <span>{label}</span>
-        {badge}
-      </span>
-    </Link>
-  );
-};
-
+  };
 
   /* ---------- Avatar dropdown ---------- */
 
@@ -229,6 +308,7 @@ const renderMenuLink = (it: { href: string; label: string; key: string }) => {
   useEffect(() => {
     setMenuOpen(false);
   }, [p]);
+
   // 🔹 ეს effect ზუსტად SettingsPage-ის ლოგიკით გვაძლევს ჩემს User-ს
   const [me, setMe] = useState<Me | null>(null);
 
@@ -308,18 +388,24 @@ const renderMenuLink = (it: { href: string; label: string; key: string }) => {
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             className={clsx(
-              'flex items-center gap-2 rounded-full border border-white/20',
-              'bg-black/70 px-2 py-1',
+              'relative flex items-center gap-2 rounded-full border border-white/20',              'bg-black/70 px-2 py-1',
               'hover:border-cyan-400 hover:shadow-neon',
               'transition-colors transition-shadow'
             )}
           >
+            {totalCount > 0 && (
+  <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] leading-[18px] text-center font-bold ring-2 ring-black/80">
+    {totalCount > 99 ? '99+' : totalCount}
+  </span>
+)}
+
             <span
               className={clsx(
-                'inline-flex items-center justify-center',
+                'shrink-0 relative inline-flex items-center justify-center',
                 'w-9 h-9 rounded-full overflow-hidden ring-1 ring-white/15 bg-black/60'
               )}
             >
+
               {me?.image ? (
                 <img
                   src={me.image}
@@ -329,34 +415,35 @@ const renderMenuLink = (it: { href: string; label: string; key: string }) => {
               ) : (
                 <UserIcon className="w-5 h-5 text-white/80" />
               )}
+
+
             </span>
+
             <span className="hidden sm:block text-sm font-medium text-white/90 max-w-[120px] truncate">
               {displayName}
             </span>
           </button>
 
-{menuOpen && (
-  <div
-    className="
-      absolute right-1 sm:right-0 mt-2
-      w-[min(14rem,calc(100vw-3rem))]  /* მობილურზე უფრო ვიწრო */
-      sm:w-64                           /* დიდ ეკრანზე 16rem≈256px */
-      z-40
-    "
-  >
-    <div
-      className="
-        card
-        p-2.5 sm:p-3
-        flex flex-col
-        gap-1.5
-        max-h-[70vh] overflow-y-auto    /* თუ ბევრი აითემია – შიდა scroll */
-        shadow-neon
-      "
-    >
-
+          {menuOpen && (
+            <div
+              className="
+                absolute right-1 sm:right-0 mt-2
+                w-[min(14rem,calc(100vw-3rem))]  /* მობილურზე უფრო ვიწრო */
+                sm:w-64                           /* დიდ ეკრანზე 16rem≈256px */
+                z-40
+              "
+            >
+              <div
+                className="
+                  card
+                  p-2.5 sm:p-3
+                  flex flex-col
+                  gap-1.5
+                  max-h-[70vh] overflow-y-auto    /* თუ ბევრი აითემია – შიდა scroll */
+                  shadow-neon
+                "
+              >
                 {/* Tabs როგორც vertical menu */}
-
                 {left.map((it) => (
                   <div key={it.href}>{renderMenuLink(it)}</div>
                 ))}
@@ -375,7 +462,6 @@ const renderMenuLink = (it: { href: string; label: string; key: string }) => {
                     </span>
                   </Link>
                 </div>
-
               </div>
             </div>
           )}

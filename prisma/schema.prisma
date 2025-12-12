@@ -171,7 +171,26 @@ model TaskEvidence {
   // ორივე მხარის review-ების ტრეკინგი (QoL flags)
   clientReviewed Boolean @default(false)
   workerReviewed Boolean @default(false)
+  // 🆕 Needs fixes meta
+  needsFixesReason String?
+  needsFixesAt     DateTime?
+  autoApproved     Boolean @default(false)
 
+  // 🆕 resubmission chain (worker resubmits after NEEDS_FIXES)
+  fixForId String?
+  fixFor   TaskEvidence? @relation("EvidenceFixFor", fields: [fixForId], references: [id], onDelete: SetNull)
+  fixes    TaskEvidence[] @relation("EvidenceFixFor")
+
+    // 🆕 notifications/seen flags
+  workerDecisionSeen    Boolean @default(true)  // worker sees: APPROVED / NEEDS_FIXES / EXPIRED
+  clientSystemSeen      Boolean @default(true)  // client sees: system events (EXPIRED / autoApproved)
+  workerSawClientReview Boolean @default(true)  // worker sees: client's rating of worker
+  clientSawWorkerReview Boolean @default(true)  // client sees: worker's rating of client
+
+  // 🆕 rating prompts after expiry (no one forced; both allowed)
+  clientSawRatingPrompt Boolean @default(true)
+  workerSawRatingPrompt Boolean @default(true)
+  
   // ტექსტური აღწერა
   text     String   @default("")
 
@@ -196,6 +215,7 @@ enum EvidenceStatus {
   APPROVED
   REJECTED
   NEEDS_FIXES
+  EXPIRED 
 }
 
 /**

@@ -1,33 +1,24 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  Image as ImageIcon,
-  Film,
-  FileArchive,
-  AlertTriangle,
-} from 'lucide-react';
+import { Image as ImageIcon, Film, FileArchive, AlertTriangle } from 'lucide-react';
 
 type Locale = 'ka' | 'en';
 
-/* helpers auth-სთვის */
-const getUidFromCookie = () => {
-  if (typeof document === 'undefined') return 'guest';
-  const m = document.cookie.match(/(?:^|;\s*)x-user-id=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : 'guest';
+type FixForInfo = {
+  id: string;
+  needsFixesReason: string | null;
+  needsFixesAt: string | null;
 };
 
-const getEmailFromCookie = () => {
-  if (typeof document === 'undefined') return '';
-  const m = document.cookie.match(/(?:^|;\s*)email=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : '';
+type EvidenceItemMini = {
+  id: string;
+  fixFor: FixForInfo | null;
 };
 
-/* ---------- Cloudinary upload helper ---------- */
 type ResourceKind = 'image' | 'video' | 'raw';
 
-/** იღებს ხელმოწერას ბექიდან (route.ts ზემოთ) */
 async function getSignature(kind: ResourceKind, folder: string) {
   const res = await fetch(`/api/cloudinary/sign?type=${kind}&folder=${encodeURIComponent(folder)}`, {
     cache: 'no-store',
@@ -43,10 +34,8 @@ async function getSignature(kind: ResourceKind, folder: string) {
   };
 }
 
-/** ატვირთავს ერთ ფაილს Cloudinary-ში და აბრუნებს secure_url-ს */
 async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string) {
   const sig = await getSignature(kind, folder);
-
   const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloudName}/${sig.resourceType}/upload`;
   const fd = new FormData();
   fd.append('file', file);
@@ -55,27 +44,20 @@ async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string
   fd.append('signature', sig.signature);
   fd.append('folder', sig.folder);
 
-
-
   const up = await fetch(endpoint, { method: 'POST', body: fd });
   const j = await up.json();
-  if (!up.ok || !j?.secure_url) {
-    throw new Error(j?.error?.message || 'upload_failed');
-  }
+  if (!up.ok || !j?.secure_url) throw new Error(j?.error?.message || 'upload_failed');
   return j.secure_url as string;
 }
 
-export default function ProofSubmitPage({
-  params,
-}: {
-  params: { locale: Locale };
-}) {
+export default function ProofSubmitPage({ params }: { params: { locale: Locale } }) {
   const { locale } = params;
   const isKa = locale === 'ka';
   const router = useRouter();
   const search = useSearchParams();
 
   const taskFromQuery = search.get('task') || '';
+  const fixFor = (search.get('fixFor') || '').trim();
 
   const [taskId] = useState(() => {
     if (taskFromQuery) return taskFromQuery;
@@ -85,35 +67,47 @@ export default function ProofSubmitPage({
     return '';
   });
 
-  const t = {
-    title: isKa ? 'მტკიცებულებების გაგზავნა' : 'Submit evidence',
-    textLabel: isKa ? 'აღწერა / კომენტარი' : 'Text / comment',
-    textPh: isKa ? 'დაწერე რა გააკეთე…' : 'Describe what you did…',
-    photosLabel: isKa ? 'ფოტოები (მაქს. 6)' : 'Photos (max 6)',
-    photosHint: isKa
-      ? 'JPEG/PNG. ახალის დამატებისას ძველები არ იშლება.'
-      : 'JPEG/PNG. New uploads are added, not replaced.',
-    videoLabel: isKa ? 'ვიდეო (არასავალდებულო)' : 'Video (optional)',
-    videoHint: isKa
-      ? 'შეგიძლია ატვირთო ერთი ვიდეო (მაგ. პროცესის ჩანაწერი).'
-      : 'You can upload a single video (e.g. screen recording).',
-    filesLabel: isKa ? 'ZIP ფაილები (არასავალდებულო)' : 'ZIP files (optional)',
-    filesHint: isKa
-      ? 'სასურველია .zip არქივი (დოკუმენტები, წყარო კოდი და ა.შ.).'
-      : 'Prefer a .zip archive with docs, source, etc.',
-    errorEmpty: isKa
-      ? 'მინიმუმ ერთი ველი უნდა იყოს შევსებული: ტექსტი, ფოტო, ვიდეო ან ZIP.'
-      : 'Please provide at least one: text, photo, video or ZIP file.',
-    errorNoTask: isKa
-      ? 'დავალების ID ვერ მოიძებნა.'
-      : 'Task ID is missing.',
-    send: isKa ? 'მტკიცებულების გაგზავნა' : 'Send evidence',
-    sending: isKa ? 'იგზავნება…' : 'Sending…',
-    cancel: isKa ? 'გამოსვლა' : 'Back',
-    success: isKa
-      ? 'მტკიცებულება წარმატებით გაიგზავნა.'
-      : 'Evidence submitted successfully.',
-  };
+  const t = useMemo(
+    () => ({
+      title: isKa ? 'მტკიცებულებების გაგზავნა' : 'Submit evidence',
+      titleFix: isKa ? 'ხარვეზის გამოსწორება — ხელახლა გაგზავნა' : 'Fix requested — resubmit evidence',
+      textLabel: isKa ? 'აღწერა / კომენტარი' : 'Text / comment',
+      textPh: isKa ? 'დაწერე რა გააკეთე…' : 'Describe what you did…',
+      photosLabel: isKa ? 'ფოტოები (მაქს. 6)' : 'Photos (max 6)',
+      photosHint: isKa ? 'JPEG/PNG. ახალის დამატებისას ძველები არ იშლება.' : 'JPEG/PNG. New uploads are added, not replaced.',
+      videoLabel: isKa ? 'ვიდეო (არასავალდებულო)' : 'Video (optional)',
+      videoHint: isKa ? 'შეგიძლია ატვირთო ერთი ვიდეო (მაგ. პროცესის ჩანაწერი).' : 'You can upload a single video (e.g. screen recording).',
+      filesLabel: isKa ? 'ZIP ფაილები (არასავალდებულო)' : 'ZIP files (optional)',
+      filesHint: isKa ? 'სასურველია .zip არქივი (დოკუმენტები, წყარო კოდი და ა.შ.).' : 'Prefer a .zip archive with docs, source, etc.',
+      errorEmpty: isKa ? 'მინიმუმ ერთი ველი უნდა იყოს შევსებული: ტექსტი, ფოტო, ვიდეო ან ZIP.' : 'Please provide at least one: text, photo, video or ZIP file.',
+      errorNoTask: isKa ? 'დავალების ID ვერ მოიძებნა.' : 'Task ID is missing.',
+      send: isKa ? 'მტკიცებულების გაგზავნა' : 'Send evidence',
+      sending: isKa ? 'იგზავნება…' : 'Sending…',
+      cancel: isKa ? 'გამოსვლა' : 'Back',
+      fixesBlockTitle: isKa ? 'დამკვეთის წარდგენილი ხარვეზი:' : 'Client requested fixes:',
+      noFixText: isKa ? 'ხარვეზის ტექსტი ვერ მოიძებნა.' : 'Fix reason not found.',
+    }),
+    [isKa],
+  );
+
+  const [fixInfo, setFixInfo] = useState<FixForInfo | null>(null);
+
+  useEffect(() => {
+    if (!fixFor) return;
+    // We can get it by loading outgoing evidences and finding that id
+    fetch('/api/my/evidences?tab=outgoing', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((arr: EvidenceItemMini[]) => {
+        const found = (arr as any[]).find((x) => x?.id === fixFor);
+        const info: FixForInfo = {
+          id: fixFor,
+          needsFixesReason: found?.needsFixesReason ?? null,
+          needsFixesAt: found?.needsFixesAt ?? null,
+        };
+        setFixInfo(info);
+      })
+      .catch(() => setFixInfo({ id: fixFor, needsFixesReason: null, needsFixesAt: null }));
+  }, [fixFor]);
 
   const [text, setText] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
@@ -121,10 +115,7 @@ export default function ProofSubmitPage({
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const cancelLabel = t.cancel;
-  const sendLabel = busy ? t.sending : t.send;
 
-  // ---- helpers ----
   const keyFor = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
 
   const onPhotosChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -138,9 +129,7 @@ export default function ProofSubmitPage({
     e.target.value = '';
   };
 
-  const removePhoto = (idx: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== idx));
-  };
+  const removePhoto = (idx: number) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
   const onVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -161,19 +150,8 @@ export default function ProofSubmitPage({
     e.target.value = '';
   };
 
-  const removeFile = (idx: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
-  };
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
-  const goBack = () => {
-    router.back();
-  };
-
-  /** მთავარი submit:
-   * 1) ვამოწმებთ ველებს
-   * 2) ვტვირთავთ Cloudinary-ში (images/video/raw)
-   * 3) ვაგზავნით ჩვენს ევიდენსის API-ზე უკვე URL-ებს JSON-ად
-   */
   const onSubmit = async () => {
     if (!taskId) {
       setError(t.errorNoTask);
@@ -196,42 +174,28 @@ export default function ProofSubmitPage({
     try {
       const folder = `tasky/evidences/${taskId}`;
 
-      // 1) ატვირთვები Cloudinary-ზე
       const photoUrls: string[] = [];
-      for (const f of photos) {
-        // images
-        const url = await uploadToCloudinary(f, 'image', folder);
-        photoUrls.push(url);
-      }
+      for (const f of photos) photoUrls.push(await uploadToCloudinary(f, 'image', folder));
 
       let videoUrl: string | null = null;
-      if (video) {
-        // videos
-        videoUrl = await uploadToCloudinary(video, 'video', folder);
-      }
+      if (video) videoUrl = await uploadToCloudinary(video, 'video', folder);
 
       const fileUrls: string[] = [];
-      for (const f of files) {
-        // zip/rar/etc -> raw
-        const url = await uploadToCloudinary(f, 'raw', folder);
-        fileUrls.push(url);
-      }
+      for (const f of files) fileUrls.push(await uploadToCloudinary(f, 'raw', folder));
 
-      // 2) ახლა უკვე გავაგზავნოთ ჩვენს API-ზე URL-ები JSON-ად
-      const uid = getUidFromCookie();
-      const res = await fetch(`/api/tasks/${taskId}/evidence`, {
+      const qs = new URLSearchParams();
+      qs.set('fixFor', fixFor || '');
+      const url = fixFor ? `/api/tasks/${taskId}/evidence?${qs.toString()}` : `/api/tasks/${taskId}/evidence`;
+
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-user-id': uid,
-          'x-email': getEmailFromCookie(),
-        },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           text,
           photos: photoUrls,
           videos: videoUrl ? [videoUrl] : [],
           files: fileUrls,
-          // სურვილისამებრ: შეგიძლია ჩაწერო original filenames-ც, თუ სერვერს ჭირდება
+          fixForId: fixFor || null,
         }),
       });
 
@@ -242,7 +206,6 @@ export default function ProofSubmitPage({
         return;
       }
 
-      // ჩავნიშნოთ localStorage-ში რომ ამ task-ზე უკვე გაგზავნილია
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(`tasky:evidenceSent:${taskId}`, '1');
@@ -259,21 +222,26 @@ export default function ProofSubmitPage({
 
   return (
     <div className="space-y-5">
-      <h1 className="text-3xl font-bold">{t.title}</h1>
+      <h1 className="text-3xl font-bold">{fixFor ? t.titleFix : t.title}</h1>
+
+      {fixFor && (
+        <div className="rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/30 p-4">
+          <div className="text-xs text-amber-200 mb-2">{t.fixesBlockTitle}</div>
+          <div className="text-sm text-white/85 whitespace-pre-wrap">
+            {fixInfo?.needsFixesReason?.trim() ? fixInfo.needsFixesReason : t.noFixText}
+          </div>
+        </div>
+      )}
 
       {taskId && (
         <div className="text-sm text-white/60">
-          Task ID:{' '}
-          <span className="font-mono text-white/80">{taskId}</span>
+          Task ID: <span className="font-mono text-white/80">{taskId}</span>
         </div>
       )}
 
       <div className="card p-6 space-y-6">
-        {/* ტექსტი */}
         <div>
-          <label className="block text-sm text-white/70 mb-1">
-            {t.textLabel}
-          </label>
+          <label className="block text-sm text-white/70 mb-1">{t.textLabel}</label>
           <textarea
             className="w-full px-3 py-2 rounded-lg bg-white/5 min-h-[140px] outline-none focus:ring-2 focus:ring-cyan/40"
             placeholder={t.textPh}
@@ -282,7 +250,6 @@ export default function ProofSubmitPage({
           />
         </div>
 
-        {/* ფოტოები */}
         <div>
           <label className="block text-sm text-white/70 mb-1 flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-cyan" />
@@ -307,11 +274,7 @@ export default function ProofSubmitPage({
               {photos.map((f, i) => {
                 const src = URL.createObjectURL(f);
                 return (
-                  <div
-                    key={i}
-                    className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
-                    style={{ height: 120 }}
-                  >
+                  <div key={i} className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center" style={{ height: 120 }}>
                     <button
                       type="button"
                       onClick={() => removePhoto(i)}
@@ -320,7 +283,6 @@ export default function ProofSubmitPage({
                     >
                       ✕
                     </button>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={src}
                       alt={f.name}
@@ -334,7 +296,6 @@ export default function ProofSubmitPage({
           )}
         </div>
 
-        {/* ვიდეო */}
         <div>
           <label className="block text-sm text-white/70 mb-1 flex items-center gap-2">
             <Film className="w-4 h-4 text-sky-400" />
@@ -356,18 +317,11 @@ export default function ProofSubmitPage({
           {video && (
             <div className="mt-2 flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
               <span className="truncate max-w-[70%]">{video.name}</span>
-              <button
-                type="button"
-                onClick={clearVideo}
-                className="text-xs text-red-300 hover:text-red-200"
-              >
-                ✕
-              </button>
+              <button type="button" onClick={clearVideo} className="text-xs text-red-300 hover:text-red-200">✕</button>
             </div>
           )}
         </div>
 
-        {/* ZIP ფაილები */}
         <div>
           <label className="block text-sm text-white/70 mb-1 flex items-center gap-2">
             <FileArchive className="w-4 h-4 text-amber-400" />
@@ -390,18 +344,9 @@ export default function ProofSubmitPage({
           {files.length > 0 && (
             <div className="mt-2 space-y-1 text-sm">
               {files.map((f, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5"
-                >
+                <div key={i} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5">
                   <span className="truncate max-w-[70%]">{f.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    className="text-xs text-red-300 hover:text-red-200"
-                  >
-                    ✕
-                  </button>
+                  <button type="button" onClick={() => removeFile(i)} className="text-xs text-red-300 hover:text-red-200">✕</button>
                 </div>
               ))}
             </div>
@@ -415,29 +360,27 @@ export default function ProofSubmitPage({
           </div>
         )}
 
-        {/* ღილაკები */}
-        {/* ღილაკები */}
         <div className="pt-2 flex justify-end gap-3">
           <button
             type="button"
-            onClick={goBack}
+            onClick={() => router.back()}
             className="btn-hero-secondary text-sm disabled:opacity-60"
             disabled={busy}
-            data-text={cancelLabel}
+            data-text={t.cancel}
           >
-            <span className="btn-text">{cancelLabel}</span>
+            <span className="btn-text">{t.cancel}</span>
           </button>
+
           <button
             type="button"
             onClick={onSubmit}
             className="btn-hero-primary text-sm disabled:opacity-60"
             disabled={busy}
-            data-text={sendLabel}
+            data-text={busy ? t.sending : t.send}
           >
-            <span className="btn-text">{sendLabel}</span>
+            <span className="btn-text">{busy ? t.sending : t.send}</span>
           </button>
         </div>
-
       </div>
     </div>
   );
