@@ -384,12 +384,14 @@ export default function Home({ params }: { params: { locale: Locale } }) {
 
 {/* Install helper modal (iOS guide with images) */}
 {showInstallHelp && (
-  <div
-    className="fixed inset-0 z-40 bg-black/70 px-3 py-6"
-    onClick={() => setShowInstallHelp(false)}
-    role="dialog"
-    aria-modal="true"
-  >
+<div
+  className="fixed inset-0 z-40 bg-black/70 px-3 pt-6"
+  style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}
+  onClick={() => setShowInstallHelp(false)}
+  role="dialog"
+  aria-modal="true"
+>
+
     <div
       className="mx-auto w-full max-w-md rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
                  max-h-[85vh] flex flex-col overflow-hidden"
@@ -490,7 +492,10 @@ export default function Home({ params }: { params: { locale: Locale } }) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 shrink-0 border-t border-white/10 bg-slate-950/95">
+    <div
+      className="px-5 pt-4 shrink-0 border-t border-white/10 bg-slate-950/95"
+      style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+    >
         <div className="flex justify-end">
           <button
             type="button"
