@@ -9,6 +9,7 @@ import { ShoppingBag, ShieldCheck, ClipboardList } from 'lucide-react';
 import NeonPowerSwitch from '@/components/NeonPowerSwitch';
 import TaskyLogoDraw from '@/components/TaskyLogoDraw';
 import TaskModal from '@/components/task/TaskModal';
+import Image from "next/image";
 
 type Locale = 'ka' | 'en';
 type InfoKey = 'payments' | 'clarity';
@@ -257,26 +258,19 @@ export default function Home({ params }: { params: { locale: Locale } }) {
               <span className="btn-text">{m.cta.getStarted}</span>
             </Link>
 
-            <Link
-              href={`/${params.locale}/tasky`}
-              onClick={playNav}
-              className="btn-hero-secondary w-full sm:w-auto"
-              data-text={m.cta.browseTasks} // <<< გლიჩისთვის
-            >
-              <span className="btn-text">{m.cta.browseTasks}</span>
-            </Link>
+          <button
+            type="button"
+            onClick={handleInstallClick}
+            className="btn-hero-secondary w-full sm:w-auto"
+            data-text={params.locale === "ka" ? "დააინსტალირე Tasky" : "Install Tasky"}
+          >
+            <span className="btn-text">
+              {params.locale === "ka" ? "დააინსტალირე Tasky" : "Install Tasky"}
+            </span>
+          </button>
+
           </div>
 
-          {/* Install app ღილაკი – მობილურზე კარგად ჯდება, desktop-ზეც ნორმალურად */}
-          <div className="mt-4 w-full max-w-sm">
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              className="w-full text-sm font-medium rounded-xl border border-cyan-400/60 bg-cyan-500/10 hover:bg-cyan-500/20 px-4 py-2 transition"
-            >
-              {installCopy.button}
-            </button>
-          </div>
         </div>
 
         {/* Logo + Power switch */}
@@ -389,28 +383,119 @@ export default function Home({ params }: { params: { locale: Locale } }) {
         </div>
       )}
 
-      {/* Install helper modal */}
-      {showInstallHelp && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center modal-overlay bg-black/70">
-          <div className="tasky-modal max-w-md w-[90%] rounded-2xl bg-slate-950/95 border border-cyan-500/40 p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold mb-3">{installCopy.title}</h3>
-            {installCopy.lines.map((line, idx) => (
-              <p key={idx} className="text-sm text-white/80 mb-2">
-                {line}
-              </p>
-            ))}
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowInstallHelp(false)}
-                className="px-4 py-2 text-sm font-medium border border_WHITE/25 rounded-lg hover:bg-white/10 transition"
-              >
-                {installCopy.close}
-              </button>
-            </div>
-          </div>
+{/* Install helper modal (iOS guide with images) */}
+{showInstallHelp && (
+  <div
+    className="fixed inset-0 z-40 flex items-center justify-center modal-overlay bg-black/70"
+    onClick={() => setShowInstallHelp(false)}
+  >
+    <div
+      className="tasky-modal max-w-md w-[92%] rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
+                 max-h-[85vh] flex flex-col"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="px-6 pt-6 pb-3 shrink-0">
+        <h3 className="text-xl font-semibold">
+          {params.locale === "ka"
+            ? "Tasky-ის ინსტალაცია iPhone-ზე"
+            : "Install Tasky on iPhone"}
+        </h3>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="px-6 pb-4 flex-1 overflow-y-auto space-y-4 text-sm text-white/80 leading-relaxed">
+        <div>
+          {params.locale === "ka" ? (
+            <>
+              როგორც ჩანს IOS მომხმარებელი ხარ, ამიტომაც სისტემა ავტომატურად არ აინსტალირებს
+              აპლიკაციას შენს მობილურში. Tasky ის ინსტალაციისთვის დააჭირე ბრაუზერის ქვედა
+              მხარეს, ცენტრში <b>Share</b> ღილაკს.
+            </>
+          ) : (
+            <>
+              It looks like you’re on iOS, so the system won’t install the app automatically.
+              To install Tasky, tap the <b>Share</b> button at the bottom center of your browser.
+            </>
+          )}
         </div>
-      )}
+
+        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+          <Image
+            src="/install/1.png"
+            alt="Step 1 - Share"
+            width={900}
+            height={600}
+            className="w-full h-auto"
+            priority
+          />
+        </div>
+
+        <div>
+          {params.locale === "ka" ? (
+            <>შემდეგ დააჭირე <b>Add to Home Screen</b>-ს.</>
+          ) : (
+            <>Then tap <b>Add to Home Screen</b>.</>
+          )}
+        </div>
+
+        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+          <Image
+            src="/install/2.png"
+            alt="Step 2 - Add to Home Screen"
+            width={900}
+            height={600}
+            className="w-full h-auto"
+          />
+        </div>
+
+        <div>
+          {params.locale === "ka" ? (
+            <>
+              შემდეგ კი დააჭირე <b>Add</b>-ს.
+              <br />
+              Tasky უკვე შენს მობილურშია, წარმატებები !
+            </>
+          ) : (
+            <>
+              Finally, tap <b>Add</b>.
+              <br />
+              Tasky is now on your phone — enjoy!
+            </>
+          )}
+        </div>
+
+        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+          <Image
+            src="/install/3.png"
+            alt="Step 3 - Add"
+            width={900}
+            height={600}
+            className="w-full h-auto"
+          />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 pb-6 pt-3 shrink-0 border-t border-white/10 bg-slate-950/95">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowInstallHelp(false)}
+            className="btn-modal-close text-sm"
+            data-text={params.locale === "ka" ? "გასაგებია" : "Got it"}
+          >
+            <span className="btn-text">
+              {params.locale === "ka" ? "გასაგებია" : "Got it"}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
       {/* Modal grow animation + feature button სტილები */}
       <style jsx global>{`
