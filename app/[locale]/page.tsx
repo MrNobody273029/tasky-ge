@@ -386,108 +386,125 @@ export default function Home({ params }: { params: { locale: Locale } }) {
 {/* Install helper modal (iOS guide with images) */}
 {showInstallHelp && (
   <div
-    className="fixed inset-0 z-40 flex items-center justify-center modal-overlay bg-black/70"
+    className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-3 py-6"
     onClick={() => setShowInstallHelp(false)}
+    role="dialog"
+    aria-modal="true"
   >
     <div
-      className="tasky-modal max-w-md w-[92%] rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
-                 max-h-[85vh] flex flex-col"
+      className="w-[94vw] max-w-md rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl
+                 max-h-[85vh] flex flex-col overflow-hidden"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="px-6 pt-6 pb-3 shrink-0">
-        <h3 className="text-xl font-semibold">
-          {params.locale === "ka"
-            ? "Tasky-ის ინსტალაცია iPhone-ზე"
-            : "Install Tasky on iPhone"}
+      <div className="px-5 pt-5 pb-3 shrink-0 border-b border-white/10">
+        <h3 className="text-lg font-semibold">
+          {params.locale === "ka" ? "Tasky-ის ინსტალაცია iPhone-ზე" : "Install Tasky on iPhone"}
         </h3>
+        <p className="text-xs text-white/60 mt-1">
+          {params.locale === "ka"
+            ? "Safari-დან დაამატე ჰომსქრინზე — 3 ნაბიჯში."
+            : "Add it from Safari to your Home Screen in 3 steps."}
+        </p>
       </div>
 
       {/* Scrollable content */}
-      <div className="px-6 pb-4 flex-1 overflow-y-auto space-y-4 text-sm text-white/80 leading-relaxed">
-        <div>
-          {params.locale === "ka" ? (
-            <>
-              როგორც ჩანს IOS მომხმარებელი ხარ, ამიტომაც სისტემა ავტომატურად არ აინსტალირებს
-              აპლიკაციას შენს მობილურში. Tasky ის ინსტალაციისთვის დააჭირე ბრაუზერის ქვედა
-              მხარეს, ცენტრში <b>Share</b> ღილაკს.
-            </>
-          ) : (
-            <>
-              It looks like you’re on iOS, so the system won’t install the app automatically.
-              To install Tasky, tap the <b>Share</b> button at the bottom center of your browser.
-            </>
-          )}
+      <div
+        className="px-5 py-4 flex-1 overflow-y-auto space-y-4 text-sm text-white/80 leading-relaxed"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {/* Step 1 */}
+        <div className="space-y-2">
+          <div>
+            {params.locale === "ka" ? (
+              <>
+                როგორც ჩანს <b>iOS</b> მომხმარებელი ხარ, ამიტომ სისტემა ავტომატურად ვერ აინსტალირებს აპს.
+                Tasky-ის ინსტალაციისთვის დააჭირე ბრაუზერის ქვედა მხარეს, ცენტრში <b>Share</b> ღილაკს.
+              </>
+            ) : (
+              <>
+                It looks like you’re on <b>iOS</b>, so the system won’t install the app automatically.
+                To install Tasky, tap the <b>Share</b> button at the bottom center of Safari.
+              </>
+            )}
+          </div>
+
+          <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+            <Image
+              src="/install/1.png"
+              alt="Step 1 - Share"
+              width={1200}
+              height={800}
+              className="w-full h-auto max-h-[45vh] object-contain"
+              priority
+            />
+          </div>
         </div>
 
-        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-          <Image
-            src="/install/1.png"
-            alt="Step 1 - Share"
-            width={900}
-            height={600}
-            className="w-full h-auto"
-            priority
-          />
+        {/* Step 2 */}
+        <div className="space-y-2">
+          <div>
+            {params.locale === "ka" ? (
+              <>შემდეგ ჩამოსქროლე და დააჭირე <b>Add to Home Screen</b>-ს.</>
+            ) : (
+              <>Then scroll down and tap <b>Add to Home Screen</b>.</>
+            )}
+          </div>
+
+          <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+            <Image
+              src="/install/2.png"
+              alt="Step 2 - Add to Home Screen"
+              width={1200}
+              height={800}
+              className="w-full h-auto max-h-[45vh] object-contain"
+            />
+          </div>
         </div>
 
-        <div>
-          {params.locale === "ka" ? (
-            <>შემდეგ დააჭირე <b>Add to Home Screen</b>-ს.</>
-          ) : (
-            <>Then tap <b>Add to Home Screen</b>.</>
-          )}
+        {/* Step 3 */}
+        <div className="space-y-2">
+          <div>
+            {params.locale === "ka" ? (
+              <>
+                ბოლოს დააჭირე <b>Add</b>-ს.
+                <br />
+                Tasky უკვე შენს მობილურშია — წარმატებები!
+              </>
+            ) : (
+              <>
+                Finally, tap <b>Add</b>.
+                <br />
+                Tasky is now on your phone — enjoy!
+              </>
+            )}
+          </div>
+
+          <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
+            <Image
+              src="/install/3.png"
+              alt="Step 3 - Add"
+              width={1200}
+              height={800}
+              className="w-full h-auto max-h-[45vh] object-contain"
+            />
+          </div>
         </div>
 
-        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-          <Image
-            src="/install/2.png"
-            alt="Step 2 - Add to Home Screen"
-            width={900}
-            height={600}
-            className="w-full h-auto"
-          />
-        </div>
-
-        <div>
-          {params.locale === "ka" ? (
-            <>
-              შემდეგ კი დააჭირე <b>Add</b>-ს.
-              <br />
-              Tasky უკვე შენს მობილურშია, წარმატებები !
-            </>
-          ) : (
-            <>
-              Finally, tap <b>Add</b>.
-              <br />
-              Tasky is now on your phone — enjoy!
-            </>
-          )}
-        </div>
-
-        <div className="rounded-xl overflow-hidden ring-1 ring-white/10 bg-white/5">
-          <Image
-            src="/install/3.png"
-            alt="Step 3 - Add"
-            width={900}
-            height={600}
-            className="w-full h-auto"
-          />
-        </div>
+        {/* tiny bottom spacer so last image isn't hidden behind footer while scrolling */}
+        <div className="h-2" />
       </div>
 
       {/* Footer */}
-      <div className="px-6 pb-6 pt-3 shrink-0 border-t border-white/10 bg-slate-950/95">
+      <div className="px-5 py-4 shrink-0 border-t border-white/10 bg-slate-950/95">
         <div className="flex justify-end">
           <button
             type="button"
             onClick={() => setShowInstallHelp(false)}
-            className="btn-modal-close text-sm"
+            className="btn-hero-secondary text-sm"
             data-text={params.locale === "ka" ? "გასაგებია" : "Got it"}
           >
-            <span className="btn-text">
-              {params.locale === "ka" ? "გასაგებია" : "Got it"}
-            </span>
+            <span className="btn-text">{params.locale === "ka" ? "გასაგებია" : "Got it"}</span>
           </button>
         </div>
       </div>
