@@ -43,10 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    // Require APPROVED (manual or auto)
-    if (evidence.status !== 'APPROVED') {
-      return NextResponse.json({ error: 'not_approved' }, { status: 409 });
-    }
+ // Allow rating on APPROVED or EXPIRED
+if (evidence.status !== 'APPROVED' && evidence.status !== 'EXPIRED') {
+  return NextResponse.json({ error: 'not_allowed' }, { status: 409 });
+}
+
 
     // One review per evidence from this client (idempotency)
     const exists = await prisma.review.findFirst({

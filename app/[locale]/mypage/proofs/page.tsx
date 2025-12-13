@@ -425,7 +425,15 @@ function RatingModal({
           setBusy(false);
           return;
         }
-        onLocalPatch({ workerReviewed: true });
+            onLocalPatch({
+              workerReviewed: true,
+              workerToClientReview: {
+                stars,
+                comment,
+                fromUserId: '',
+                createdAt: new Date().toISOString(),
+              },
+            } as any);
 
         try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
       } else {
@@ -447,7 +455,15 @@ function RatingModal({
           setBusy(false);
           return;
         }
-        onLocalPatch({ clientReviewed: true });
+            onLocalPatch({
+            clientReviewed: true,
+            clientToWorkerReview: {
+              stars,
+              comment,
+              fromUserId: '',
+              createdAt: new Date().toISOString(),
+            },
+          } as any);
 
         try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
       }
@@ -489,23 +505,33 @@ function RatingModal({
           </div>
 
           <div className="mt-4 space-y-4">
-          <RatingPanel
-            locale={locale}
-            title={topTitle}
-            who={receivedWho}
-            review={receivedReview /* აქ ჩასვი რეალური ობიექტი */ }
-            emptyText={emptyReceived}
-          />
+<RatingPanel
+  locale={locale}
+  title={topTitle}
+  who={receivedWho}
+  review={receivedReview}
+  emptyText={emptyReceived}
+/>
 
+{canRate && !myReviewDone ? (
+  <SubmitRatingPanel
+    locale={locale}
+    title={bottomTitle}
+    targetName={myTarget}
+    disabled={busy}          // აქ აღარ ვაბლოკავთ myReviewDone-ით, რადგან საერთოდ არ ჩანს როცა done-ა
+    busy={busy}
+    onSubmit={submitMyRating}
+  />
+) : (
+  <RatingPanel
+    locale={locale}
+    title={isKa ? 'შენ მიერ გაგზავნილი შეფასება' : 'Your sent rating'}
+    who={myTarget}
+    review={isWorker ? item.workerToClientReview : item.clientToWorkerReview}
+    emptyText={isKa ? 'შენ ჯერ არ გაგიგზავნია შეფასება.' : 'You haven’t sent a rating yet.'}
+  />
+)}
 
-            <SubmitRatingPanel
-              locale={locale}
-              title={bottomTitle}
-              targetName={myTarget}
-              disabled={!canRate || myReviewDone}
-              busy={busy}
-              onSubmit={submitMyRating}
-            />
 
             {err && (
               <div className="flex items-center gap-2 text-sm text-red-300">
@@ -684,8 +710,8 @@ function EvidenceModal({
   canNeedsFixes: boolean;
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<EvidenceItem>) => void;
-  onOpenRating: () => void;
-  onOpenDefect: () => void;
+  onOpenRating: (ev: EvidenceItem) => void;
+onOpenDefect: (ev: EvidenceItem) => void;
 }) {
   const isKa = locale === 'ka';
   const isIncoming = tab === 'incoming';
@@ -744,15 +770,15 @@ function EvidenceModal({
         setBusy(false);
         return;
       }
+        const patched: EvidenceItem = { ...item, status: 'APPROVED', autoApproved: false };
 
-      onUpdate(item.id, { status: 'APPROVED', autoApproved: false });
+        onUpdate(item.id, { status: 'APPROVED', autoApproved: false });
 
-      try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+        try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
 
-      // keep your old flow: mandatory rating happens elsewhere (you already had it),
-      // but now we simply open rating modal for consistency
-      onOpenRating();
-      onClose();
+        onOpenRating(patched);
+        onClose();
+
     } catch (e: any) {
       setActionErr(String(e?.message || e) || 'Request failed');
     } finally {
@@ -1050,7 +1076,7 @@ function EvidenceModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onOpenRating();
+                        onOpenRating(item);
                         onClose();
                       }}
                       className="btn-hero-secondary text-sm relative"
@@ -1065,7 +1091,7 @@ function EvidenceModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onOpenRating();
+                      onOpenRating(item);
                         onClose();
                       }}
                       className="btn-hero-secondary text-sm relative"
@@ -1080,7 +1106,7 @@ function EvidenceModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onOpenDefect();
+                        onOpenDefect(item);
                         onClose();
                       }}
                       className="btn-evidence-warning text-sm relative"
@@ -1544,8 +1570,8 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
           canNeedsFixes={canNeedsFixesForSelected}
           onClose={() => setSelected(null)}
           onUpdate={handleEvidenceUpdated}
-          onOpenRating={() => openRating(selected)}
-          onOpenDefect={() => openDefect(selected)}
+          onOpenRating={(ev) => openRating(ev)}
+          onOpenDefect={(ev) => openDefect(ev)}
         />
       )}
 
