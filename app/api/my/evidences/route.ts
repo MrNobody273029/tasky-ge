@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         author: true,
         task: { include: { author: true } },
         fixFor: true,
+        fixes: { select: { id: true }, take: 1 }, // ✅ just need to know if a child exists
         reviews: true,
       },
     });
@@ -36,13 +37,16 @@ export async function GET(req: NextRequest) {
       try { videos = JSON.parse(e.videos || '[]'); } catch {}
       try { files = JSON.parse(e.files || '[]'); } catch {}
 
-      const clientToWorker = e.reviews.find(
-        (r) => r.role === 'WORKER' && r.toUserId === e.authorId
-      ) || null;
+      const clientToWorker =
+        e.reviews.find((r) => r.role === 'WORKER' && r.toUserId === e.authorId) || null;
 
-      const workerToClient = e.reviews.find(
-        (r) => r.role === 'CLIENT' && r.toUserId === e.task.authorId
-      ) || null;
+      const workerToClient =
+        e.reviews.find((r) => r.role === 'CLIENT' && r.toUserId === e.task.authorId) || null;
+
+      // ✅ parent NEEDS_FIXES countdown was stopped only when resubmitted on time
+      const hasFixChild = Array.isArray((e as any).fixes) && (e as any).fixes.length > 0;
+      const fixResubmittedOnTime =
+        e.status === 'NEEDS_FIXES' && e.needsFixesAt === null && hasFixChild;
 
       return {
         id: e.id,
@@ -60,6 +64,9 @@ export async function GET(req: NextRequest) {
         needsFixesReason: e.needsFixesReason ?? null,
         needsFixesAt: e.needsFixesAt ? e.needsFixesAt.toISOString() : null,
         autoApproved: Boolean(e.autoApproved),
+
+        // ✅ new field for UI
+        fixResubmittedOnTime,
 
         fixForId: (e as any).fixForId ?? null,
         fixFor: e.fixFor

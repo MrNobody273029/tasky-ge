@@ -56,6 +56,7 @@ type EvidenceItem = {
   clientSawWorkerReview?: boolean;
   clientSawRatingPrompt?: boolean;
   workerSawRatingPrompt?: boolean;
+  fixResubmittedOnTime?: boolean;
 
   clientToWorkerReview: ReviewMini; // client rated worker
   workerToClientReview: ReviewMini; // worker rated client
@@ -1387,6 +1388,7 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
           {items.map((ev) => {
             const cd = countdownInfo(ev);
             const showCountdown = cd.show && (ev.status === 'PENDING' || ev.status === 'NEEDS_FIXES') && cd.remaining > 0;
+            const showResubmittedMsg = ev.status === 'NEEDS_FIXES' && ev.fixResubmittedOnTime;
 
             const showStamp = ev.status !== 'PENDING';
             const canOpenDefectBtn = ev.status === 'NEEDS_FIXES';
@@ -1461,15 +1463,24 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                         {isKa ? 'შეფასება' : 'reviews'}
                       </span>
                     </div>
+                                {showResubmittedMsg ? (
+                                  <div className="text-xs text-white/70">
+                                    <span className="text-white/50">{isKa ? 'სტატუსი:' : 'Status:'}</span>{' '}
+                                    <span className="font-semibold text-emerald-300">
+                                      {isKa
+                                        ? 'მტკიცებულებები ხელმეორედ გაგზავნილია დროულად.'
+                                        : 'Evidence was resubmitted on time.'}
+                                    </span>
+                                  </div>
+                                ) : showCountdown ? (
+                                  <div className="text-xs text-white/70">
+                                    <span className="text-white/50">{cd.label}</span>{' '}
+                                    <span className="font-semibold text-sky-300">
+                                      {fmtCountdown(cd.remaining, isKa)}
+                                    </span>
+                                  </div>
+                                ) : null}
 
-                    {showCountdown && (
-                      <div className="text-xs text-white/70">
-                        <span className="text-white/50">{cd.label}</span>{' '}
-                        <span className="font-semibold text-sky-300">
-                          {fmtCountdown(cd.remaining, isKa)}
-                        </span>
-                      </div>
-                    )}
 
                     {ev.text && (
                       <div className="mt-1 text-sm text-white/80 line-clamp-2 group-hover:text-white/90">

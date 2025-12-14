@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -52,6 +52,12 @@ type OwnerInfo = {
   avatar?: string | null;
   ratingAvg?: number;
   ratingCount?: number;
+};
+type OutgoingEvidenceMini = {
+  id: string;
+  createdAt: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_FIXES" | "EXPIRED";
+  task?: { id: string };
 };
 
 /* ---------- i18n ---------- */
@@ -107,7 +113,10 @@ const dict = {
     proofSent: "მტკიცებულებები გაგზავნილია, ელოდებით დამკვეთის პასუხს.",
      cannotReturnAfterEvidence:
       "უკვე გაგზავნილია მტკიცებულება. სანამ დამკვეთი პასუხს არ გასცემს, დავალების დაბრუნება შეუძლებელია.",
-  },
+    resubmitProof: "მტკიცებულებების ხელახლა გაგზავნა",
+    proofNeedsFixes: "დამკვეთმა დაახარვეზა — საჭიროა ხელახლა გაგზავნა.",
+
+    },
   en: {
     loading: "Loading…",
     postedBy: "Posted by",
@@ -159,7 +168,11 @@ const dict = {
     proofSent: "Evidence sent, awaiting client's response.",
     cannotReturnAfterEvidence:
       "You have already submitted evidence. Until the client responds, you cannot return this task.",
-  },
+resubmitProof: "Resubmit evidence",
+proofNeedsFixes: "Client requested fixes — please resubmit.",
+
+
+    },
 } as const;
 
 /* ---------- label mappers ---------- */
@@ -271,12 +284,15 @@ export default function TaskModal({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [hasTaken, setHasTaken] = useState(false);
-  const [hasEvidence, setHasEvidence] = useState(false);
   // exclusive application state
   const [appStatus, setAppStatus] =
     useState<"NONE" | "PENDING" | "APPROVED" | "REJECTED">("NONE");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [evidenceApproved, setEvidenceApproved] = useState(false);
+const [evidenceStatus, setEvidenceStatus] = useState<
+  "NONE" | "PENDING" | "APPROVED" | "NEEDS_FIXES" | "REJECTED" | "EXPIRED"
+>("NONE");
+const [needsFixesEvidenceId, setNeedsFixesEvidenceId] = useState<string | null>(null);
 
   // apply UI
   const [applyOpen, setApplyOpen] = useState(false);
@@ -284,6 +300,9 @@ export default function TaskModal({
   const [applyBusy, setApplyBusy] = useState(false);
   const [applyErr, setApplyErr] = useState<string | null>(null);
   const [applyDone, setApplyDone] = useState<{ threadId: string } | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+const hasEvidencePending = evidenceStatus === "PENDING";
 
   const closeApply = () => {
     setApplyOpen(false);
@@ -291,27 +310,37 @@ export default function TaskModal({
     setApplyBusy(false);
     setApplyMsg("");
   };
-// reset per-open
-useEffect(() => {
+
+// reset per-open (✅ paint-მდე, რომ “wrong buttons flash” არ იყოს)
+useLayoutEffect(() => {
   if (!open) return;
 
-  // 🧹 გავასუფთავოთ ყველაფერი, რომ ძველი ტასკის მონაცემები არ გამოჩნდეს
   setData(null);
   setOwner(null);
-  setHasEvidence(false);
-  setEvidenceApproved(false);
-  setLoading(true);   // 👉 გახსნის მომენტში ეგრევე ლოადერი გამოჩნდეს
 
   setErr(null);
   setMsg(null);
+
+  setTaking(false);
+  setReturning(false);
+
   setApplyOpen(false);
   setApplyDone(null);
   setApplyErr(null);
-  setTaking(false);
-  setReturning(false);
+  setApplyMsg("");
+  setApplyBusy(false);
+
   setAppStatus("NONE");
   setThreadId(null);
   setHasTaken(false);
+
+  // ✅ ყველაზე მნიშვნელოვანი: ღილაკების state თავიდანვე “უსაფრთხო” იყოს
+  setEvidenceApproved(false);
+  setEvidenceStatus("NONE");
+  setNeedsFixesEvidenceId(null);
+  setEvidenceLoading(true);
+
+  setLoading(true);
 }, [open, taskId]);
 
 // გავიგოთ, ამ ტასკზე ხომ არ არსებობს უკვე ჩემი (worker) ევიდენსი "APPROVED"
@@ -319,70 +348,90 @@ useEffect(() => {
   if (!open || !taskId) return;
   let alive = true;
 
-  fetch(`/api/my/evidences?tab=outgoing`, { cache: 'no-store' })
+  // ✅ აი აქ არის "fetch-ის დაწყებამდე" ზუსტად
+  setEvidenceLoading(true);
+
+  fetch(`/api/my/evidences?tab=outgoing`, { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : []))
-.then((list: any[]) => {
-  if (!alive) return;
-  const ok =
-    Array.isArray(list) &&
-    list.some((ev) => ev?.task?.id === taskId && ev?.status === 'APPROVED');
+    .then((list: OutgoingEvidenceMini[]) => {
+      if (!alive) return;
 
-  setEvidenceApproved(!!ok);
+      const mine = Array.isArray(list)
+        ? list.filter((ev) => ev?.task?.id === taskId)
+        : [];
 
-  // ⬇️ ახალი 3 ხაზი — დავალებას რომ დაამტკიცებენ, ადგილობრივ ფლაგსაც ვწმენდთ
-  if (ok) {
-    try {
-      localStorage.removeItem(`tasky:evidenceSent:${taskId}`);
-    } catch {}
-    setHasEvidence(false);
-  }
-})
+      const latest =
+        mine
+          .slice()
+          .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0] ||
+        null;
 
-    .catch(() => setEvidenceApproved(false));
+      const st = (latest?.status || "NONE") as any;
+      setEvidenceStatus(st);
+
+      setEvidenceApproved(st === "APPROVED");
+      setNeedsFixesEvidenceId(st === "NEEDS_FIXES" && latest ? latest.id : null);
+
+      // ✅ აი აქ არის "მონაცემების მიღების შემდეგ" ზუსტად
+      setEvidenceLoading(false);
+    })
+    .catch(() => {
+      if (!alive) return;
+      setEvidenceApproved(false);
+      setEvidenceStatus("NONE");
+      setNeedsFixesEvidenceId(null);
+
+      // ✅ აი აქ არის "ერორის შემდეგ" ზუსტად
+      setEvidenceLoading(false);
+    });
 
   return () => {
     alive = false;
   };
 }, [open, taskId]);
 
+
   // load task
-  useEffect(() => {
-    if (!open || !taskId) return;
-    setErr(null);
-    setMsg(null);
+useEffect(() => {
+  if (!open || !taskId) return;
+  let alive = true;
 
-    const uid = getUidFromCookie();
-    fetch(`/api/tasks/${taskId}`, {
-      cache: "no-store",
-      headers: { "x-user-id": uid, "x-email": getEmailFromCookie() },
+  setErr(null);
+  setMsg(null);
+
+  const uid = getUidFromCookie();
+  fetch(`/api/tasks/${taskId}`, {
+    cache: "no-store",
+    headers: { "x-user-id": uid, "x-email": getEmailFromCookie() },
+  })
+    .then(async (r) => {
+      if (!r.ok)
+        throw new Error(
+          (await r.json().catch(() => ({})))?.error || "Request failed"
+        );
+      return r.json() as Promise<TaskResp>;
     })
-      .then(async (r) => {
-        if (!r.ok)
-          throw new Error(
-            (await r.json().catch(() => ({})))?.error || "Request failed"
-          );
-        return r.json() as Promise<TaskResp>;
-      })
-      .then((j) => {
-        setData(j);
-        setHasTaken(!!j.hasTakenByMe);
-        setAppStatus(j.myAppStatus ?? "NONE");
-        setThreadId(j.myThreadId ?? null);
+    .then((j) => {
+      if (!alive) return;
+      setData(j);
+      setHasTaken(!!j.hasTakenByMe);
+      setAppStatus(j.myAppStatus ?? "NONE");
+      setThreadId(j.myThreadId ?? null);
+    })
+    .catch((e) => {
+      if (!alive) return;
+      setErr(String((e as any).message || e));
+    })
+    .finally(() => {
+      if (!alive) return;
+      setLoading(false);
+    });
 
-        // აქვე ვამოწმებთ, ხომ არ აქვს უკვე გაგზავნილი მტკიცებულება (localStorage)
-        try {
-          if (typeof window !== "undefined") {
-            const flag = window.localStorage.getItem(
-              `tasky:evidenceSent:${j.id}`
-            );
-            setHasEvidence(!!flag);
-          }
-        } catch {}
-      })
+  return () => {
+    alive = false;
+  };
+}, [open, taskId]);
 
-      .catch((e) => setErr(String((e as any).message || e)))
-      .finally(() => setLoading(false));
-  }, [open, taskId]);
 
   // owner info
 // owner info
@@ -436,15 +485,19 @@ useEffect(() => {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, applyOpen, onClose]);
 
-  if (!open) return null;
-  if (loading && !data) {
-    // სანამ API-დან საერთოდ არ გვაქვს ტასკი – მთელ ეკრანზე მატრიქს-ლოადერი
-    return (
-      <div className="fixed inset-0 z-[2147483648]">
-        <MatrixLoader />
-      </div>
-    );
-  }
+if (!open) return null;
+
+// ✅ თუ data ძველი ტასკისაა (ან ევიდენსი ჯერ იტვირთება) — არაფერს ვაჩვენებთ გარდა ლოადერის
+const mismatch = !!data && !!taskId && data.id !== taskId;
+
+if (loading || evidenceLoading || mismatch) {
+  return (
+    <div className="fixed inset-0 z-[2147483648]">
+      <MatrixLoader />
+    </div>
+  );
+}
+
 
 
   async function handleTake() {
@@ -508,7 +561,7 @@ async function handleReturn() {
     if (!data) return;
 
     // თუ უკვე გაგზავნილია მტკიცებულება – საერთოდ არ ვაბრუნებთ
-    if (hasEvidence) {
+    if (hasEvidencePending) {
       setMsg(null);
       setErr(t.cannotReturnAfterEvidence);
       return;
@@ -554,11 +607,6 @@ async function handleReturn() {
 const handleSubmitProof = () => {
   if (!data?.id) return;
 
-  try {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("tasky:evidenceTaskId", data.id);
-    }
-  } catch {}
 
   const href = `/${locale}/mypage/proofs/submit?task=${data.id}`;
 
@@ -571,6 +619,18 @@ const handleSubmitProof = () => {
   }, 0);
 };
 
+const handleResubmitProof = () => {
+  if (!data?.id) return;
+  if (!needsFixesEvidenceId) return;
+
+
+  const href = `/${locale}/mypage/proofs/submit?task=${data.id}&fixFor=${needsFixesEvidenceId}`;
+
+  onClose();
+  setTimeout(() => {
+    router.push(href);
+  }, 0);
+};
 
 
 
@@ -905,27 +965,36 @@ const handleSubmitProof = () => {
                   </>
                 ) : appStatus === "APPROVED" || hasTaken ? (
                   <>
-                    {hasEvidence ? (
-                      <button
-                        type="button"
-                        className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                        aria-disabled="true"
-                        data-text={submitProofDisabledLabel}
-                      >
-                        <span className="btn-text">
-                          {submitProofDisabledLabel}
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleSubmitProof}
-                        className="btn-hero-primary text-sm inline-flex items-center gap-2"
-                        data-text={submitProofLabel}
-                      >
-                        <Send className="w-4 h-4" />
-                        <span className="btn-text">{submitProofLabel}</span>
-                      </button>
-                    )}
+{evidenceStatus === "NEEDS_FIXES" ? (
+  <button
+    onClick={handleResubmitProof}
+    className="btn-evidence-warning text-sm inline-flex items-center gap-2"
+    data-text={t.resubmitProof}
+    title={t.proofNeedsFixes}
+  >
+    <RotateCcw className="w-4 h-4" />
+    <span>{t.resubmitProof}</span>
+  </button>
+) : evidenceLoading || evidenceStatus === "PENDING" ? (
+  <button
+    type="button"
+    className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+    aria-disabled="true"
+    data-text={submitProofDisabledLabel}
+  >
+    <span className="btn-text">{submitProofDisabledLabel}</span>
+  </button>
+) : (
+  <button
+    onClick={handleSubmitProof}
+    className="btn-hero-primary text-sm inline-flex items-center gap-2"
+    data-text={submitProofLabel}
+  >
+    <Send className="w-4 h-4" />
+    <span className="btn-text">{submitProofLabel}</span>
+  </button>
+)}
+
 
                     {threadId ? (
                       <button
@@ -958,39 +1027,48 @@ const handleSubmitProof = () => {
               ) : hasTaken ? (
                 /* --- არაექსკლუზიური, უკვე აღებული --- */
                 <>
-                  {hasEvidence ? (
-                    <button
-                      type="button"
-                      className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
-                      aria-disabled="true"
-                      data-text={submitProofDisabledLabel}
-                    >
-                      <span className="btn-text">
-                        {submitProofDisabledLabel}
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSubmitProof}
-                      className="btn-hero-primary text-sm inline-flex items-center gap-2"
-                      data-text={submitProofLabel}
-                    >
-                      <Send className="w-4 h-4" />
-                      <span className="btn-text">{submitProofLabel}</span>
-                    </button>
-                  )}
+{evidenceStatus === "NEEDS_FIXES" ? (
+  <button
+    onClick={handleResubmitProof}
+    className="btn-evidence-warning text-sm inline-flex items-center gap-2"
+    data-text={t.resubmitProof}
+    title={t.proofNeedsFixes}
+  >
+    <RotateCcw className="w-4 h-4" />
+    <span>{t.resubmitProof}</span>
+  </button>
+) : evidenceLoading || evidenceStatus === "PENDING" ? (
+  <button
+    type="button"
+    className="btn-hero-secondary text-sm opacity-60 cursor-not-allowed"
+    aria-disabled="true"
+    data-text={submitProofDisabledLabel}
+  >
+    <span className="btn-text">{submitProofDisabledLabel}</span>
+  </button>
+) : (
+  <button
+    onClick={handleSubmitProof}
+    className="btn-hero-primary text-sm inline-flex items-center gap-2"
+    data-text={submitProofLabel}
+  >
+    <Send className="w-4 h-4" />
+    <span className="btn-text">{submitProofLabel}</span>
+  </button>
+)}
+
 
                   <button
                     onClick={handleReturnClick}
                     disabled={returning}
                     className={
                       "btn-logout btn-no-glitch inline-flex items-center gap-2 text-sm " +
-                      (hasEvidence
+                      (hasEvidencePending
                         ? "opacity-60 cursor-not-allowed"
                         : "disabled:opacity-60")
                     }
                     title={
-                      hasEvidence ? t.cannotReturnAfterEvidence : undefined
+                      hasEvidencePending ? t.cannotReturnAfterEvidence : undefined
                     }
                   >
                     <RotateCcw className="w-4 h-4" />
