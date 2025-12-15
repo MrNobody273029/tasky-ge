@@ -36,7 +36,7 @@ model User {
   // Wallet / balance
   walletTransactions              WalletTransaction[] @relation("WalletTxOwner")
   walletTransactionsAsCounterparty WalletTransaction[] @relation("WalletTxCounterparty")
-
+payoutAccounts PayoutAccount[]
   // Reviews
   reviewsGiven    Review[] @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
@@ -53,6 +53,19 @@ model User {
   // 🆕 ინდივიდუალური საკომისიო (%); default = 10
   commissionPct Int @default(10)
 
+}
+model PayoutAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // მხოლოდ ანგარიში/IBAN — საკმარისია დემოსთვის
+  account   String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@unique([userId, account]) // ერთ მომხმარებელზე ერთსა და იმავე ანგარიშს ორჯერ ვერ დაამატებს
 }
 
 model Task {

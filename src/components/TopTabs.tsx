@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import ka from '../../messages/ka.json';
 import en from '../../messages/en.json';
+import { useMounted } from '@/lib/useMounted';
 
 /** მინიმალური Me type – ზუსტად რაც აქ გვჭირდება */
 type Me = {
@@ -34,6 +35,7 @@ export default function TopTabs({
 }) {
   const p = usePathname();
   const router = useRouter();
+const mounted = useMounted();
 
   // locale "/ka/mypage" -> "ka"
   const locale = (base.split('/').filter(Boolean)[0] ?? 'en') as 'ka' | 'en';
@@ -349,7 +351,7 @@ export default function TopTabs({
 
   // ✅ no "User" placeholder; show skeleton until we have a name/email
   const displayName = me?.name || (me?.email ? me.email.split('@')[0] : '');
-  const ariaName = displayName || 'User';
+const ariaName = displayName || (mounted ? 'User' : '');
 
   const renderMenuLink = (
     it: { href: string; label: string; key: string },
@@ -459,7 +461,7 @@ export default function TopTabs({
               )}
             </span>
 
-            {displayName ? (
+            {mounted && displayName ? (
               <span className="hidden sm:block text-sm font-medium text-white/90 max-w-[120px] truncate">
                 {displayName}
               </span>
@@ -469,6 +471,7 @@ export default function TopTabs({
                 aria-hidden="true"
               />
             )}
+
           </button>
 
           {menuOpen && (
