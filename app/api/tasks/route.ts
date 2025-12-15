@@ -12,6 +12,20 @@ function mapWhere(v: unknown): 'REMOTE' | 'ONSITE' {
   return v === 'onsite' ? 'ONSITE' : 'REMOTE';
 }
 
+/**
+ * Deadline rules (professional):
+ * - allow null
+ * - must be a valid date
+ * - must be >= start of tomorrow (server-local day boundary)
+ */
+function startOfTomorrow(): Date {
+  const now = new Date();
+  const t = new Date(now);
+  t.setHours(0, 0, 0, 0);
+  t.setDate(t.getDate() + 1);
+  return t;
+}
+
 export async function POST(req: Request) {
   try {
     // 🔒 ავტორიზაცია (+ DB-ში იუზერის არსებობის გარანტია)
@@ -40,6 +54,27 @@ export async function POST(req: Request) {
       }
     }
 
+    // deadline parse (robust)
+    let deadline: Date | null = null;
+    if (body.deadline) {
+      const d = new Date(body.deadline);
+      if (Number.isNaN(d.getTime())) {
+        return NextResponse.json(
+          { error: 'invalid_deadline_format' },
+          { status: 400 },
+        );
+      }
+      deadline = d;
+
+      // ✅ must be tomorrow or later (server-local)
+      if (deadline.getTime() < startOfTomorrow().getTime()) {
+        return NextResponse.json(
+          { error: 'deadline_too_soon' },
+          { status: 400 },
+        );
+      }
+    }
+
     // სქემასთან 1:1 შესაბამისი ობიექტი
     const data = {
       authorId: user.id,
@@ -49,7 +84,7 @@ export async function POST(req: Request) {
       category: String(body.category || '').trim(), // String ველი
       skill: String(body.skill || '').trim(), // String ველი
       reward: Math.max(0, Math.round(Number(body.reward || 0))),
-      deadline: body.deadline ? new Date(body.deadline) : null,
+      deadline,
       where: mapWhere(body.where),
       address: body.where === 'onsite' ? (body.address ?? null) : null,
       exclusive: !!body.exclusive,

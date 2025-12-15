@@ -43,6 +43,14 @@ export default async function Tasky({
 
   const prismaWhere: any = { status: "PUBLISHED" };
 
+  // ✅ hide deadline-expired tasks (deadline < now). Keep tasks with no deadline.
+  const now = new Date();
+  prismaWhere.AND = [
+    {
+      OR: [{ deadline: null }, { deadline: { gt: now } }],
+    },
+  ];
+
   if (q && q.trim()) {
     prismaWhere.OR = [
       { title: { contains: q.trim(), mode: "insensitive" } },
@@ -178,7 +186,7 @@ export default async function Tasky({
       </h1>
 
       {/* Filters */}
-<form method="get" className="card p-3 space-y-3 relative z-[200]">
+      <form method="get" className="card p-3 space-y-3 relative z-[200]">
         {/* search – სულ ზედა, full-width */}
         <div>
           <input
@@ -249,14 +257,13 @@ export default async function Tasky({
             />
           </div>
         </div>
-
       </form>
 
       {/* Results */}
       {tasks.length === 0 ? (
         <div className="text-white/60">{t.empty}</div>
       ) : (
-<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 relative z-0">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 relative z-0">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={toCardInput(task)} />
           ))}

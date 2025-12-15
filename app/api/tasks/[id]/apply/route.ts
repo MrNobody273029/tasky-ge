@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureUserFromReq } from '@/lib/auth';
 
+function isDeadlinePassed(deadline: Date | null): boolean {
+  if (!deadline) return false;
+  return deadline.getTime() < Date.now();
+}
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     // 1) auth (უზრუნველყოფს User row-საც)
@@ -15,8 +20,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const message = rawMsg.trim();
 
     // 3) task
-    const task = await prisma.task.findUnique({ where: { id: params.id } });
+    const task = await prisma.task.findUnique({
+      where: { id: params.id },
+    });
     if (!task) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+
+    if (isDeadlinePassed(task.deadline ?? null)) {
+      return NextResponse.json({ error: 'deadline_passed' }, { status: 409 });
+    }
+
     if (task.status !== 'PUBLISHED') {
       return NextResponse.json({ error: 'not_published' }, { status: 400 });
     }
@@ -36,10 +48,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
 
     if (approvedForTask && approvedForTask.applicantId !== user.id) {
-      return NextResponse.json(
-        { error: 'already_assigned' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'already_assigned' }, { status: 400 });
     }
 
     // 4) ვცადოთ არსებული განაცხადის წამოღება (unique: taskId+applicantId)
@@ -60,8 +69,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           message,
           status: 'PENDING',
           ownerSeen: false,
-ownerSeenAt: null,
-
+          ownerSeenAt: null,
         },
         select: { id: true, status: true },
       });
@@ -82,10 +90,7 @@ ownerSeenAt: null,
       }
       if (existing.status === 'REJECTED') {
         // ❌ შენს მოთხოვნაზე: უარყოფის შემდეგ აღარ შეიძლება ხელახალი გაგზავნა
-        return NextResponse.json(
-          { error: 'rejected_locked' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'rejected_locked' }, { status: 400 });
       }
       // PENDING → მხოლოდ მესიჯის განახლება (ნებაყოფლობით)
       const upd = await prisma.taskApplication.update({
@@ -109,7 +114,7 @@ ownerSeenAt: null,
           taskId: task.id,
           ownerId: task.authorId,
           applicantId: user.id,
-          hasUnreadForOwner: true,          // დამკვეთს აუნთოს წერტილი
+          hasUnreadForOwner: true, // დამკვეთს აუნთოს წერტილი
           hasUnreadForApplicant: false,
         },
       });

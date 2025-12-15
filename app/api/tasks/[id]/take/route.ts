@@ -30,24 +30,44 @@ function invalidateUIAfterMutation(req: Request, taskId: string) {
 }
 
 /* --------- Take (claim) --------- */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } },
+) {
   const taskId = params.id;
 
   try {
     const user = await ensureUserFromReq(req); // 🔒 auth + user row
-    if (!user) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    }
 
+    // ✅ დავამატეთ deadline წამოსაღებად select-ში
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: { id: true, authorId: true, status: true },
+      select: { id: true, authorId: true, status: true, deadline: true },
     });
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+    // ✅ deadline guard (თუ deadline აქვს და უკვე გასულია, claim არ შეიძლება)
+    if (task.deadline) {
+      const dl = new Date(task.deadline);
+      if (!Number.isNaN(dl.getTime()) && Date.now() >= dl.getTime()) {
+        return NextResponse.json({ error: 'deadline_passed' }, { status: 400 });
+      }
+    }
+
     if ((task.authorId || '').toLowerCase() === user.id.toLowerCase()) {
-      return NextResponse.json({ error: 'Cannot take own task' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Cannot take own task' },
+        { status: 400 },
+      );
     }
     if (task.status !== 'PUBLISHED') {
-      return NextResponse.json({ error: 'Task is not published' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Task is not published' },
+        { status: 400 },
+      );
     }
 
     try {
@@ -71,7 +91,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 /* --------- Return (delete claim) --------- */
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } },
+) {
   try {
     const user = await ensureUserFromReq(req); // 🔒
     if (!user) return NextResponse.json({ error: 'auth_required' }, { status: 401 });

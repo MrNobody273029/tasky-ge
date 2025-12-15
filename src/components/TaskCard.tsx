@@ -29,7 +29,6 @@ const skillLabel = (raw: string | undefined | null, loc: Locale) => {
   return raw || "—";
 };
 
-
 export type TaskCardInput = {
   id: string;
   locale: Locale;
@@ -45,6 +44,9 @@ export type TaskCardInput = {
   reward: number;
   exclusive?: boolean;
   status?: string; // "DRAFT" | "PUBLISHED"
+
+  // optional server-side hint if you ever pass it
+  isExpired?: boolean;
 };
 
 type StatusBadge =
@@ -52,17 +54,24 @@ type StatusBadge =
   | { kind: "rejected"; text: string }
   | { kind: "approved"; text: string };
 
+function isExpiredLocal(deadline: string | null | undefined): boolean {
+  if (!deadline) return false;
+  const d = new Date(deadline);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
+}
+
 export default function TaskCard({
   task,
   ctaLabel,
   statusBadge,
-  onOpenTask, 
+  onOpenTask,
 }: {
   task: TaskCardInput;
   ctaLabel?: string;
   /** optional little chip rendered inside the card (bottom-left) */
   statusBadge?: StatusBadge;
-  onOpenTask?: (id: string) => void; 
+  onOpenTask?: (id: string) => void;
 }) {
   const locale: Locale = task.locale === "ka" ? "ka" : "en";
   const t =
@@ -76,9 +85,12 @@ export default function TaskCard({
           exclusive: "ექსკლუზიური",
           multi: "არაექსკლუზიური",
           draft: "დრაფტი",
+          expired: "ვადაგასულია",
+          noDeadline: "ვადა დაყენებული არაა",
+          due0: "დარჩა 0 დღე",
         }
       : {
-          view: "View & Claim",
+          view: "View",
           continue: "Continue",
           remote: "Remote",
           onsite: "On-site",
@@ -86,39 +98,37 @@ export default function TaskCard({
           exclusive: "Exclusive",
           multi: "Multi",
           draft: "Draft",
+          expired: "Expired",
+          noDeadline: "No deadline set",
+          due0: "Due in 0 day(s)",
         };
 
   const desc = task.desc ?? task.description ?? "";
-const whereRaw: string =
-  (task.where as string | undefined) ??
-  (task.type?.toLowerCase().includes("site") ? "ONSITE" : "REMOTE");
-const whereUpper = whereRaw.toUpperCase();
-const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
+  const whereRaw: string =
+    (task.where as string | undefined) ??
+    (task.type?.toLowerCase().includes("site") ? "ONSITE" : "REMOTE");
+  const whereUpper = whereRaw.toUpperCase();
+  const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
 
-  // skill / category – იგივე ჰელფერები, რაც TaskModal-ში
   const skill = skillLabel(task.skill, locale);
   const category = categoryLabel(task.category, locale);
 
-
-
   function calcDueLabel(deadline: string | null | undefined) {
-    if (!deadline)
-      return locale === "ka" ? "ვადა დაყენებული არაა" : "No deadline set";
+    if (!deadline) return t.noDeadline;
     const target = new Date(deadline);
-    if (Number.isNaN(target.getTime()))
-      return locale === "ka" ? "ვადა დაყენებული არაა" : "No deadline set";
+    if (Number.isNaN(target.getTime())) return t.noDeadline;
+
     const ms = target.getTime() - Date.now();
-    if (ms <= 0) return locale === "ka" ? "დარჩა 0 დღე" : "Due in 0 day(s)";
+    if (ms <= 0) return t.due0;
+
     const days = Math.floor(ms / 86400000);
-    if (days >= 1)
-      return locale === "ka"
-        ? `დარჩა ${days} დღე`
-        : `Due in ${days} day(s)`;
+    if (days >= 1) return locale === "ka" ? `დარჩა ${days} დღე` : `Due in ${days} day(s)`;
+
     const hours = Math.ceil(ms / 3600000);
-    return locale === "ka"
-      ? `დარჩა ${hours} სთ`
-      : `Due in ${hours} hour(s)`;
+    return locale === "ka" ? `დარჩა ${hours} სთ` : `Due in ${hours} hour(s)`;
   }
+
+  const expired = typeof task.isExpired === "boolean" ? task.isExpired : isExpiredLocal(task.deadline ?? null);
 
   const isDraft = task.status === "DRAFT";
   const ctaText = isDraft ? t.continue : ctaLabel ?? t.view;
@@ -141,6 +151,13 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
       "bg-emerald-400/10 text-emerald-200 ring-emerald-400/60 shadow-[0_0_16px_rgba(52,211,153,0.45)]";
   }
 
+  const approvedText =
+    statusBadge?.kind === "approved" && task.exclusive
+      ? locale === "ka"
+        ? "თანხმობა მიღებულია"
+        : "Approval received"
+      : statusBadge?.text;
+
   return (
     <div className="card p-4 relative flex flex-col h-full">
       {/* amount */}
@@ -149,8 +166,7 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
                    bg-[#17230a]/80 backdrop-blur-sm ring-1 ring-[#b6ff2e]/50
                    text-[#d9ff66] shadow-[0_0_20px_rgba(182,255,46,0.35)]"
         style={{
-          textShadow:
-            "0 0 8px #b6ff2e, 0 0 18px rgba(182,255,46,.8)",
+          textShadow: "0 0 8px #b6ff2e, 0 0 18px rgba(182,255,46,.8)",
         }}
       >
         ₾{Number.isFinite(task.reward) ? task.reward : 0}
@@ -160,11 +176,20 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
         {/* Header */}
         <div className="flex items-start gap-2 pr-24">
           <h3 className="text-lg font-semibold">{task.title}</h3>
-          {isDraft && (
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-amber-300/30 text-amber-300 bg-amber-300/10">
-              {t.draft}
-            </span>
-          )}
+
+          <div className="ml-auto flex items-center gap-2">
+            {isDraft && (
+              <span className="text-xs px-2 py-0.5 rounded-full border border-amber-300/30 text-amber-300 bg-amber-300/10">
+                {t.draft}
+              </span>
+            )}
+
+            {!isDraft && expired && (
+              <span className="text-xs px-2 py-0.5 rounded-full border border-red-400/40 text-red-300 bg-red-500/10 shadow-[0_0_14px_rgba(248,113,113,0.25)]">
+                {t.expired}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Description */}
@@ -205,13 +230,11 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
           </div>
         </div>
 
-        {/* Bottom row: status badge + CTA (mobile-friendly) */}
+        {/* Bottom row */}
         <div className="mt-auto pt-3 flex flex-wrap items-center gap-3">
           {statusBadge && (
-            <div
-              className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold ring-1 ${badgeCls}`}
-            >
-              {statusBadge.text}
+            <div className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold ring-1 ${badgeCls}`}>
+              {approvedText}
             </div>
           )}
 
@@ -239,8 +262,6 @@ const whereLabel = whereUpper === "ONSITE" ? t.onsite : t.remote;
             </button>
           )}
         </div>
-
-
       </div>
     </div>
   );

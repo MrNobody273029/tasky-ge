@@ -31,6 +31,25 @@ async function resolveViewerId(req: Request): Promise<string | null> {
   return null;
 }
 
+/**
+ * Deadline rules:
+ * - allow null
+ * - valid Date
+ * - must be >= start of tomorrow (server-local)
+ */
+function startOfTomorrow(): Date {
+  const now = new Date();
+  const t = new Date(now);
+  t.setHours(0, 0, 0, 0);
+  t.setDate(t.getDate() + 1);
+  return t;
+}
+
+function isExpiredServer(deadline: Date | null): boolean {
+  if (!deadline) return false;
+  return deadline.getTime() < Date.now();
+}
+
 /* -------------------- GET /api/tasks/:id -------------------- */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -91,6 +110,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       !!viewerId &&
       (task.authorId || '').toLowerCase() === viewerId.toLowerCase();
 
+    const isExpired = isExpiredServer(task.deadline);
+
     return NextResponse.json({
       id: task.id,
       authorId: task.authorId,
@@ -99,6 +120,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       hasTakenByMe,
       myAppStatus,
       myThreadId,
+
+      // ✅ server-side expired flag (authoritative)
+      isExpired,
 
       locale: task.locale,
       title: task.title,
@@ -168,6 +192,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         if (Number.isNaN(d.getTime())) {
           return NextResponse.json({ error: 'invalid_deadline' }, { status: 400 });
         }
+        // ✅ must be tomorrow or later (server-local)
+        if (d.getTime() < startOfTomorrow().getTime()) {
+          return NextResponse.json({ error: 'deadline_too_soon' }, { status: 400 });
+        }
         updates.deadline = d;
       }
     }
@@ -223,13 +251,189 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     // ✅ invalidate MyPage created list
     revalidatePath(`/${pageLocale}/mypage/created`);
-
-    // ✅ თუ home-ზე გაქვს feed/redirect
     revalidatePath(`/${pageLocale}`);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error('PUT /api/tasks/[id] error:', e);
     return NextResponse.json({ error: 'update_failed' }, { status: 400 });
+  }
+}
+/* -------------------- PATCH /api/tasks/:id -------------------- */
+/** მხოლოდ ავტორს შეუძლია deadline-ის გახანგრძლივება (მინიმუმ ხვალ). */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await ensureUserFromReq(req);
+    if (!user) {
+      return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    }
+
+    const id = (params?.id || '').trim();
+    if (!id) return NextResponse.json({ error: 'missing_id' }, { status: 400 });
+
+    const task = await prisma.task.findFirst({
+      where: { id, authorId: user.id },
+      select: { id: true, locale: true, deadline: true },
+    });
+    if (!task) {
+      return NextResponse.json({ error: 'not_found_or_forbidden' }, { status: 404 });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as any;
+
+    // allow only deadline updates here
+    if (body.deadline === undefined) {
+      return NextResponse.json({ error: 'missing_deadline' }, { status: 400 });
+    }
+
+    let nextDeadline: Date | null = null;
+
+    if (!body.deadline) {
+      // optional: allow null (თუ საერთოდ გინდა, შეგიძლია ეს დაბლოკო)
+      nextDeadline = null;
+    } else {
+      const d = new Date(body.deadline);
+      if (Number.isNaN(d.getTime())) {
+        return NextResponse.json({ error: 'invalid_deadline' }, { status: 400 });
+      }
+      if (d.getTime() < startOfTomorrow().getTime()) {
+        return NextResponse.json({ error: 'deadline_too_soon' }, { status: 400 });
+      }
+      nextDeadline = d;
+    }
+
+    const updated = await prisma.task.update({
+      where: { id: task.id },
+      data: { deadline: nextDeadline },
+      select: { id: true, deadline: true, locale: true },
+    });
+
+    const pageLocale = updated.locale === 'en' ? 'en' : 'ka';
+
+    // ✅ task lists/pages refresh
+    revalidatePath(`/${pageLocale}/tasky`);
+    revalidatePath(`/${pageLocale}/mypage/created`);
+    revalidatePath(`/${pageLocale}`);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        deadline: updated.deadline ? updated.deadline.toISOString() : null,
+        isExpired: isExpiredServer(updated.deadline),
+      },
+      { status: 200 },
+    );
+  } catch (e) {
+    console.error('PATCH /api/tasks/[id] error:', e);
+    return NextResponse.json({ error: 'update_failed' }, { status: 400 });
+  }
+}
+
+/* -------------------- DELETE /api/tasks/:id -------------------- */
+/**
+ * Hard delete task by author.
+ * Safety:
+ * - block delete if there is any evidence (PENDING/NEEDS_FIXES/APPROVED)
+ * - block delete if there is any APPROVED application (exclusive winner)
+ * - block delete if there are claims (non-exclusive taken)
+ * Refund:
+ * - if there is a PUBLISH_FEE tx for this task (negative amount), create a one-time refund tx (positive).
+ */
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await ensureUserFromReq(req);
+    if (!user) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+
+    const id = (params?.id || '').trim();
+    if (!id) return NextResponse.json({ error: 'missing_id' }, { status: 400 });
+
+    const task = await prisma.task.findFirst({
+      where: { id, authorId: user.id },
+      select: { id: true, title: true, locale: true, exclusive: true },
+    });
+    if (!task) return NextResponse.json({ error: 'not_found_or_forbidden' }, { status: 404 });
+
+    // block if ongoing evidence exists
+    const hasBlockingEvidence = await prisma.taskEvidence.findFirst({
+      where: {
+        taskId: task.id,
+        status: { in: ['PENDING', 'NEEDS_FIXES', 'APPROVED'] },
+      },
+      select: { id: true },
+    });
+    if (hasBlockingEvidence) {
+      return NextResponse.json({ error: 'cannot_delete_with_evidence' }, { status: 409 });
+    }
+
+    // block if approved application exists (exclusive)
+    if (task.exclusive) {
+      const approvedApp = await prisma.taskApplication.findFirst({
+        where: { taskId: task.id, status: 'APPROVED' },
+        select: { id: true },
+      });
+      if (approvedApp) {
+        return NextResponse.json({ error: 'cannot_delete_assigned_task' }, { status: 409 });
+      }
+    }
+
+    // block if claims exist
+    const hasClaim = await prisma.taskClaim.findFirst({
+      where: { taskId: task.id },
+      select: { id: true },
+    });
+    if (hasClaim) {
+      return NextResponse.json({ error: 'cannot_delete_taken_task' }, { status: 409 });
+    }
+
+    // refund publish fee if exists (idempotent)
+    await prisma.$transaction(async (tx) => {
+      const fee = await tx.walletTransaction.findFirst({
+        where: { userId: user.id, taskId: task.id, type: 'PUBLISH_FEE' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, amount: true },
+      });
+
+      if (fee && Number(fee.amount) < 0) {
+        const refundAmount = Math.abs(Number(fee.amount));
+
+        const alreadyRefunded = await tx.walletTransaction.findFirst({
+          where: {
+            userId: user.id,
+            taskId: task.id,
+            amount: refundAmount,
+            type: 'OTHER',
+            description: { startsWith: 'Refund: publish fee' },
+          },
+          select: { id: true },
+        });
+
+        if (!alreadyRefunded) {
+          await tx.walletTransaction.create({
+            data: {
+              userId: user.id,
+              taskId: task.id,
+              type: 'OTHER',
+              status: 'COMPLETED',
+              amount: refundAmount,
+              method: 'balance',
+              description: `Refund: publish fee for task ${task.title}`.slice(0, 190),
+            },
+          });
+        }
+      }
+
+      // finally delete task (cascade will clean relations)
+      await tx.task.delete({ where: { id: task.id } });
+    });
+
+    const pageLocale = task.locale === 'en' ? 'en' : 'ka';
+    revalidatePath(`/${pageLocale}/mypage/created`);
+    revalidatePath(`/${pageLocale}/tasky`);
+    revalidatePath(`/${pageLocale}`);
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e) {
+    console.error('DELETE /api/tasks/[id] error:', e);
+    return NextResponse.json({ error: 'delete_failed' }, { status: 500 });
   }
 }
