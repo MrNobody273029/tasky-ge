@@ -1,7 +1,8 @@
 // src/lib/auth.ts
 import { prisma } from "@/lib/prisma";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
-/** ქუქების უსაფრთხო პარსერი */
+/** Cookie parser */
 function parseCookies(h: Headers): Record<string, string> {
   const raw = h.get("cookie") || "";
   const out: Record<string, string> = {};
@@ -15,86 +16,61 @@ function parseCookies(h: Headers): Record<string, string> {
   return out;
 }
 
-/** შიდა ჰელპერი — ვკითხულობთ uid/email-ს ჰედერებიდან ან ქუქიდან */
-function readIdEmailFromHeaders(h: Headers): { id: string; email?: string } {
-  const hxIdRaw = h.get("x-user-id")?.trim() || "";
-  const hxEmailRaw = h.get("x-email")?.trim() || "";
+function signUserId(userId: string): string {
+  const secret = process.env.AUTH_SECRET || "";
+  if (!secret) return "";
+  return createHmac("sha256", secret).update(userId).digest("hex");
+}
 
+function safeEqualHex(a: string, b: string) {
+  try {
+    const ba = Buffer.from(a, "hex");
+    const bb = Buffer.from(b, "hex");
+    return ba.length === bb.length && timingSafeEqual(ba, bb);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Auth read:
+ * - Prefer httpOnly cookies: x-user-id + x-user-sig
+ * - DEV fallback: allow x-user-id without signature only in non-production
+ */
+function readAuthFromHeaders(h: Headers): { userId?: string } {
   const cookies = parseCookies(h);
-  const cXId = (cookies["x-user-id"] || "").trim();
-  const cUid = (cookies["uid"] || "").trim();
-  const cTok = (cookies["token"] || "").trim();
-  const cEmail = (cookies["email"] || "").trim().toLowerCase();
 
-  // პრიორიტეტი: ჰედერი → ქუქი x-user-id → uid/token → guest
-  const idCandidate =
-    hxIdRaw ||
-    cXId ||
-    cUid ||
-    cTok ||
-    "";
+  const userId = (cookies["x-user-id"] || "").trim();
+  const sig = (cookies["x-user-sig"] || "").trim();
 
-  const emailCandidate =
-    (hxEmailRaw ? hxEmailRaw.toLowerCase() : "") ||
-    cEmail ||
-    undefined;
+  if (!userId) return {};
 
-  const id = (idCandidate || emailCandidate || "guest").toLowerCase();
+  const expected = signUserId(userId);
+  const isProd = process.env.NODE_ENV === "production";
 
-  // თუ email ამოვიკითხეთ, ჩავაბრუნოთაც
-  if (emailCandidate) return { id, email: emailCandidate };
-  return { id };
+  // ✅ Signed session
+  if (sig && expected && safeEqualHex(sig, expected)) {
+    return { userId };
+  }
+
+  // ⚠️ DEV-only fallback (so local dev არ დაგენგრეს)
+  if (!isProd) {
+    return { userId };
+  }
+
+  return {};
 }
 
-/** ძველი სინქრონული API — თუ გჭირდება უბრალოდ ID (DB-ს გარეშე) */
+/** old helper (DB-ის გარეშე) */
 export function getUserIdFromReq(req: Request): string {
-  return readIdEmailFromHeaders(req.headers).id;
+  return readAuthFromHeaders(req.headers).userId || "guest";
 }
 
-/** ახალი API — უზრუნველყოფს, რომ იუზერი არსებობდეს DB-ში (თუ გვაქვს რეალური x-user-id) */
+/** main helper — only returns real DB user or null */
 export async function ensureUserFromReq(req: Request) {
-  const { id, email } = readIdEmailFromHeaders(req.headers);
+  const userId = readAuthFromHeaders(req.headers).userId;
+  if (!userId) return null;
 
-  // guest-ს DB-ში არ ვქმნით
-  if (!id || id === "guest") {
-    // მხოლოდ email-ის შემთხვევაში — ვცადოთ მოძებნა email-ით და დავბრუნდეთ, შექმნა არ გვინდა
-    if (email) {
-      const byEmail = await prisma.user.findUnique({ where: { email } }).catch(() => null);
-      return byEmail || null;
-    }
-    return null;
-  }
-
-  // 1) სცადე მოძებნო ID-ით
-  const byId = await prisma.user.findUnique({ where: { id } }).catch(() => null);
-  if (byId) return byId;
-
-  // 2) სცადე მოძებნო Email-ით (თუ ემთხვევა სხვა ID-ს, მაინც დავუბრუნდეთ არსებულს)
-  if (email) {
-    const byEmail = await prisma.user.findUnique({ where: { email } }).catch(() => null);
-    if (byEmail) return byEmail;
-  }
-
-  // 3) ვეღარ ვიპოვეთ — placeholder-ს მხოლოდ მაშინ ვქმნით,
-  // როცა გვაქვს არა-guest `x-user-id` (და ის არაა email ფორმატი)
-  const looksLikeRealId = !id.includes("@") && id.length >= 10; // cuid/uuid feel
-  if (!looksLikeRealId) {
-    // ცუდია email-ის ID-დ გამოყენება → გავჩერდეთ
-    return null;
-  }
-
-  const safeEmail =
-    (email && email.includes("@") ? email : `dev_${Date.now()}_${Math.random().toString(36).slice(2)}@dev.local`)
-      .toLowerCase();
-
-  const user = await prisma.user.create({
-    data: {
-      id,
-      email: safeEmail,
-      // placeholder — რეალურ რეგისტრაციაზე გადაიფარება.
-      passwordHash: "DEV_PLACEHOLDER",
-    },
-  });
-
-  return user;
+  const user = await prisma.user.findUnique({ where: { id: userId } }).catch(() => null);
+  return user || null;
 }
