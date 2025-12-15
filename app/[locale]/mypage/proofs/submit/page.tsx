@@ -59,13 +59,8 @@ export default function ProofSubmitPage({ params }: { params: { locale: Locale }
   const taskFromQuery = search.get('task') || '';
   const fixFor = (search.get('fixFor') || '').trim();
 
-  const [taskId] = useState(() => {
-    if (taskFromQuery) return taskFromQuery;
-    if (typeof window !== 'undefined') {
-      return window.localStorage.getItem('tasky:evidenceTaskId') || '';
-    }
-    return '';
-  });
+const taskId = taskFromQuery;
+
 
   const t = useMemo(
     () => ({
@@ -206,12 +201,7 @@ export default function ProofSubmitPage({ params }: { params: { locale: Locale }
         return;
       }
 
-      try {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(`tasky:evidenceSent:${taskId}`, '1');
-          window.localStorage.removeItem('tasky:evidenceTaskId');
-        }
-      } catch {}
+
 
       router.push(`/${locale}/mypage/proofs?tab=outgoing`);
     } catch (e: any) {

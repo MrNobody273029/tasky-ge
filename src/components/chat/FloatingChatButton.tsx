@@ -70,20 +70,16 @@ export default function FloatingChatButton() {
   }, [authed]);
 
   // გლობალური ტრიგერი: window.dispatchEvent(new CustomEvent('open-chat'))
-  useEffect(() => {
-    const fn = () => {
-      let tid: string | null = null;
-      try {
-        tid = localStorage.getItem('chat:openThread');
-      } catch {
-        tid = null;
-      }
-      setInitialThreadId(tid || undefined);
-      setOpen(true);
-    };
-    window.addEventListener('open-chat', fn as EventListener);
-    return () => window.removeEventListener('open-chat', fn as EventListener);
-  }, []);
+useEffect(() => {
+  const fn = (e: Event) => {
+    const ce = e as CustomEvent<{ threadId?: string | null }>;
+    const tid = ce?.detail?.threadId || null;
+    setInitialThreadId(tid || undefined);
+    setOpen(true);
+  };
+  window.addEventListener('open-chat', fn as EventListener);
+  return () => window.removeEventListener('open-chat', fn as EventListener);
+}, []);
 
   if (!authed) return null;
 

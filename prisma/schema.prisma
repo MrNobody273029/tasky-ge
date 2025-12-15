@@ -135,12 +135,18 @@ model TaskApplication {
   createdAt   DateTime @default(now())
   decidedAt   DateTime?
 
+  ownerSeen   Boolean  @default(false)
+  ownerSeenAt DateTime?
+
   @@unique([taskId, applicantId])
   @@index([taskId])
   @@index([applicantId])
   @@index([taskId, status])
   @@index([applicantId, status])
+  @@index([status, ownerSeen])
+
 }
+
 
 enum ApplicationStatus {
   PENDING

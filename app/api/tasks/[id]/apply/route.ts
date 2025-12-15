@@ -59,6 +59,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           applicantId: user.id,
           message,
           status: 'PENDING',
+          ownerSeen: false,
+ownerSeenAt: null,
+
         },
         select: { id: true, status: true },
       });

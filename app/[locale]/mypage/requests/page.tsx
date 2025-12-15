@@ -1,12 +1,10 @@
-// app/[locale]/mypage/requests/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import TaskCard, { TaskCardInput } from '@/components/TaskCard';
-import MatrixLoader from "@/components/MatrixLoader";
+import MatrixLoader from '@/components/MatrixLoader';
 
-/* ---------- Types ---------- */
 type Locale = 'ka' | 'en';
 
 type Worker = {
@@ -21,22 +19,27 @@ type ApplicationItem = {
   id: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt?: string;
+  decidedAt?: string | null;
   message?: string | null;
   threadId?: string | null;
+
+  // DB notification flags
+  ownerSeen?: boolean;
+  ownerSeenAt?: string | null;
+
   task: (TaskCardInput & { exclusive?: boolean }) | TaskCardInput;
   worker: Worker;
 };
 
 type ListResp = { items: ApplicationItem[] };
 
-/* ---------- API endpoints ---------- */
 const API = {
-  list: '/api/applications?incoming=1&exclusive=1', // ← სწორია
+  list: '/api/applications?incoming=1&exclusive=1',
   approve: (id: string) => `/api/applications/${id}/approve`,
   reject: (id: string) => `/api/applications/${id}/reject`,
+  seen: '/api/applications/seen',
 };
 
-/* ---------- i18n ---------- */
 const tdict = {
   ka: {
     title: 'მოთხოვნები (ექსკლუზიური)',
@@ -52,6 +55,7 @@ const tdict = {
     rating: 'შეფასება (როგორც შემსრულებელი)',
     retry: 'თავიდან ცდა',
     loading: 'იტვირთება…',
+    newBadge: 'ახალი',
   },
   en: {
     title: 'Requests (exclusive)',
@@ -67,10 +71,10 @@ const tdict = {
     rating: 'Rating (as worker)',
     retry: 'Retry',
     loading: 'Loading…',
+    newBadge: 'New',
   },
 } as const;
 
-/* ---------- Small UI helpers ---------- */
 function StarRow({ value = 0 }: { value?: number | null }) {
   const v = Math.max(0, Math.min(5, Number(value || 0)));
   return (
@@ -91,7 +95,6 @@ function StarRow({ value = 0 }: { value?: number | null }) {
   );
 }
 
-/* ---------- Page ---------- */
 export default function RequestsPage() {
   const params = useParams<{ locale?: string }>();
   const locale: Locale = params?.locale === 'en' ? 'en' : 'ka';
@@ -99,23 +102,8 @@ export default function RequestsPage() {
 
   const [items, setItems] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  const SEEN_PREFIX = 'tasky:reqSeen:';
-
-  function markRequestSeen(id: string) {
-    try {
-      localStorage.setItem(SEEN_PREFIX + id, '1');
-    } catch {
-      // ignore
-    }
-    try {
-      // TopTabs-ს ვამცნობთ, რომ ანგარიშმა შეიცვალა
-      window.dispatchEvent(new CustomEvent('requests-updated'));
-    } catch {
-      // ignore
-    }
-  }
 
   async function load() {
     setLoading(true);
@@ -124,9 +112,7 @@ export default function RequestsPage() {
       const r = await fetch(API.list, { cache: 'no-store' });
       if (!r.ok) throw new Error('fetch_fail');
       const j: ListResp = await r.json();
-      const list = (j?.items || []).filter(
-        (x) => (x?.task as any)?.exclusive !== false
-      );
+      const list = (j?.items || []).filter((x) => (x?.task as any)?.exclusive !== false);
       setItems(list);
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -135,37 +121,59 @@ export default function RequestsPage() {
     }
   }
 
+  // ✅ DB-ზე: როგორც კი გვერდი გაიხსნება, ყველა pending unseen მოინიშნე seen=true
+  async function markAllRequestsSeenOptimistic() {
+    try {
+      await fetch(API.seen, { method: 'POST', cache: 'no-store' });
+
+      // optimistic UI
+      setItems((prev) =>
+        prev.map((it) =>
+          it.status === 'PENDING' && it.ownerSeen === false
+            ? { ...it, ownerSeen: true, ownerSeenAt: new Date().toISOString() }
+            : it,
+        ),
+      );
+
+      // topbar badges refresh trigger (თუ სადმე უსმენ)
+      window.dispatchEvent(new CustomEvent('notifications-refresh'));
+      window.dispatchEvent(new CustomEvent('requests-updated'));
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
-    load();
+    (async () => {
+      await load();
+      await markAllRequestsSeenOptimistic();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80">
-        <MatrixLoader />
-      </div>
-    );
-  }
+
   function openChatInternal(threadId?: string | null) {
     try {
-      if (threadId) localStorage.setItem('chat:openThread', threadId);
-      window.dispatchEvent(new CustomEvent('open-chat'));
+      window.dispatchEvent(
+        new CustomEvent('open-chat', { detail: { threadId: threadId || null } }),
+      );
     } catch {
       if (threadId) location.href = `/${locale}/chats/${threadId}`;
     }
   }
 
   function openChatFor(app: ApplicationItem) {
-    // ჩატის გახსნა უკვე ითვლება „ნახვად“
-    markRequestSeen(app.id);
+    // გვერდზე შესვლისას seen უკვე დავსვით,
+    // მაგრამ თუ მაინც დარჩა რამე — UI-შიც მოვნიშნოთ და მერე გავხსნათ
+    setItems((prev) =>
+      prev.map((it) => (it.id === app.id ? { ...it, ownerSeen: true } : it)),
+    );
     openChatInternal(app.threadId || undefined);
   }
 
   async function approve(app: ApplicationItem) {
     if (!window.confirm(t.confirmApprove)) return;
-
-    // დადასტურება → ეს მოთხოვნაც „ნახულად“ ვითვლით
-    markRequestSeen(app.id);
+    setActingId(app.id);
+    setErr(null);
 
     try {
       const r = await fetch(API.approve(app.id), { method: 'POST' });
@@ -174,76 +182,86 @@ export default function RequestsPage() {
       // Optimistic UI
       setItems((prev) =>
         prev.map((it) => {
-          if (it.id === app.id) return { ...it, status: 'APPROVED' };
-          if (it.task.id === app.task.id) return { ...it, status: 'REJECTED' };
+          if (it.id === app.id) return { ...it, status: 'APPROVED', ownerSeen: true };
+          if (it.task.id === (app.task as any).id) return { ...it, status: 'REJECTED' };
           return it;
-        })
+        }),
       );
-    } catch (e) {
-      console.warn(e);
+
+      window.dispatchEvent(new CustomEvent('notifications-refresh'));
+      window.dispatchEvent(new CustomEvent('requests-updated'));
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setActingId(null);
     }
   }
 
   async function reject(app: ApplicationItem) {
-    // უარყოფაც ნიშნავს, რომ ნახე
-    markRequestSeen(app.id);
+    setActingId(app.id);
+    setErr(null);
 
     try {
       const r = await fetch(API.reject(app.id), { method: 'POST' });
       if (!r.ok) throw new Error('reject_fail');
+
       setItems((prev) =>
-        prev.map((it) => (it.id === app.id ? { ...it, status: 'REJECTED' } : it))
+        prev.map((it) =>
+          it.id === app.id ? { ...it, status: 'REJECTED', ownerSeen: true } : it,
+        ),
       );
-    } catch (e) {
-      console.warn(e);
+
+      window.dispatchEvent(new CustomEvent('notifications-refresh'));
+      window.dispatchEvent(new CustomEvent('requests-updated'));
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setActingId(null);
     }
   }
-  // API-დან მოსული task ვაქციოთ იმავე ფორმატად, რასაც TaskCard ელოდება
+
   function toCardTask(src: ApplicationItem['task']): TaskCardInput {
-    const t = src as any;
-
+    const tsk = src as any;
     return {
-      id: t.id,
-      locale, // ქარდის ენა — გვერდის ენას ვიყენებთ
-      title: t.title,
-      desc: t.desc ?? t.description ?? '',
-
-      // category / skill ვტოვებთ raw მნიშვნელობებად, თარგმნას TaskCard აკეთებს
-      category: t.category ?? undefined,
-      skill: t.skill ?? undefined,
-
-      reward: Number(t.reward) || 0,
-
-      // deadline 그대로 ვტოვებთ (ISO/string/null)
-      deadline: t.deadline ?? null,
-
-      // where: "REMOTE" | "ONSITE" | "remote" | "onsite"
-      where: t.where as TaskCardInput['where'],
-
-      exclusive: Boolean(t.exclusive),
-      status: t.status ?? 'PUBLISHED',
+      id: tsk.id,
+      locale,
+      title: tsk.title,
+      desc: tsk.desc ?? tsk.description ?? '',
+      category: tsk.category ?? undefined,
+      skill: tsk.skill ?? undefined,
+      reward: Number(tsk.reward) || 0,
+      deadline: tsk.deadline ?? null,
+      where: tsk.where as TaskCardInput['where'],
+      exclusive: Boolean(tsk.exclusive),
+      status: tsk.status ?? 'PUBLISHED',
     };
   }
 
-  const empty = !loading && !items.length;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80">
+        <MatrixLoader />
+      </div>
+    );
+  }
+
+  const empty = !items.length;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-3xl font-extrabold">{t.title}</h1>
-        {loading && <span className="text-white/60 text-sm">{t.loading}</span>}
 
-{!!err && (
-  <button
-    onClick={load}
-    className="ml-2 btn-hero-secondary text-sm"
-    data-text={t.retry}
-    type="button"
-  >
-    <span className="btn-text">{t.retry}</span>
-  </button>
-)}
-
+        {!!err && (
+          <button
+            onClick={load}
+            className="ml-2 btn-hero-secondary text-sm"
+            data-text={t.retry}
+            type="button"
+          >
+            <span className="btn-text">{t.retry}</span>
+          </button>
+        )}
       </div>
 
       {err && (
@@ -257,24 +275,33 @@ export default function RequestsPage() {
         {items.map((app) => {
           const w = app.worker || {};
           const status = app.status;
+
+          const isNew = status === 'PENDING' && app.ownerSeen === false;
+
           return (
             <div
               key={app.id}
               className="card p-0 overflow-hidden ring-1 ring-white/10 bg-white/5 rounded-2xl"
             >
               <div className="grid md:grid-cols-[1.25fr,1fr]">
-                {/* LEFT: Task */}
                 <div className="p-4 border-b md:border-b-0 md:border-r border-white/10">
-                <TaskCard task={toCardTask(app.task)} />
+                  <TaskCard task={toCardTask(app.task)} />
                 </div>
 
-                {/* RIGHT: Applicant */}
                 <div className="p-4 space-y-4">
-                  <div className="font-semibold">{t.wants}</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold">{t.wants}</div>
+                    {isNew && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/30">
+                        {t.newBadge}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full overflow-hidden ring-1 ring-white/15 bg-white/10 flex items-center justify-center">
                       {w.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={w.image}
                           alt="avatar"
@@ -296,62 +323,52 @@ export default function RequestsPage() {
                       </div>
                     </div>
                   </div>
-                
 
-{/* Actions */}
-<div className="pt-1 flex flex-wrap gap-3">
-  {/* ჩატის გახსნა — გლიჩიანი ლურჯი */}
-  {status !== 'REJECTED' && (
-    <button
-      onClick={() => openChatFor(app)}
-      className="btn-hero-secondary text-sm"
-      data-text={t.chat}
-      type="button"
-    >
-      <span className="btn-text">{t.chat}</span>
-    </button>
-  )}
+                  <div className="pt-1 flex flex-wrap gap-3">
+                    {status !== 'REJECTED' && (
+                      <button
+                        onClick={() => openChatFor(app)}
+                        className="btn-hero-secondary text-sm"
+                        data-text={t.chat}
+                        type="button"
+                        disabled={actingId === app.id}
+                      >
+                        <span className="btn-text">{t.chat}</span>
+                      </button>
+                    )}
 
-  {status === 'PENDING' && (
-    <>
-      {/* დადასტურება — გლიჩიანი ლურჯი */}
-      <button
-        onClick={() => approve(app)}
-        className="btn-hero-secondary text-sm"
-        data-text={t.approve}
-        type="button"
-      >
-        <span className="btn-text">{t.approve}</span>
-      </button>
+                    {status === 'PENDING' && (
+                      <>
+                        <button
+                          onClick={() => approve(app)}
+                          className="btn-hero-secondary text-sm"
+                          data-text={t.approve}
+                          type="button"
+                          disabled={actingId === app.id}
+                        >
+                          <span className="btn-text">
+                            {actingId === app.id ? '...' : t.approve}
+                          </span>
+                        </button>
 
-      {/* უარყოფა — წითელი, გლიჩის გარეშე */}
-      <button
-        onClick={() => reject(app)}
-        className="btn-logout text-sm"
-        type="button"
-      >
-        <span>{t.reject}</span>
-      </button>
-    </>
-  )}
+                        <button
+                          onClick={() => reject(app)}
+                          className="btn-logout text-sm"
+                          type="button"
+                          disabled={actingId === app.id}
+                        >
+                          <span>{actingId === app.id ? '...' : t.reject}</span>
+                        </button>
+                      </>
+                    )}
 
-  {/* უკვე დადასტურებულია — მწვანე ბეჯი */}
-  {status === 'APPROVED' && (
-    <div className="pill-status-approved">
-      {t.approved}
-    </div>
-  )}
-
-  {/* უკვე უარყოფილია — თეთრი ბეჯი */}
-  {status === 'REJECTED' && (
-    <div className="pill-status-rejected">
-      {t.rejected}
-    </div>
-  )}
-</div>
-
-
-
+                    {status === 'APPROVED' && (
+                      <div className="pill-status-approved">{t.approved}</div>
+                    )}
+                    {status === 'REJECTED' && (
+                      <div className="pill-status-rejected">{t.rejected}</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

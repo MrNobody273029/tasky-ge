@@ -1,4 +1,3 @@
-// app/api/applications/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -30,9 +29,20 @@ export async function GET(req: NextRequest) {
     include: {
       task: {
         select: {
-          id: true, locale: true, title: true, desc: true, category: true, skill: true,
-          reward: true, deadline: true, where: true, address: true, exclusive: true,
-          status: true, photos: true, proof: true,
+          id: true,
+          locale: true,
+          title: true,
+          desc: true,
+          category: true,
+          skill: true,
+          reward: true,
+          deadline: true,
+          where: true,
+          address: true,
+          exclusive: true,
+          status: true,
+          photos: true,
+          proof: true,
         },
       },
       applicant: {
@@ -48,7 +58,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: 'desc' },
   });
 
-  // ↓↓↓ NEW: ყველა შესაბამისი thread ერთ query-ში ↓↓↓
+  // ✅ threads ერთ query-ში
   const pairMap = new Map<string, { taskId: string; applicantId: string }>();
   for (const a of apps) {
     const key = `${a.taskId}::${a.applicantId}`;
@@ -56,11 +66,10 @@ export async function GET(req: NextRequest) {
   }
 
   let threadMap = new Map<string, { id: string }>();
-
   if (pairMap.size > 0) {
     const threadList = await prisma.chatThread.findMany({
       where: {
-        OR: Array.from(pairMap.values()).map(p => ({
+        OR: Array.from(pairMap.values()).map((p) => ({
           taskId: p.taskId,
           applicantId: p.applicantId,
         })),
@@ -69,10 +78,9 @@ export async function GET(req: NextRequest) {
     });
 
     threadMap = new Map(
-      threadList.map(th => [`${th.taskId}::${th.applicantId}`, { id: th.id }] as const),
+      threadList.map((th) => [`${th.taskId}::${th.applicantId}`, { id: th.id }] as const)
     );
   }
-  // ↑↑↑ END NEW PART ↑↑↑
 
   const items = apps.map((a) => {
     const key = `${a.taskId}::${a.applicantId}`;
@@ -82,8 +90,14 @@ export async function GET(req: NextRequest) {
       id: a.id,
       status: a.status,
       createdAt: a.createdAt.toISOString(),
+      decidedAt: a.decidedAt ? a.decidedAt.toISOString() : null,
       message: a.message || '',
       threadId: thread?.id ?? null,
+
+      // ✅ NEW (DB notification state)
+      ownerSeen: a.ownerSeen,
+      ownerSeenAt: a.ownerSeenAt ? a.ownerSeenAt.toISOString() : null,
+
       task: {
         id: a.task.id,
         locale: a.task.locale as 'ka' | 'en',

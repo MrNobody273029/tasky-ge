@@ -9,63 +9,78 @@ function getUid(req: NextRequest): string {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const uid = getUid(req);
   if (!uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const body = (await req.json().catch(() => ({}))) as { message?: string };
+
   const app = await prisma.taskApplication.findUnique({
     where: { id: params.id },
-    include: { task: true },
+    include: { task: { select: { id: true, authorId: true } } },
   });
+
   if (!app) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-  if (app.task.authorId !== uid) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (app.task.authorId !== uid) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+
+  if (app.status !== 'PENDING') {
+    return NextResponse.json({ error: 'already_decided', status: app.status }, { status: 409 });
   }
 
-  await prisma.$transaction(async (tx) => {
-    // ეს განაცხადი დამტკიცდეს
-    await tx.taskApplication.update({
+  const now = new Date();
+
+  const msgText =
+    typeof body?.message === 'string' && body.message.trim().length > 0
+      ? body.message.trim()
+      : 'დამატებული განაცხადი დადასტურდა. დავიწყოთ!';
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1) approve
+    const approved = await tx.taskApplication.update({
       where: { id: app.id },
-      data: { status: 'APPROVED', decidedAt: new Date() },
+      data: {
+        status: 'APPROVED',
+        decidedAt: now,
+        ownerSeen: true,
+        ownerSeenAt: now,
+      },
+      select: { id: true, taskId: true, applicantId: true },
     });
 
-    // დანარჩენები უარყე იგივე ტასკზე
+    // 2) other apps reject
     await tx.taskApplication.updateMany({
-      where: { taskId: app.taskId, NOT: { id: app.id } },
-      data: { status: 'REJECTED', decidedAt: new Date() },
+      where: { taskId: approved.taskId, id: { not: approved.id } },
+      data: { status: 'REJECTED', decidedAt: now },
     });
 
-    // შეექმნას/დავრწმუნდეთ რომ აქვს Claim (თითქოს "აიღო" დავალება)
+    // 3) claim winner (idempotent)
     await tx.taskClaim.upsert({
-      where: {
-        taskId_userId: { taskId: app.taskId, userId: app.applicantId },
-      },
+      where: { taskId_userId: { taskId: approved.taskId, userId: approved.applicantId } },
+      create: { taskId: approved.taskId, userId: approved.applicantId },
       update: {},
-      create: { taskId: app.taskId, userId: app.applicantId },
     });
 
-    // ⛔ აღარ ვეხებით task.status-ს – დარჩება PUBLISHED,
-    // დავალების დამალვას გააკეთებს Tasky-ს query (ფილტრი).
-  });
-
-  // ჩეთის თრედი — Ensure exists
-  await prisma.chatThread.upsert({
-    where: {
-      taskId_applicantId: {
-        taskId: app.taskId,
-        applicantId: app.applicantId,
+    // 4) upsert thread + unread for applicant
+    const thread = await tx.chatThread.upsert({
+      where: { taskId_applicantId: { taskId: approved.taskId, applicantId: approved.applicantId } },
+      update: { hasUnreadForApplicant: true },
+      create: {
+        taskId: approved.taskId,
+        ownerId: uid,
+        applicantId: approved.applicantId,
+        hasUnreadForOwner: false,
+        hasUnreadForApplicant: true,
       },
-    },
-    update: {},
-    create: {
-      taskId: app.taskId,
-      ownerId: app.task.authorId,
-      applicantId: app.applicantId,
-    },
+      select: { id: true },
+    });
+
+    // 5) message
+    await tx.chatMessage.create({
+      data: { threadId: thread.id, authorId: uid, body: msgText },
+    });
+
+    return { threadId: thread.id };
   });
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+  return NextResponse.json({ ok: true, threadId: result.threadId }, { status: 200 });
 }

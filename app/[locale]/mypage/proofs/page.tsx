@@ -249,7 +249,11 @@ function RatingPanel({
               </div>
             </div>
             <div className="mt-2 text-sm text-white/85 whitespace-pre-wrap">
-              {review.comment?.trim() ? review.comment : (isKa ? 'კომენტარი არ დაუტოვებია.' : 'No comment.')}
+              {review.comment?.trim()
+                ? review.comment
+                : isKa
+                  ? 'კომენტარი არ დაუტოვებია.'
+                  : 'No comment.'}
             </div>
           </>
         ) : (
@@ -285,9 +289,7 @@ function SubmitRatingPanel({
         {title}
       </div>
 
-      <div className="text-sm font-semibold text-white/90">
-        {targetName}
-      </div>
+      <div className="text-sm font-semibold text-white/90">{targetName}</div>
 
       <div className="mt-3 flex items-center gap-2">
         {Array.from({ length: 5 }).map((_, i) => {
@@ -330,18 +332,34 @@ function SubmitRatingPanel({
           type="button"
           disabled={disabled || busy}
           className="btn-hero-secondary text-sm disabled:opacity-60"
-          data-text={busy ? (isKa ? 'იგზავნება...' : 'Submitting...') : (isKa ? 'გაგზავნა' : 'Submit')}
+          data-text={
+            busy
+              ? isKa
+                ? 'იგზავნება...'
+                : 'Submitting...'
+              : isKa
+                ? 'გაგზავნა'
+                : 'Submit'
+          }
           onClick={() => onSubmit(stars, comment)}
         >
           <span className="btn-text">
-            {busy ? (isKa ? 'იგზავნება...' : 'Submitting...') : (isKa ? 'გაგზავნა' : 'Submit')}
+            {busy
+              ? isKa
+                ? 'იგზავნება...'
+                : 'Submitting...'
+              : isKa
+                ? 'გაგზავნა'
+                : 'Submit'}
           </span>
         </button>
       </div>
 
       {disabled && (
         <div className="mt-2 text-xs text-white/55">
-          {isKa ? 'უკვე შეფასებულია — შეცვლა აღარ შეიძლება.' : 'Already rated — cannot edit.'}
+          {isKa
+            ? 'უკვე შეფასებულია — შეცვლა აღარ შეიძლება.'
+            : 'Already rated — cannot edit.'}
         </div>
       )}
     </div>
@@ -369,10 +387,8 @@ function RatingModal({
   const workerName = item.worker.name || item.worker.email || item.worker.id;
   const clientName = item.client.name || item.client.email || item.client.id;
 
-  const canRate =
-    item.status === 'APPROVED' || item.status === 'EXPIRED';
+  const canRate = item.status === 'APPROVED' || item.status === 'EXPIRED';
 
-  // notify seen when opened
   useEffect(() => {
     (async () => {
       if (item.status === 'EXPIRED') {
@@ -398,7 +414,9 @@ function RatingModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const myReviewDone = isWorker ? Boolean(item.workerReviewed) : Boolean(item.clientReviewed);
+  const myReviewDone = isWorker
+    ? Boolean(item.workerReviewed)
+    : Boolean(item.clientReviewed);
 
   async function submitMyRating(stars: number, comment: string) {
     if (!canRate) return;
@@ -408,7 +426,6 @@ function RatingModal({
 
     try {
       if (isWorker) {
-        // worker rates client
         const res = await fetch('/api/reviews/client', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -426,19 +443,21 @@ function RatingModal({
           setBusy(false);
           return;
         }
-            onLocalPatch({
-              workerReviewed: true,
-              workerToClientReview: {
-                stars,
-                comment,
-                fromUserId: '',
-                createdAt: new Date().toISOString(),
-              },
-            } as any);
 
-        try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+        onLocalPatch({
+          workerReviewed: true,
+          workerToClientReview: {
+            stars,
+            comment,
+            fromUserId: '',
+            createdAt: new Date().toISOString(),
+          },
+        } as any);
+
+        try {
+          window.dispatchEvent(new CustomEvent('evidences-updated'));
+        } catch {}
       } else {
-        // client rates worker (your existing endpoint)
         const res = await fetch('/api/reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -456,17 +475,20 @@ function RatingModal({
           setBusy(false);
           return;
         }
-            onLocalPatch({
-            clientReviewed: true,
-            clientToWorkerReview: {
-              stars,
-              comment,
-              fromUserId: '',
-              createdAt: new Date().toISOString(),
-            },
-          } as any);
 
-        try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+        onLocalPatch({
+          clientReviewed: true,
+          clientToWorkerReview: {
+            stars,
+            comment,
+            fromUserId: '',
+            createdAt: new Date().toISOString(),
+          },
+        } as any);
+
+        try {
+          window.dispatchEvent(new CustomEvent('evidences-updated'));
+        } catch {}
       }
     } catch (e: any) {
       setErr(String(e?.message || e) || 'Rating failed');
@@ -489,7 +511,10 @@ function RatingModal({
 
   return (
     <div className="fixed inset-0 z-[80]">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 flex items-center justify-center h-full px-4">
         <div className="card w-full max-w-[720px] p-5 md:p-6 rounded-2xl ring-1 ring-cyan/30 bg-[#0b0f16]/95">
           <div className="flex items-center justify-between gap-3">
@@ -506,33 +531,36 @@ function RatingModal({
           </div>
 
           <div className="mt-4 space-y-4">
-<RatingPanel
-  locale={locale}
-  title={topTitle}
-  who={receivedWho}
-  review={receivedReview}
-  emptyText={emptyReceived}
-/>
+            <RatingPanel
+              locale={locale}
+              title={topTitle}
+              who={receivedWho}
+              review={receivedReview}
+              emptyText={emptyReceived}
+            />
 
-{canRate && !myReviewDone ? (
-  <SubmitRatingPanel
-    locale={locale}
-    title={bottomTitle}
-    targetName={myTarget}
-    disabled={busy}          // აქ აღარ ვაბლოკავთ myReviewDone-ით, რადგან საერთოდ არ ჩანს როცა done-ა
-    busy={busy}
-    onSubmit={submitMyRating}
-  />
-) : (
-  <RatingPanel
-    locale={locale}
-    title={isKa ? 'შენ მიერ გაგზავნილი შეფასება' : 'Your sent rating'}
-    who={myTarget}
-    review={isWorker ? item.workerToClientReview : item.clientToWorkerReview}
-    emptyText={isKa ? 'შენ ჯერ არ გაგიგზავნია შეფასება.' : 'You haven’t sent a rating yet.'}
-  />
-)}
-
+            {canRate && !myReviewDone ? (
+              <SubmitRatingPanel
+                locale={locale}
+                title={bottomTitle}
+                targetName={myTarget}
+                disabled={busy}
+                busy={busy}
+                onSubmit={submitMyRating}
+              />
+            ) : (
+              <RatingPanel
+                locale={locale}
+                title={isKa ? 'შენ მიერ გაგზავნილი შეფასება' : 'Your sent rating'}
+                who={myTarget}
+                review={isWorker ? item.workerToClientReview : item.clientToWorkerReview}
+                emptyText={
+                  isKa
+                    ? 'შენ ჯერ არ გაგიგზავნია შეფასება.'
+                    : 'You haven’t sent a rating yet.'
+                }
+              />
+            )}
 
             {err && (
               <div className="flex items-center gap-2 text-sm text-red-300">
@@ -569,21 +597,27 @@ function DefectModal({
 
   useEffect(() => {
     (async () => {
-      // worker should mark decision seen when opening defect modal
       if (isWorker && item.workerDecisionSeen === false) {
         await markSeen(item.id, 'worker_decision');
         onLocalPatch({ workerDecisionSeen: true });
-        try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+        try {
+          window.dispatchEvent(new CustomEvent('evidences-updated'));
+        } catch {}
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const reason = item.needsFixesReason?.trim() || (isKa ? 'ხარვეზი არ მოიძებნა.' : 'Fix reason not found.');
+  const reason =
+    item.needsFixesReason?.trim() ||
+    (isKa ? 'ხარვეზი არ მოიძებნა.' : 'Fix reason not found.');
 
   return (
     <div className="fixed inset-0 z-[75]">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 flex items-center justify-center h-full px-4">
         <div className="card w-full max-w-[720px] p-5 md:p-6 rounded-2xl ring-1 ring-amber-400/30 bg-[#0b0f16]/95">
           <div className="flex items-center justify-between gap-3">
@@ -616,7 +650,9 @@ function DefectModal({
                 className="btn-hero-ghost btn-topbar-solid text-sm relative"
                 data-text={isKa ? 'ხელახლა გაგზავნა' : 'Resubmit'}
               >
-                <span className="btn-text">{isKa ? 'ხელახლა გაგზავნა' : 'Resubmit'}</span>
+                <span className="btn-text">
+                  {isKa ? 'ხელახლა გაგზავნა' : 'Resubmit'}
+                </span>
               </button>
             </div>
           )}
@@ -626,7 +662,7 @@ function DefectModal({
   );
 }
 
-/* ---------------- Evidence Modal (details + client actions) ---------------- */
+/* ---------------- Needs Fixes Modal ---------------- */
 
 function NeedsFixesModal({
   locale,
@@ -686,7 +722,15 @@ function NeedsFixesModal({
               className="btn-evidence-warning text-sm disabled:opacity-60"
               onClick={() => onSubmit(reason.trim())}
             >
-              <span>{busy ? (isKa ? 'იგზავნება...' : 'Submitting...') : (isKa ? 'გაგზავნა' : 'Submit')}</span>
+              <span>
+                {busy
+                  ? isKa
+                    ? 'იგზავნება...'
+                    : 'Submitting...'
+                  : isKa
+                    ? 'გაგზავნა'
+                    : 'Submit'}
+              </span>
             </button>
           </div>
         </div>
@@ -694,6 +738,8 @@ function NeedsFixesModal({
     </div>
   );
 }
+
+/* ---------------- Evidence Modal (details + client actions) ---------------- */
 
 function EvidenceModal({
   locale,
@@ -712,7 +758,7 @@ function EvidenceModal({
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<EvidenceItem>) => void;
   onOpenRating: (ev: EvidenceItem) => void;
-onOpenDefect: (ev: EvidenceItem) => void;
+  onOpenDefect: (ev: EvidenceItem) => void;
 }) {
   const isKa = locale === 'ka';
   const isIncoming = tab === 'incoming';
@@ -721,25 +767,32 @@ onOpenDefect: (ev: EvidenceItem) => void;
   const [showNeedsFixes, setShowNeedsFixes] = useState(false);
 
   const confirmLabel = busy
-    ? (isKa ? 'დადასტურება...' : 'Confirming...')
-    : (isKa ? 'დადასტურება' : 'Confirm');
+    ? isKa
+      ? 'დადასტურება...'
+      : 'Confirming...'
+    : isKa
+      ? 'დადასტურება'
+      : 'Confirm';
 
   const isExpired = item.status === 'EXPIRED';
   const isDoneApproved = item.status === 'APPROVED';
   const isDoneNeedsFixes = item.status === 'NEEDS_FIXES';
   const isDoneRejected = item.status === 'REJECTED';
 
-  // mark seen for system/worker decision when opening details
   useEffect(() => {
     (async () => {
       if (tab === 'outgoing') {
         if (
-          (item.status === 'APPROVED' || item.status === 'NEEDS_FIXES' || item.status === 'EXPIRED') &&
+          (item.status === 'APPROVED' ||
+            item.status === 'NEEDS_FIXES' ||
+            item.status === 'EXPIRED') &&
           item.workerDecisionSeen === false
         ) {
           await markSeen(item.id, 'worker_decision');
           onUpdate(item.id, { workerDecisionSeen: true });
-          try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+          try {
+            window.dispatchEvent(new CustomEvent('evidences-updated'));
+          } catch {}
         }
       } else {
         if (
@@ -748,7 +801,9 @@ onOpenDefect: (ev: EvidenceItem) => void;
         ) {
           await markSeen(item.id, 'client_system');
           onUpdate(item.id, { clientSystemSeen: true });
-          try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+          try {
+            window.dispatchEvent(new CustomEvent('evidences-updated'));
+          } catch {}
         }
       }
     })();
@@ -764,22 +819,30 @@ onOpenDefect: (ev: EvidenceItem) => void;
     setActionErr(null);
 
     try {
-      const res = await fetch(`/api/evidences/${item.id}/confirm`, { method: 'POST' });
+      const res = await fetch(`/api/evidences/${item.id}/confirm`, {
+        method: 'POST',
+      });
       const j = await res.json().catch(() => ({} as any));
       if (!res.ok) {
         setActionErr(j?.error || 'Request failed');
         setBusy(false);
         return;
       }
-        const patched: EvidenceItem = { ...item, status: 'APPROVED', autoApproved: false };
 
-        onUpdate(item.id, { status: 'APPROVED', autoApproved: false });
+      const patched: EvidenceItem = {
+        ...item,
+        status: 'APPROVED',
+        autoApproved: false,
+      };
 
-        try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+      onUpdate(item.id, { status: 'APPROVED', autoApproved: false });
 
-        onOpenRating(patched);
-        onClose();
+      try {
+        window.dispatchEvent(new CustomEvent('evidences-updated'));
+      } catch {}
 
+      onOpenRating(patched);
+      onClose();
     } catch (e: any) {
       setActionErr(String(e?.message || e) || 'Request failed');
     } finally {
@@ -814,7 +877,9 @@ onOpenDefect: (ev: EvidenceItem) => void;
         needsFixesAt: new Date().toISOString(),
       });
 
-      try { window.dispatchEvent(new CustomEvent('evidences-updated')); } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('evidences-updated'));
+      } catch {}
       setShowNeedsFixes(false);
     } catch (e: any) {
       setActionErr(String(e?.message || e) || 'Request failed');
@@ -825,7 +890,10 @@ onOpenDefect: (ev: EvidenceItem) => void;
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div className="relative z-10 flex items-start justify-center h-full overflow-y-auto">
         <div className="w-full max-w-[1000px] px-4 md:px-0 py-10">
@@ -856,17 +924,22 @@ onOpenDefect: (ev: EvidenceItem) => void;
                 <span className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-rose-400" />
                   {item.task.where === 'REMOTE'
-                    ? isKa ? 'დისტანციური' : 'Remote'
-                    : isKa ? 'ადგილზე' : 'On-site'}
+                    ? isKa
+                      ? 'დისტანციური'
+                      : 'Remote'
+                    : isKa
+                      ? 'ადგილზე'
+                      : 'On-site'}
                 </span>
               </div>
             </div>
 
-            {/* Fix reason for resubmission (child evidence) */}
             {item.fixFor?.needsFixesReason && (
               <div className="mt-5 rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/30 p-4">
                 <div className="text-xs text-amber-200 mb-2">
-                  {isKa ? 'დამკვეთის წარდგენილი ხარვეზი' : 'Client requested fixes'}
+                  {isKa
+                    ? 'დამკვეთის წარდგენილი ხარვეზი'
+                    : 'Client requested fixes'}
                 </div>
                 <div className="text-sm text-white/85 whitespace-pre-wrap">
                   {item.fixFor.needsFixesReason}
@@ -875,7 +948,6 @@ onOpenDefect: (ev: EvidenceItem) => void;
             )}
 
             <div className="mt-5 grid lg:grid-cols-[1.4fr,1fr] gap-6">
-              {/* Left */}
               <div className="space-y-5">
                 <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                   <div className="text-xs text-white/60 mb-2">
@@ -884,7 +956,11 @@ onOpenDefect: (ev: EvidenceItem) => void;
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
                       {item.worker.image ? (
-                        <img src={item.worker.image} alt="avatar" className="w-full h-full object-cover" />
+                        <img
+                          src={item.worker.image}
+                          alt="avatar"
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <User2 className="w-6 h-6 text-white/70" />
                       )}
@@ -894,7 +970,9 @@ onOpenDefect: (ev: EvidenceItem) => void;
                         {item.worker.name || item.worker.email || '—'}
                       </div>
                       {item.worker.email && (
-                        <div className="text-xs text-white/60 truncate">{item.worker.email}</div>
+                        <div className="text-xs text-white/60 truncate">
+                          {item.worker.email}
+                        </div>
                       )}
                     </div>
                     <div className="ml-auto text-right text-xs text-white/60">
@@ -908,13 +986,13 @@ onOpenDefect: (ev: EvidenceItem) => void;
                       <StarRow value={item.worker.ratingWorkerAvg ?? 0} />
                       <span>
                         {(item.worker.ratingWorkerAvg ?? 0).toFixed(1)} / 5 •{' '}
-                        {item.worker.ratingWorkerCount ?? 0} {isKa ? 'შეფასება' : 'reviews'}
+                        {item.worker.ratingWorkerCount ?? 0}{' '}
+                        {isKa ? 'შეფასება' : 'reviews'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Needs fixes reason on same evidence */}
                 {item.status === 'NEEDS_FIXES' && item.needsFixesReason && (
                   <div className="rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/30 p-4">
                     <div className="text-xs text-amber-200 mb-2">
@@ -1015,7 +1093,6 @@ onOpenDefect: (ev: EvidenceItem) => void;
                 )}
               </div>
 
-              {/* Right */}
               <aside className="space-y-4">
                 <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                   <div className="text-xs text-white/60 mb-1">
@@ -1028,8 +1105,12 @@ onOpenDefect: (ev: EvidenceItem) => void;
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-white/70">
                     <span className="px-2 py-1 rounded-full bg-white/10">
                       {item.task.where === 'REMOTE'
-                        ? isKa ? 'დისტანციური' : 'Remote'
-                        : isKa ? 'ადგილზე' : 'On-site'}
+                        ? isKa
+                          ? 'დისტანციური'
+                          : 'Remote'
+                        : isKa
+                          ? 'ადგილზე'
+                          : 'On-site'}
                     </span>
                     {item.task.exclusive && (
                       <span className="px-2 py-1 rounded-full border border-yellow-400/70 bg-yellow-400/10 text-yellow-300">
@@ -1046,7 +1127,11 @@ onOpenDefect: (ev: EvidenceItem) => void;
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
                       {item.client.image ? (
-                        <img src={item.client.image} alt="client-avatar" className="w-full h-full object-cover" />
+                        <img
+                          src={item.client.image}
+                          alt="client-avatar"
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <User2 className="w-5 h-5 text-white/70" />
                       )}
@@ -1064,7 +1149,6 @@ onOpenDefect: (ev: EvidenceItem) => void;
                   </div>
                 </div>
 
-                {/* Quick actions */}
                 <div className="pt-2 flex flex-wrap gap-3 justify-end">
                   {actionErr && (
                     <div className="w-full text-sm text-red-300 mb-1">
@@ -1072,8 +1156,7 @@ onOpenDefect: (ev: EvidenceItem) => void;
                     </div>
                   )}
 
-                  {/* When expired: only view rating is allowed */}
-                  {isExpired && (
+                  {(isExpired || isDoneApproved) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1083,26 +1166,12 @@ onOpenDefect: (ev: EvidenceItem) => void;
                       className="btn-hero-secondary text-sm relative"
                       data-text={isKa ? 'შეფასების ნახვა' : 'View rating'}
                     >
-                      <span className="btn-text">{isKa ? 'შეფასების ნახვა' : 'View rating'}</span>
+                      <span className="btn-text">
+                        {isKa ? 'შეფასების ნახვა' : 'View rating'}
+                      </span>
                     </button>
                   )}
 
-                  {/* approved: view rating */}
-                  {isDoneApproved && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                      onOpenRating(item);
-                        onClose();
-                      }}
-                      className="btn-hero-secondary text-sm relative"
-                      data-text={isKa ? 'შეფასების ნახვა' : 'View rating'}
-                    >
-                      <span className="btn-text">{isKa ? 'შეფასების ნახვა' : 'View rating'}</span>
-                    </button>
-                  )}
-
-                  {/* needs fixes: view defect */}
                   {isDoneNeedsFixes && (
                     <button
                       type="button"
@@ -1116,14 +1185,12 @@ onOpenDefect: (ev: EvidenceItem) => void;
                     </button>
                   )}
 
-                  {/* rejected: no actions */}
                   {isDoneRejected && (
                     <div className="btn-hero-secondary text-sm opacity-70 cursor-default">
                       <span>{isKa ? 'უარყოფილია' : 'Rejected'}</span>
                     </div>
                   )}
 
-                  {/* PENDING actions for incoming only */}
                   {isIncoming && item.status === 'PENDING' && (
                     <>
                       <button
@@ -1182,15 +1249,18 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
 
   const initialTab = search.get('tab') === 'outgoing' ? 'outgoing' : 'incoming';
   const [tab, setTab] = useState<'incoming' | 'outgoing'>(initialTab);
-  const [items, setItems] = useState<EvidenceItem[]>([]);
+
+  const [incomingItems, setIncomingItems] = useState<EvidenceItem[]>([]);
+  const [outgoingItems, setOutgoingItems] = useState<EvidenceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  const items = tab === 'incoming' ? incomingItems : outgoingItems;
 
   const [selected, setSelected] = useState<EvidenceItem | null>(null);
   const [ratingTarget, setRatingTarget] = useState<EvidenceItem | null>(null);
   const [defectTarget, setDefectTarget] = useState<EvidenceItem | null>(null);
 
-  // live ticker for countdown
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setTick((x) => x + 1), 1000);
@@ -1208,7 +1278,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
       emptyOutgoing: isKa
         ? 'ჯერჯერობით არ გაქვს გაგზავნილი მტკიცებულებები.'
         : 'You haven’t sent any evidence yet.',
-      loading: isKa ? 'იტვირთება…' : 'Loading…',
       countdownClient: isKa ? 'დამკვეთს დარჩა პასუხის გასაცემად:' : 'Client time to respond:',
       countdownAutoApprove: isKa ? 'ავტომატური დადასტურება:' : 'Auto-approve in:',
       countdownFixesWorker: isKa ? 'შემსრულებელს დარჩა ხარვეზის გამოსასწორებლად:' : 'Worker time to fix:',
@@ -1231,75 +1300,95 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
   };
 
   const handleEvidenceUpdated = (id: string, patch: Partial<EvidenceItem>) => {
-    setItems((prev) => prev.map((ev) => (ev.id === id ? { ...ev, ...patch } : ev)));
-    setSelected((prev) => (prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev));
-    setRatingTarget((prev) => (prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev));
-    setDefectTarget((prev) => (prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev));
+    setIncomingItems((prev) =>
+      prev.map((ev) => (ev.id === id ? { ...ev, ...patch } : ev)),
+    );
+    setOutgoingItems((prev) =>
+      prev.map((ev) => (ev.id === id ? { ...ev, ...patch } : ev)),
+    );
+
+    setSelected((prev) =>
+      prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev,
+    );
+    setRatingTarget((prev) =>
+      prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev,
+    );
+    setDefectTarget((prev) =>
+      prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev,
+    );
   };
 
-  useEffect(() => {
-    let alive = true;
+  async function loadBothTabs(aliveRef?: { current: boolean }) {
     setLoading(true);
     setErr(null);
-    setItems([]);
 
-    fetch(`/api/my/evidences?tab=${tab}`, { cache: 'no-store' })
-      .then(async (r) => {
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({} as any));
-          throw new Error(j?.error || 'Request failed');
-        }
-        return r.json() as Promise<EvidenceItem[]>;
-      })
-      .then((list) => {
-        if (!alive) return;
-        setItems(list);
-      })
-      .catch((e: any) => {
-        if (!alive) return;
-        setErr(e?.message || 'Error');
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
+    try {
+      const [inRes, outRes] = await Promise.all([
+        fetch(`/api/my/evidences?tab=incoming`, { cache: 'no-store' }),
+        fetch(`/api/my/evidences?tab=outgoing`, { cache: 'no-store' }),
+      ]);
 
+      const inJson = await inRes.json().catch(() => null);
+      const outJson = await outRes.json().catch(() => null);
+
+      if (!inRes.ok) throw new Error((inJson as any)?.error || 'Incoming load failed');
+      if (!outRes.ok) throw new Error((outJson as any)?.error || 'Outgoing load failed');
+
+      if (aliveRef && !aliveRef.current) return;
+
+      setIncomingItems((inJson as EvidenceItem[]) || []);
+      setOutgoingItems((outJson as EvidenceItem[]) || []);
+    } catch (e: any) {
+      if (aliveRef && !aliveRef.current) return;
+      setErr(e?.message || 'Error');
+    } finally {
+      if (aliveRef && !aliveRef.current) return;
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const alive = { current: true };
+    loadBothTabs(alive);
     return () => {
-      alive = false;
+      alive.current = false;
     };
-  }, [tab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // UI rule: needs fixes only once per task+worker (incoming only)
+  useEffect(() => {
+    const onUpd = () => loadBothTabs();
+    window.addEventListener('evidences-updated', onUpd);
+    return () => window.removeEventListener('evidences-updated', onUpd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const canNeedsFixesForSelected = useMemo(() => {
     if (!selected) return false;
     if (tab !== 'incoming') return false;
     if (selected.status !== 'PENDING') return false;
 
-    const already = items.some(
+    const already = incomingItems.some(
       (x) =>
         x.task?.id === selected.task?.id &&
         x.worker?.id === selected.worker?.id &&
         x.status === 'NEEDS_FIXES',
     );
     return !already;
-  }, [selected, items, tab]);
+  }, [selected, incomingItems, tab]);
 
   const empty = !loading && !err && items.length === 0;
 
-  const openRating = (ev: EvidenceItem) => {
-    setRatingTarget(ev);
-  };
-
-  const openDefect = (ev: EvidenceItem) => {
-    setDefectTarget(ev);
-  };
+  const openRating = (ev: EvidenceItem) => setRatingTarget(ev);
+  const openDefect = (ev: EvidenceItem) => setDefectTarget(ev);
 
   const goResubmit = (ev: EvidenceItem) => {
-    // resubmit for NEEDS_FIXES evidence id
-    router.push(`/${locale}/mypage/proofs/submit?task=${encodeURIComponent(ev.task.id)}&fixFor=${encodeURIComponent(ev.id)}`);
+    router.push(
+      `/${locale}/mypage/proofs/submit?task=${encodeURIComponent(ev.task.id)}&fixFor=${encodeURIComponent(ev.id)}`,
+    );
   };
 
   function countdownInfo(ev: EvidenceItem) {
-    // uses tick to re-render
     void tick;
 
     if (ev.status === 'PENDING') {
@@ -1307,8 +1396,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
       const deadline = created + HOURS_96_MS;
       const remaining = deadline - Date.now();
 
-      // show for both sides:
-      // incoming (client) -> auto-approve in; outgoing (worker) -> client time to respond
       if (tab === 'incoming') {
         return { show: true, label: labels.countdownAutoApprove, remaining };
       }
@@ -1316,7 +1403,9 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
     }
 
     if (ev.status === 'NEEDS_FIXES') {
-      const base = ev.needsFixesAt ? new Date(ev.needsFixesAt).getTime() : new Date(ev.createdAt).getTime();
+      const base = ev.needsFixesAt
+        ? new Date(ev.needsFixesAt).getTime()
+        : new Date(ev.createdAt).getTime();
       const deadline = base + HOURS_96_MS;
       const remaining = deadline - Date.now();
 
@@ -1342,17 +1431,62 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
 
   function hasDefectNotif(ev: EvidenceItem) {
     if (tab === 'outgoing') {
-      // worker sees client decision (NEEDS_FIXES) as notif
       return ev.status === 'NEEDS_FIXES' && ev.workerDecisionSeen === false;
     }
     return false;
   }
 
+  function hasSystemNotif(ev: EvidenceItem) {
+    if (tab === 'incoming') {
+      return (
+        (ev.status === 'APPROVED' || ev.status === 'EXPIRED') &&
+        ev.clientSystemSeen === false
+      );
+    }
+    return (
+      (ev.status === 'APPROVED' ||
+        ev.status === 'NEEDS_FIXES' ||
+        ev.status === 'EXPIRED') &&
+      ev.workerDecisionSeen === false
+    );
+  }
+
+  function hasAnyNotif(ev: EvidenceItem) {
+    return hasSystemNotif(ev) || hasDefectNotif(ev) || hasRatingNotif(ev);
+  }
+
+  const incomingNotifCount = useMemo(() => {
+    return incomingItems.filter((ev) => {
+      const system =
+        (ev.status === 'APPROVED' || ev.status === 'EXPIRED') &&
+        ev.clientSystemSeen === false;
+      const rating =
+        ev.clientSawWorkerReview === false ||
+        (ev.status === 'EXPIRED' && ev.clientSawRatingPrompt === false);
+      return Boolean(system || rating);
+    }).length;
+  }, [incomingItems]);
+
+  const outgoingNotifCount = useMemo(() => {
+    return outgoingItems.filter((ev) => {
+      const decision =
+        (ev.status === 'APPROVED' ||
+          ev.status === 'NEEDS_FIXES' ||
+          ev.status === 'EXPIRED') &&
+        ev.workerDecisionSeen === false;
+
+      const rating =
+        ev.workerSawClientReview === false ||
+        (ev.status === 'EXPIRED' && ev.workerSawRatingPrompt === false);
+
+      return Boolean(decision || rating);
+    }).length;
+  }, [outgoingItems]);
+
   return (
     <div className="space-y-5">
       <h1 className="text-3xl font-bold">{labels.title}</h1>
 
-      {/* tabs */}
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
@@ -1361,6 +1495,11 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
           data-text={labels.incoming}
         >
           <span className="btn-text">{labels.incoming}</span>
+          {incomingNotifCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold ring-1 ring-white/20">
+              {incomingNotifCount > 99 ? '99+' : incomingNotifCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -1370,6 +1509,11 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
           data-text={labels.outgoing}
         >
           <span className="btn-text">{labels.outgoing}</span>
+          {outgoingNotifCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold ring-1 ring-white/20">
+              {outgoingNotifCount > 99 ? '99+' : outgoingNotifCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -1387,8 +1531,12 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         <div className="space-y-4">
           {items.map((ev) => {
             const cd = countdownInfo(ev);
-            const showCountdown = cd.show && (ev.status === 'PENDING' || ev.status === 'NEEDS_FIXES') && cd.remaining > 0;
-            const showResubmittedMsg = ev.status === 'NEEDS_FIXES' && ev.fixResubmittedOnTime;
+            const showCountdown =
+              cd.show &&
+              (ev.status === 'PENDING' || ev.status === 'NEEDS_FIXES') &&
+              cd.remaining > 0;
+            const showResubmittedMsg =
+              ev.status === 'NEEDS_FIXES' && ev.fixResubmittedOnTime;
 
             const showStamp = ev.status !== 'PENDING';
             const canOpenDefectBtn = ev.status === 'NEEDS_FIXES';
@@ -1405,7 +1553,10 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                 }}
                 className="relative w-full text-left card p-5 md:p-6 hover:bg-white/[0.03] transition group cursor-pointer"
               >
-                {/* big stamp when not pending */}
+                {hasAnyNotif(ev) && (
+                  <span className="absolute top-3 right-3 w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/80" />
+                )}
+
                 {showStamp && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center pr-24 md:pr-40">
                     <div
@@ -1420,12 +1571,15 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                 )}
 
                 <div className="relative flex flex-col lg:flex-row gap-4">
-                  {/* left */}
                   <div className="flex-1 min-w-0 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
                         {ev.worker.image ? (
-                          <img src={ev.worker.image} alt="avatar" className="w-full h-full object-cover" />
+                          <img
+                            src={ev.worker.image}
+                            alt="avatar"
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <User2 className="w-6 h-6 text-white/70" />
                         )}
@@ -1449,8 +1603,12 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                         <div>{formatDateTime(ev.createdAt, locale)}</div>
                         <div>
                           {tab === 'incoming'
-                            ? isKa ? 'მიღებული' : 'Received'
-                            : isKa ? 'გაგზავნილი' : 'Sent'}
+                            ? isKa
+                              ? 'მიღებული'
+                              : 'Received'
+                            : isKa
+                              ? 'გაგზავნილი'
+                              : 'Sent'}
                         </div>
                       </div>
                     </div>
@@ -1463,24 +1621,24 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                         {isKa ? 'შეფასება' : 'reviews'}
                       </span>
                     </div>
-                                {showResubmittedMsg ? (
-                                  <div className="text-xs text-white/70">
-                                    <span className="text-white/50">{isKa ? 'სტატუსი:' : 'Status:'}</span>{' '}
-                                    <span className="font-semibold text-emerald-300">
-                                      {isKa
-                                        ? 'მტკიცებულებები ხელმეორედ გაგზავნილია დროულად.'
-                                        : 'Evidence was resubmitted on time.'}
-                                    </span>
-                                  </div>
-                                ) : showCountdown ? (
-                                  <div className="text-xs text-white/70">
-                                    <span className="text-white/50">{cd.label}</span>{' '}
-                                    <span className="font-semibold text-sky-300">
-                                      {fmtCountdown(cd.remaining, isKa)}
-                                    </span>
-                                  </div>
-                                ) : null}
 
+                    {showResubmittedMsg ? (
+                      <div className="text-xs text-white/70">
+                        <span className="text-white/50">{isKa ? 'სტატუსი:' : 'Status:'}</span>{' '}
+                        <span className="font-semibold text-emerald-300">
+                          {isKa
+                            ? 'მტკიცებულებები ხელმეორედ გაგზავნილია დროულად.'
+                            : 'Evidence was resubmitted on time.'}
+                        </span>
+                      </div>
+                    ) : showCountdown ? (
+                      <div className="text-xs text-white/70">
+                        <span className="text-white/50">{cd.label}</span>{' '}
+                        <span className="font-semibold text-sky-300">
+                          {fmtCountdown(cd.remaining, isKa)}
+                        </span>
+                      </div>
+                    ) : null}
 
                     {ev.text && (
                       <div className="mt-1 text-sm text-white/80 line-clamp-2 group-hover:text-white/90">
@@ -1489,7 +1647,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                     )}
                   </div>
 
-                  {/* right mini task */}
                   <div className="w-full lg:w-[340px] rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 flex flex-col justify-between">
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
@@ -1516,15 +1673,21 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                         <MapPin className="w-3.5 h-3.5 text-rose-400" />
                         <span>
                           {ev.task.where === 'REMOTE'
-                            ? isKa ? 'დისტანციური' : 'Remote'
-                            : isKa ? 'ადგილზე' : 'On-site'}
+                            ? isKa
+                              ? 'დისტანციური'
+                              : 'Remote'
+                            : isKa
+                              ? 'ადგილზე'
+                              : 'On-site'}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-3 text-xs text-white/50">
                       {tab === 'incoming'
-                        ? (isKa ? 'შენი დავალებისთვის გამოგზავნილი.' : 'Sent to your task.')
+                        ? isKa
+                          ? 'შენი დავალებისთვის გამოგზავნილი.'
+                          : 'Sent to your task.'
                         : (
                           <>
                             {isKa ? 'დამკვეთი: ' : 'Client: '}
@@ -1533,7 +1696,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
                         )}
                     </div>
 
-                    {/* Buttons (do not open details) */}
                     <div className="mt-4 flex flex-wrap gap-2 justify-end">
                       {canOpenDefectBtn && (
                         <button
@@ -1572,7 +1734,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         </div>
       )}
 
-      {/* Details modal */}
       {selected && (
         <EvidenceModal
           locale={locale}
@@ -1586,7 +1747,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         />
       )}
 
-      {/* Rating modal */}
       {ratingTarget && (
         <RatingModal
           locale={locale}
@@ -1597,7 +1757,6 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         />
       )}
 
-      {/* Defect modal */}
       {defectTarget && (
         <DefectModal
           locale={locale}
