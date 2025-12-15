@@ -15,7 +15,7 @@
   --lime: #C8FF00;
 
   /* Left navbar collapsed width — MUST match LeftNav (w-14 = 56px) */
-  --navw: 56px;
+  --navw: 64px;
 
   /* glitch duration */
   --glitch-anim-duration: 0.7s;
@@ -24,6 +24,8 @@
 html { color-scheme: dark; }
 
 body {
+  position: relative;
+
   color: hsl(var(--fg));
   background:
     radial-gradient(1200px 600px at 70% -10%, rgba(0,229,255,0.08), transparent 60%),
@@ -31,6 +33,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
 
 /* ✅ ვინც OS-ში "Reduce motion" აქვს ჩართული, ყველაფერს მივუჭერით მძიმე ანიმაციებს */
 @media (prefers-reduced-motion: reduce) {
@@ -44,6 +47,8 @@ body {
 
 /* Subtle scanline texture */
 body::before {
+  z-index: 0;
+  transform: translateZ(0);
   content: "";
   position: fixed;
   inset: 0;
@@ -55,6 +60,10 @@ body::before {
 
 /* Page container offset by the left navbar */
 .container-page {
+    position: relative;
+    isolation: isolate;
+  z-index: 1;
+
   padding-left: calc(var(--navw) + 12px);
   max-width: 1280px;
   margin: 0 auto;
@@ -77,8 +86,15 @@ body::before {
   border: 1px solid var(--stroke);
   border-radius: 16px;
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
+@media (max-width: 768px) {
+  .card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
 /* Neon shadow utility */
 .shadow-neon {
   box-shadow:
@@ -455,6 +471,9 @@ body::before {
     box-shadow 0.25s ease-out,
     transform 0.18s ease-out,
     opacity 0.2s ease-out;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 /* შიგნით გრადიენტული overlay */
@@ -1414,15 +1433,27 @@ body::before {
   transform: translateY(-1.5px);
 }
 
-/* ამ ღილაკებზე გლიჩის ფენები სრულად ვთიშოთ */
-.btn-topbar-solid::before,
-.btn-topbar-solid::after,
-.btn-topbar-solid:hover::before,
-.btn-topbar-solid:hover::after,
-.btn-topbar-solid:focus-visible::before,
-.btn-topbar-solid:focus-visible::after {
+/* ✅ TOPBAR solid ღილაკებზე გლიჩი ვთიშოთ,
+   მაგრამ TopTabs dropdown-ში .btn-hero-ghost.btn-topbar-solid-ზე გლიჩი დავტოვოთ */
+.btn-topbar-solid:not(.btn-hero-ghost)::before,
+.btn-topbar-solid:not(.btn-hero-ghost)::after,
+.btn-topbar-solid:not(.btn-hero-ghost):hover::before,
+.btn-topbar-solid:not(.btn-hero-ghost):hover::after,
+.btn-topbar-solid:not(.btn-hero-ghost):focus-visible::before,
+.btn-topbar-solid:not(.btn-hero-ghost):focus-visible::after {
   content: none !important;
   animation: none !important;
+}
+
+/* ✅ TopTabs dropdown — subtle open animation */
+.toptabs-menu-panel {
+  transform-origin: top right;
+  animation: toptabs-menu-in 140ms ease-out both;
+}
+
+@keyframes toptabs-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 
