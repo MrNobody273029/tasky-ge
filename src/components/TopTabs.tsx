@@ -26,9 +26,11 @@ function asArray<T = any>(v: any): T[] {
 export default function TopTabs({
   base,
   logoutLabel,
+  initialMe,
 }: {
   base: string;
   logoutLabel: string;
+  initialMe?: Me | null;
 }) {
   const p = usePathname();
   const router = useRouter();
@@ -264,8 +266,15 @@ export default function TopTabs({
     setMenuOpen(false);
   }, [p]);
 
-  const [me, setMe] = useState<Me | null>(null);
+  // ✅ IMPORTANT: start with server-provided user to avoid "User" flash
+  const [me, setMe] = useState<Me | null>(initialMe ?? null);
 
+  // ✅ keep in sync if server changes between navigations (rare but safe)
+  useEffect(() => {
+    if (initialMe) setMe(initialMe);
+  }, [initialMe?.id]); // only when user changes
+
+  // background refresh (won't flash because initialMe already rendered)
   useEffect(() => {
     let alive = true;
 
@@ -280,7 +289,7 @@ export default function TopTabs({
       })
       .catch(() => {
         if (!alive) return;
-        setMe(null);
+        // don't wipe server user on transient errors
       });
 
     return () => {
@@ -338,7 +347,9 @@ export default function TopTabs({
   const titleText =
     m?.mypage?.title ?? (locale === 'ka' ? 'ჩემი გვერდი' : 'My page');
 
-  const displayName = me?.name || (me?.email ? me.email.split('@')[0] : 'User');
+  // ✅ no "User" placeholder; show skeleton until we have a name/email
+  const displayName = me?.name || (me?.email ? me.email.split('@')[0] : '');
+  const ariaName = displayName || 'User';
 
   const renderMenuLink = (
     it: { href: string; label: string; key: string },
@@ -440,7 +451,7 @@ export default function TopTabs({
               {me?.image ? (
                 <img
                   src={me.image}
-                  alt={displayName}
+                  alt={ariaName}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -448,9 +459,16 @@ export default function TopTabs({
               )}
             </span>
 
-            <span className="hidden sm:block text-sm font-medium text-white/90 max-w-[120px] truncate">
-              {displayName}
-            </span>
+            {displayName ? (
+              <span className="hidden sm:block text-sm font-medium text-white/90 max-w-[120px] truncate">
+                {displayName}
+              </span>
+            ) : (
+              <span
+                className="hidden sm:block h-4 w-20 rounded bg-white/10"
+                aria-hidden="true"
+              />
+            )}
           </button>
 
           {menuOpen && (
@@ -496,7 +514,7 @@ export default function TopTabs({
                 }
               }}
             >
-<div className="card toptabs-menu-panel p-2.5 sm:p-3 flex flex-col gap-1.5 max-h-[70vh] overflow-y-auto shadow-neon">
+              <div className="card toptabs-menu-panel p-2.5 sm:p-3 flex flex-col gap-1.5 max-h-[70vh] overflow-y-auto shadow-neon">
                 {left.map((it, idx) => (
                   <div key={it.href}>{renderMenuLink(it, idx, left.length)}</div>
                 ))}

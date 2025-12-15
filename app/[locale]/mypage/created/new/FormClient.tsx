@@ -591,6 +591,9 @@ const totalToPay = Math.max(0, rewardNum + fee);
       }
 
       alert(status === "draft" ? t.savedDraftOk : t.publishedOk);
+try {
+  window.dispatchEvent(new Event('tasky:tasks-updated'));
+} catch {}
 
       if (status === "draft") {
         router.push(`/${locale}/mypage/created?tab=drafts`);

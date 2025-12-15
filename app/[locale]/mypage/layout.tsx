@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import TopTabs from '@/components/TopTabs';
+import { prisma } from '@/lib/prisma';
 import ka from '../../../messages/ka.json';
 import en from '../../../messages/en.json';
 
@@ -27,10 +28,23 @@ export default async function MyPageLayout({
   }
 
   const m: any = locale === 'ka' ? ka : en;
+  const me = await prisma.user.findUnique({
+    where: { id: uid },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+    },
+  });
+
+  if (!me) {
+    redirect(`/${locale}/auth/login?next=${encodeURIComponent(`/${locale}/mypage`)}`);
+  }
 
   return (
     <div className="space-y-6">
-      <TopTabs base={`/${locale}/mypage`} logoutLabel={m.logout} />
+<TopTabs base={`/${locale}/mypage`} logoutLabel={m.logout} initialMe={me} />
       {children}
     </div>
   );

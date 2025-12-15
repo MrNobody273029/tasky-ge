@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import TaskCard, { TaskCardInput } from "@/components/TaskCard";
 import { headers, cookies } from "next/headers";
+import CreatedAutoRefresh from "./CreatedAutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,7 @@ function toCardInput(db: any): TaskCardInput {
   const inactiveTab = "btn-hero-ghost text-sm";
   return (
     <div className="space-y-6">
+<CreatedAutoRefresh />
 
 <div className="flex flex-col items-start gap-4">
   <div className="flex flex-wrap gap-2">

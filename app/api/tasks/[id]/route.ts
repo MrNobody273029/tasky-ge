@@ -1,7 +1,9 @@
+// app/api/tasks/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureUserFromReq } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 
 /* -------------------- helpers -------------------- */
 function mapStatus(v: 'draft' | 'published' | undefined) {
@@ -44,20 +46,30 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     if (viewerId) {
       const [claim, app, thread] = await Promise.all([
-        prisma.taskClaim.findUnique({
-          where: { taskId_userId: { taskId: params.id, userId: viewerId } },
-          select: { id: true },
-        }).catch(() => null),
+        prisma.taskClaim
+          .findUnique({
+            where: { taskId_userId: { taskId: params.id, userId: viewerId } },
+            select: { id: true },
+          })
+          .catch(() => null),
 
-        prisma.taskApplication.findUnique({
-          where: { taskId_applicantId: { taskId: params.id, applicantId: viewerId } },
-          select: { status: true },
-        }).catch(() => null),
+        prisma.taskApplication
+          .findUnique({
+            where: {
+              taskId_applicantId: { taskId: params.id, applicantId: viewerId },
+            },
+            select: { status: true },
+          })
+          .catch(() => null),
 
-        prisma.chatThread.findUnique({
-          where: { taskId_applicantId: { taskId: params.id, applicantId: viewerId } },
-          select: { id: true },
-        }).catch(() => null),
+        prisma.chatThread
+          .findUnique({
+            where: {
+              taskId_applicantId: { taskId: params.id, applicantId: viewerId },
+            },
+            select: { id: true },
+          })
+          .catch(() => null),
       ]);
 
       if (app?.status) myAppStatus = app.status as any;
@@ -76,7 +88,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     const isMine =
-      !!viewerId && (task.authorId || '').toLowerCase() === viewerId.toLowerCase();
+      !!viewerId &&
+      (task.authorId || '').toLowerCase() === viewerId.toLowerCase();
 
     return NextResponse.json({
       id: task.id,
@@ -114,9 +127,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await ensureUserFromReq(req); // 🔒 auth + user row
-    if (!user) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    }
 
     const id = params.id;
+
+    // ✅ update-მდე ვიგებთ task-ის locale-ს (100% სწორი revalidate-ისთვის)
+    const existing = await prisma.task.findFirst({
+      where: { id, authorId: user.id },
+      select: { locale: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'not_found_or_forbidden' }, { status: 404 });
+    }
+
     const body = (await req.json().catch(() => ({}))) as any;
 
     const updates: Record<string, any> = {};
@@ -173,7 +198,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             .map((s: string) => s.trim())
             .filter(Boolean)
             .filter((s: string) => /^https?:\/\/\S+/i.test(s))
-            .slice(0, 20)
+            .slice(0, 20),
         );
       } else if (typeof body.photos === 'string') {
         updates.photos = body.photos;
@@ -182,14 +207,25 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
-    const res = await prisma.task.updateMany({
+    await prisma.task.updateMany({
       where: { id, authorId: user.id },
       data: updates,
     });
 
-    if (res.count === 0) {
-      return NextResponse.json({ error: 'not_found_or_forbidden' }, { status: 404 });
-    }
+    const pageLocale =
+      updates.locale === 'en'
+        ? 'en'
+        : updates.locale === 'ka'
+          ? 'ka'
+          : existing.locale === 'en'
+            ? 'en'
+            : 'ka';
+
+    // ✅ invalidate MyPage created list
+    revalidatePath(`/${pageLocale}/mypage/created`);
+
+    // ✅ თუ home-ზე გაქვს feed/redirect
+    revalidatePath(`/${pageLocale}`);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {

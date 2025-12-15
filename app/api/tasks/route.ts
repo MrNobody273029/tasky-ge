@@ -1,6 +1,8 @@
+// app/api/tasks/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureUserFromReq } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 // helpers — enum ველებისთვის
 function mapStatus(v: unknown): 'DRAFT' | 'PUBLISHED' {
@@ -29,9 +31,8 @@ export async function POST(req: Request) {
             .map((s: any) => String(s))
             .map((s: string) => s.trim())
             .filter(Boolean)
-            // ⚠️ აქ იყავი შეცდომა regex-ში — ვიყენებთ მარტივ და სწორ ვერსიას
             .filter((s: string) => /^https?:\/\/\S+/i.test(s))
-            .slice(0, 20)
+            .slice(0, 20),
         );
       } else if (typeof body.photos === 'string') {
         // მოვიდა უკვე JSON string-ად ("[...]")
@@ -46,16 +47,19 @@ export async function POST(req: Request) {
       title: String(body.title || '').trim(),
       desc: String(body.desc || '').trim(),
       category: String(body.category || '').trim(), // String ველი
-      skill: String(body.skill || '').trim(),       // String ველი
+      skill: String(body.skill || '').trim(), // String ველი
       reward: Math.max(0, Math.round(Number(body.reward || 0))),
       deadline: body.deadline ? new Date(body.deadline) : null,
       where: mapWhere(body.where),
       address: body.where === 'onsite' ? (body.address ?? null) : null,
       exclusive: !!body.exclusive,
-      photos: photosStr,                // ✅ ვინახავთ როგორც JSON string-ს
+      photos: photosStr, // ✅ ვინახავთ როგორც JSON string-ს
       proof: String(body.proof ?? ''),
       status: mapStatus(body.status),
     };
+
+    // ✅ locale normalize revalidate-ისთვის
+    const pageLocale = data.locale === 'en' ? 'en' : 'ka';
 
     // მინიმალური ვალიდაცია
     if (!data.title || !data.desc) {
@@ -63,6 +67,13 @@ export async function POST(req: Request) {
     }
 
     const created = await prisma.task.create({ data, select: { id: true } });
+
+    // ✅ invalidate MyPage created list (both tabs live on same path)
+    revalidatePath(`/${pageLocale}/mypage/created`);
+
+    // ✅ თუ home-ზე გაქვს feed/redirect
+    revalidatePath(`/${pageLocale}`);
+
     return NextResponse.json({ id: created.id }, { status: 201 });
   } catch (e) {
     console.error('POST /api/tasks error:', e);

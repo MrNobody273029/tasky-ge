@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function getUserIdFromCookies(): string | null {
   const id = cookies().get('x-user-id')?.value?.trim();
   return id && id.length > 0 ? id : null;
@@ -22,7 +25,7 @@ export async function GET() {
       name: true,
       phone: true,
       image: true,
-      commissionPct: true,   // 🆕 აქაც უნდა იყოს
+      commissionPct: true,
     },
   });
 
@@ -57,7 +60,6 @@ export async function PATCH(req: Request) {
     data.image = body.image ?? null;
   }
 
-  // ❗️თუ არაფერია შესაცვლელი, უბრალოდ იუზერი დააბრუნე (ცარიელი update ჩავარდებოდა)
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -67,7 +69,7 @@ export async function PATCH(req: Request) {
         name: true,
         phone: true,
         image: true,
-        commissionPct: true, // 🆕 აქაც
+        commissionPct: true,
       },
     });
 
@@ -87,7 +89,7 @@ export async function PATCH(req: Request) {
       name: true,
       phone: true,
       image: true,
-      commissionPct: true, // 🆕 და აქაც ვაბრუნებთ
+      commissionPct: true,
     },
   });
 
