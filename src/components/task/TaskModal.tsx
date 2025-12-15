@@ -582,6 +582,7 @@ export default function TaskModal({
 
   // ✅ server-first expired, fallback to client calc
   const expired = Boolean(data?.isExpired ?? isExpiredTask(data?.deadline ?? null));
+const showOwnerExpiredControls = !!data?.isMine && expired;
 
   async function handleTake() {
     if (!data) return;
@@ -1100,30 +1101,30 @@ setExtendOpen(false);
                 <button onClick={onClose} className="btn-modal-close text-sm" data-text={closeLabel}>
                   <span className="btn-text">{closeLabel}</span>
                 </button>
+              {/* Owner controls (only when expired) */}
+              {showOwnerExpiredControls && (
+                <>
+                  <button
+                    onClick={openExtend}
+                    className="btn-hero-secondary text-sm inline-flex items-center gap-2"
+                    data-text={t.extendDeadline}
+                  >
+                    <CalendarClock className="w-4 h-4" />
+                    <span className="btn-text">{t.extendDeadline}</span>
+                  </button>
 
-                {/* Owner controls */}
-                {data?.isMine && (
-                  <>
-                    <button
-                      onClick={openExtend}
-                      className="btn-hero-secondary text-sm inline-flex items-center gap-2"
-                      data-text={t.extendDeadline}
-                    >
-                      <CalendarClock className="w-4 h-4" />
-                      <span className="btn-text">{t.extendDeadline}</span>
-                    </button>
+                  <button
+                    onClick={deleteMine}
+                    disabled={deleting}
+                    className="btn-logout btn-no-glitch inline-flex items-center gap-2 text-sm disabled:opacity-60"
+                    title={t.deleteTask}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{deleting ? t.deleting : t.deleteTask}</span>
+                  </button>
+                </>
+              )}
 
-                    <button
-                      onClick={deleteMine}
-                      disabled={deleting}
-                      className="btn-logout btn-no-glitch inline-flex items-center gap-2 text-sm disabled:opacity-60"
-                      title={t.deleteTask}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>{deleting ? t.deleting : t.deleteTask}</span>
-                    </button>
-                  </>
-                )}
 
                 {/* Worker actions */}
                 {data && !data.isMine && (
