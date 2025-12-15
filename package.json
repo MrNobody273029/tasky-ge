@@ -2,14 +2,20 @@
   "name": "tasky-ge",
   "private": true,
   "version": "0.1.0",
-"scripts": {
-  "dev": "next dev",
-  "build": "prisma generate && next build",
-  "start": "next start",
-  "lint": "next lint",
-  "postinstall": "prisma generate",
-  "seed": "prisma db seed"
-},
+
+  "scripts": {
+    "dev": "next dev",
+
+    "build": "prisma generate && next build",
+
+    "start": "next start",
+
+    "lint": "next lint",
+
+    "postinstall": "prisma generate",
+
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
 
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -25,6 +31,7 @@
     "zod": "3.23.8",
     "zustand": "4.5.2"
   },
+
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.10.0",
@@ -37,9 +44,5 @@
     "tailwindcss": "3.4.7",
     "ts-node": "^10.9.2",
     "typescript": "5.4.5"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
-  
 }
