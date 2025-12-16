@@ -1,107 +1,163 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { ensureUserFromReq } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { ensureUserFromReq } from '@/lib/auth';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+function requireAdmin(me: any) {
+  return Boolean(me?.isAdmin);
+}
+
+type Outcome = 'CLIENT' | 'WORKER' | 'SPLIT';
+
+function clampInt(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const me = await ensureUserFromReq(req);
-    if (!me || !(me as any).isAdmin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    if (!me) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    if (!requireAdmin(me)) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-    const disputeId = String(params?.id || "").trim();
-    if (!disputeId) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+    const disputeId = String(params?.id || '').trim();
+    if (!disputeId) return NextResponse.json({ error: 'missing_id' }, { status: 400 });
 
     const body = (await req.json().catch(() => ({}))) as any;
 
-    const clientRefund = Math.max(0, Math.round(Number(body?.clientRefund ?? 0)));
-    const workerPayout = Math.max(0, Math.round(Number(body?.workerPayout ?? 0)));
-    const platformKeep = Math.max(0, Math.round(Number(body?.platformKeep ?? 0)));
-    const note = String(body?.note || "").trim().slice(0, 4000);
+    const outcome = String(body?.outcome || '').toUpperCase() as Outcome;
+    const resultText = String(body?.resultText || '').trim().slice(0, 8000);
 
-    const dispute = await prisma.dispute.findUnique({
+    // SPLIT inputs (percent based)
+    const workerPctRaw = Number(body?.workerPct ?? NaN);
+    const clientPctRaw = Number(body?.clientPct ?? NaN);
+
+    if (!resultText) return NextResponse.json({ error: 'missing_result_text' }, { status: 400 });
+    if (outcome !== 'CLIENT' && outcome !== 'WORKER' && outcome !== 'SPLIT') {
+      return NextResponse.json({ error: 'invalid_outcome' }, { status: 400 });
+    }
+
+    // load dispute + task + users (we need reward + commissionPct)
+    const d = await prisma.dispute.findUnique({
       where: { id: disputeId },
       include: {
-        task: { select: { id: true, title: true, reward: true } },
-        evidence: { select: { id: true } },
+        task: { select: { id: true, reward: true, authorId: true } },
+        client: { select: { id: true, commissionPct: true } },
+        worker: { select: { id: true } },
       },
     });
-    if (!dispute) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (!d) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    if (d.status === 'RESOLVED') return NextResponse.json({ ok: true }, { status: 200 });
+    if (d.status === 'CANCELLED') return NextResponse.json({ error: 'locked' }, { status: 409 });
 
-    if (dispute.status === "RESOLVED") {
-      return NextResponse.json({ ok: true, status: "RESOLVED" }, { status: 200 });
-    }
-    if (!dispute.task || !dispute.evidence) {
-      return NextResponse.json({ error: "missing_context" }, { status: 409 });
-    }
-
-    const reward = Number(dispute.task.reward) || 0;
-    const sum = clientRefund + workerPayout + platformKeep;
-    if (reward > 0 && sum > reward) {
-      return NextResponse.json({ error: "split_exceeds_reward", reward, sum }, { status: 400 });
+    const reward = Number(d.task?.reward || 0);
+    if (!Number.isFinite(reward) || reward <= 0) {
+      return NextResponse.json({ error: 'invalid_reward' }, { status: 409 });
     }
 
+    // commission (client-side). assumption: client already paid reward + commission earlier
+    const commissionPct = clampInt(Number(d.client?.commissionPct ?? 10), 0, 100);
+    const commission = Math.floor((reward * commissionPct) / 100);
+    const totalPaid = reward + commission;
+
+    let workerAmount = 0;
+    let clientAmount = 0;
+
+    if (outcome === 'WORKER') {
+      workerAmount = reward;
+      clientAmount = commission; // return commission back to client (so fee is not lost on arbitration)
+    } else if (outcome === 'CLIENT') {
+      workerAmount = 0;
+      clientAmount = totalPaid; // full refund incl commission
+    } else {
+      // SPLIT
+      const workerPct = clampInt(workerPctRaw, 0, 100);
+      const clientPct = clampInt(clientPctRaw, 0, 100);
+      if (workerPct + clientPct !== 100) {
+        return NextResponse.json({ error: 'split_must_sum_100' }, { status: 400 });
+      }
+
+      workerAmount = Math.floor((reward * workerPct) / 100);
+      const clientRewardBack = reward - workerAmount;
+      clientAmount = clientRewardBack + commission; // always return commission
+    }
+
+    const splitJson = JSON.stringify({
+      outcome,
+      reward,
+      commissionPct,
+      commission,
+      totalPaid,
+      workerAmount,
+      clientAmount,
+      workerPct: outcome === 'SPLIT' ? clampInt(workerPctRaw, 0, 100) : null,
+      clientPct: outcome === 'SPLIT' ? clampInt(clientPctRaw, 0, 100) : null,
+    });
+
+    // write everything atomically + create wallet txs
     await prisma.$transaction(async (tx) => {
-      // idempotent wallet writes
-      const existingTx = await tx.walletTransaction.findFirst({
-        where: { disputeId: dispute.id },
-        select: { id: true },
-      });
+      const fresh = await tx.dispute.findUnique({ where: { id: disputeId }, select: { status: true } });
+      if (!fresh) throw new Error('not_found');
+      if (fresh.status === 'RESOLVED') return;
+      if (fresh.status === 'CANCELLED') throw new Error('locked');
 
-      if (!existingTx) {
-        const descBase = `Dispute resolved: ${dispute.task!.title}`.slice(0, 120);
+      // create wallet transactions (credit)
+      // NOTE: This assumes funds are held/managed elsewhere; here we only record results.
+      if (workerAmount > 0) {
+        await tx.walletTransaction.create({
+          data: {
+            userId: d.workerId,
+            counterpartyId: d.clientId,
+            taskId: d.taskId,
+            evidenceId: d.evidenceId,
+            disputeId: d.id,
+            type: 'EARNING',
+            status: 'COMPLETED',
+            amount: workerAmount,
+            method: 'arbitration',
+            description: `Dispute resolved: worker gets ₾${workerAmount}`,
+          },
+        });
+      }
 
-        if (clientRefund > 0) {
-          await tx.walletTransaction.create({
-            data: {
-              userId: dispute.clientId,
-              counterpartyId: dispute.workerId,
-              taskId: dispute.taskId,
-              evidenceId: dispute.evidenceId,
-              disputeId: dispute.id,
-              type: "OTHER",
-              status: "COMPLETED",
-              amount: clientRefund,
-              method: "balance",
-              description: `${descBase} — client refund`.slice(0, 190),
-            },
-          });
-        }
-
-        if (workerPayout > 0) {
-          await tx.walletTransaction.create({
-            data: {
-              userId: dispute.workerId,
-              counterpartyId: dispute.clientId,
-              taskId: dispute.taskId,
-              evidenceId: dispute.evidenceId,
-              disputeId: dispute.id,
-              type: "EARNING",
-              status: "COMPLETED",
-              amount: workerPayout,
-              method: "balance",
-              description: `${descBase} — worker payout`.slice(0, 190),
-            },
-          });
-        }
+      if (clientAmount > 0) {
+        await tx.walletTransaction.create({
+          data: {
+            userId: d.clientId,
+            counterpartyId: d.workerId,
+            taskId: d.taskId,
+            evidenceId: d.evidenceId,
+            disputeId: d.id,
+            type: 'OTHER',
+            status: 'COMPLETED',
+            amount: clientAmount,
+            method: 'arbitration',
+            description: `Dispute resolved: client gets ₾${clientAmount}`,
+          },
+        });
       }
 
       await tx.dispute.update({
-        where: { id: dispute.id },
+        where: { id: disputeId },
         data: {
-          status: "RESOLVED",
-          resolvedById: me.id,
+          status: 'RESOLVED',
+          resultText,
+          splitJson,
           resolvedAt: new Date(),
-          resultText: note, // <-- Front expects resultText
-          splitJson: JSON.stringify({ clientRefund, workerPayout, platformKeep }),
+          resolvedById: me.id,
+          clientSeen: false,
+          workerSeen: false,
         },
       });
     });
 
-    return NextResponse.json({ ok: true, status: "RESOLVED" }, { status: 200 });
-  } catch (e) {
-    console.error("POST /api/admin/disputes/[id]/resolve error", e);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e: any) {
+    console.error('POST /api/admin/disputes/[id]/resolve error', e);
+    const msg = String(e?.message || '');
+    if (msg === 'locked') return NextResponse.json({ error: 'locked' }, { status: 409 });
+    if (msg === 'not_found') return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    return NextResponse.json({ error: 'server_error' }, { status: 500 });
   }
 }

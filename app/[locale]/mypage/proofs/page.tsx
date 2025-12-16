@@ -1312,7 +1312,16 @@ function EvidenceModal({
     if (!isIncoming) return;
     if (busy) return;
     if (isExpired) return;
-    if (disputeActive || disputeResolved) return; // lock actions if dispute started/resolved
+// allow confirm ONLY if dispute was started by worker and client has not submitted yet
+const allowConfirmDuringDispute =
+  !isWorker &&
+  item.dispute?.status &&
+  item.dispute.status !== "NONE" &&
+  item.dispute.status !== "RESOLVED" &&
+  item.dispute.workerSubmitted === true &&
+  item.dispute.clientSubmitted === false;
+
+if ((disputeActive || disputeResolved) && !allowConfirmDuringDispute) return;
 
     setBusy(true);
     setActionErr(null);
@@ -1407,6 +1416,13 @@ function EvidenceModal({
     disputeResolved ||
     (item.dispute?.status === 'SENT') ||
     (item.dispute?.status === 'BOTH_SUBMITTED');
+const allowConfirmDuringDispute =
+  !isWorker &&
+  item.dispute?.status &&
+  item.dispute.status !== 'NONE' &&
+  item.dispute.status !== 'RESOLVED' &&
+  item.dispute.workerSubmitted === true &&
+  item.dispute.clientSubmitted === false;
 
   return (
     <div className="fixed inset-0 z-50">
@@ -1755,57 +1771,49 @@ function EvidenceModal({
                   )}
 
                   {/* Incoming pending actions (client) */}
-                  {isIncoming && item.status === 'PENDING' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleConfirm}
-                        disabled={busy || lockAllActions}
-                        className="btn-hero-secondary text-sm disabled:opacity-60"
-                        data-text={confirmLabel}
-                      >
-                        <span className="btn-text">{confirmLabel}</span>
-                      </button>
+{isIncoming && item.status === 'PENDING' && (
+  <>
+    <button
+      type="button"
+      onClick={handleConfirm}
+      disabled={busy || (lockAllActions && !allowConfirmDuringDispute)}
+      className="btn-hero-secondary text-sm disabled:opacity-60"
+      data-text={confirmLabel}
+    >
+      <span className="btn-text">{confirmLabel}</span>
+    </button>
 
-                      {/* First submission: can request fixes once. Second submission: show dispute instead */}
-                      {canNeedsFixes ? (
-                        <button
-                          type="button"
-                          disabled={busy || lockAllActions}
-                          className="btn-evidence-warning text-sm disabled:opacity-60"
-                          onClick={() => {
-                            if (lockAllActions) return;
-                            setShowNeedsFixes(true);
-                          }}
-                        >
-                          <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
-                        </button>
-                      ) : canShowDisputeStart ? (
-                        <button
-                          type="button"
-                          disabled={busy || lockAllActions}
-                          className="btn-hero-secondary text-sm disabled:opacity-60 relative"
-                          onClick={() => {
-                            onOpenDisputeStart(item);
-                            onClose();
-                          }}
-                        >
-                          <span className="btn-text flex items-center gap-2">
-                            <Gavel className="w-4 h-4" />
-                            {isKa ? 'დავის დაწყება' : 'Start dispute'}
-                          </span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="btn-evidence-warning text-sm opacity-60 cursor-not-allowed"
-                        >
-                          <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
-                        </button>
-                      )}
-                    </>
-                  )}
+    {canNeedsFixes ? (
+      <button
+        type="button"
+        disabled={busy || lockAllActions}
+        className="btn-evidence-warning text-sm disabled:opacity-60"
+        onClick={() => {
+          if (lockAllActions) return;
+          setShowNeedsFixes(true);
+        }}
+      >
+        <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
+      </button>
+    ) : canShowDisputeStart ? (
+      <button
+        type="button"
+        disabled={busy || lockAllActions}
+        className="btn-hero-secondary text-sm disabled:opacity-60 relative"
+        onClick={() => {
+          onOpenDisputeStart(item);
+          onClose();
+        }}
+      >
+        <span className="btn-text flex items-center gap-2">
+          <Gavel className="w-4 h-4" />
+          {isKa ? 'დავის დაწყება' : 'Start dispute'}
+        </span>
+      </button>
+    ) : null}
+  </>
+)}
+
 
                   {/* Outgoing pending actions (worker) — dispute visible only on second submission */}
                   {isWorker && item.status === 'PENDING' && canShowDisputeStart && (

@@ -1,35 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { ensureUserFromReq } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { ensureUserFromReq } from '@/lib/auth';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+function requireAdmin(me: any) {
+  return Boolean(me?.isAdmin);
+}
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const me = await ensureUserFromReq(req);
-    if (!me || !(me as any).isAdmin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    if (!me) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    if (!requireAdmin(me)) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-    const id = String(params?.id || "").trim();
-    if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+    const disputeId = String(params?.id || '').trim();
+    if (!disputeId) return NextResponse.json({ error: 'missing_id' }, { status: 400 });
 
-    const body = (await req.json().catch(() => ({}))) as any;
-    const note = String(body?.note || "").trim().slice(0, 4000);
+    const d = await prisma.dispute.findUnique({ where: { id: disputeId }, select: { id: true, status: true } });
+    if (!d) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    if (d.status === 'RESOLVED') return NextResponse.json({ error: 'locked' }, { status: 409 });
 
-    const upd = await prisma.dispute.update({
-      where: { id },
+    await prisma.dispute.update({
+      where: { id: disputeId },
       data: {
-        status: "CANCELLED",
-        resolvedById: me.id,
+        status: 'CANCELLED',
         resolvedAt: new Date(),
-        resultText: note,
+        resolvedById: me.id,
+        clientSeen: false,
+        workerSeen: false,
       },
-      select: { id: true, status: true },
     });
 
-    return NextResponse.json({ ok: true, id: upd.id, status: upd.status }, { status: 200 });
-  } catch (e) {
-    console.error("POST /api/admin/disputes/[id]/cancel error", e);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e: any) {
+    console.error('POST /api/admin/disputes/[id]/cancel error', e);
+    return NextResponse.json({ error: 'server_error' }, { status: 500 });
   }
 }

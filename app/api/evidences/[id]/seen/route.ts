@@ -55,6 +55,18 @@ export async function POST(
       await prisma.taskEvidence.update({ where: { id: evidenceId }, data: { workerSawRatingPrompt: true } });
       return NextResponse.json({ ok: true });
     }
+    if (kind === 'client_dispute') {
+  if (!isClient) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  await prisma.dispute.update({ where: { evidenceId }, data: { clientSeen: true } });
+  return NextResponse.json({ ok: true });
+}
+
+if (kind === 'worker_dispute') {
+  if (!isWorker) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  await prisma.dispute.update({ where: { evidenceId }, data: { workerSeen: true } });
+  return NextResponse.json({ ok: true });
+}
+
 
     if (kind === 'client_rating_prompt') {
       if (!isClient) return NextResponse.json({ error: 'forbidden' }, { status: 403 });

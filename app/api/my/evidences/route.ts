@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
         fixFor: true,
         fixes: { select: { id: true }, take: 1 }, // ✅ just need to know if a child exists
         reviews: true,
+        dispute: true,
       },
     });
 
@@ -36,6 +37,24 @@ export async function GET(req: NextRequest) {
       try { photos = JSON.parse(e.photos || '[]'); } catch {}
       try { videos = JSON.parse(e.videos || '[]'); } catch {}
       try { files = JSON.parse(e.files || '[]'); } catch {}
+const dispute = (e as any).dispute
+  ? {
+      status:
+        (e as any).dispute.status === "RESOLVED" ? "RESOLVED"
+        : (e as any).dispute.status === "SENT" ? "SENT"
+        : (e as any).dispute.status === "WAITING_OTHER" || (e as any).dispute.status === "OPEN" ? "WAITING_OTHER"
+        : (e as any).dispute.status === "BOTH_SUBMITTED" ? "BOTH_SUBMITTED"
+        : "STARTED",
+      startedAt: (e as any).dispute.startedAt?.toISOString?.() ?? null,
+      deadlineAt: (e as any).dispute.deadlineAt?.toISOString?.() ?? null,
+      resultText: (e as any).dispute.resultText || null,
+      resolvedAt: (e as any).dispute.resolvedAt ? (e as any).dispute.resolvedAt.toISOString() : null,
+      clientSeen: Boolean((e as any).dispute.clientSeen),
+      workerSeen: Boolean((e as any).dispute.workerSeen),
+      clientSubmitted: Boolean((e as any).dispute.clientSubmitted),
+      workerSubmitted: Boolean((e as any).dispute.workerSubmitted),
+    }
+  : null;
 
       const clientToWorker =
         e.reviews.find((r) => r.role === 'WORKER' && r.toUserId === e.authorId) || null;
@@ -64,6 +83,7 @@ export async function GET(req: NextRequest) {
         needsFixesReason: e.needsFixesReason ?? null,
         needsFixesAt: e.needsFixesAt ? e.needsFixesAt.toISOString() : null,
         autoApproved: Boolean(e.autoApproved),
+        dispute,
 
         // ✅ new field for UI
         fixResubmittedOnTime,
