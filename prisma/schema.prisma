@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -31,41 +30,47 @@ model User {
   // Chat
   chatThreadsAsOwner     ChatThread[]      @relation("ChatThreadOwner")
   chatThreadsAsApplicant ChatThread[]      @relation("ChatThreadApplicant")
-  messages               ChatMessage[]     // ← author(user) ↔ messages
+  messages               ChatMessage[] // ← author(user) ↔ messages
 
   // Wallet / balance
-  walletTransactions              WalletTransaction[] @relation("WalletTxOwner")
+  walletTransactions               WalletTransaction[] @relation("WalletTxOwner")
   walletTransactionsAsCounterparty WalletTransaction[] @relation("WalletTxCounterparty")
-payoutAccounts PayoutAccount[]
+  payoutAccounts                   PayoutAccount[]
   // Reviews
-  reviewsGiven    Review[] @relation("ReviewsGiven")
-  reviewsReceived Review[] @relation("ReviewsReceived")
+  reviewsGiven                     Review[]            @relation("ReviewsGiven")
+  reviewsReceived                  Review[]            @relation("ReviewsReceived")
 
   // Cached rating aggregates (ჭრელი, მაგრამ life-ს გაგვიადვილებს)
-  ratingWorkerAvg   Float  @default(0)
-  ratingWorkerCount Int    @default(0)
-  ratingClientAvg   Float  @default(0)
-  ratingClientCount Int    @default(0)
+  ratingWorkerAvg   Float @default(0)
+  ratingWorkerCount Int   @default(0)
+  ratingClientAvg   Float @default(0)
+  ratingClientCount Int   @default(0)
 
   // Admin flag
   isAdmin Boolean @default(false)
 
   // 🆕 ინდივიდუალური საკომისიო (%); default = 10
-  commissionPct Int @default(10)
+  commissionPct    Int       @default(10)
+  // Disputes (evidence arbitration)
+disputesAsClient Dispute[] @relation("DisputeClient")
+disputesAsWorker Dispute[] @relation("DisputeWorker")
+disputesResolved Dispute[] @relation("DisputeResolvedBy")
 
 }
+
 model PayoutAccount {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // მხოლოდ ანგარიში/IBAN — საკმარისია დემოსთვის
-  account   String
+  account String
 
   createdAt DateTime @default(now())
 
-  @@index([userId, createdAt])
   @@unique([userId, account]) // ერთ მომხმარებელზე ერთსა და იმავე ანგარიშს ორჯერ ვერ დაამატებს
+  @@index([userId, createdAt])
+
 }
 
 model Task {
@@ -96,13 +101,15 @@ model Task {
 
   // NEW: უკუპოლები
   applications TaskApplication[] // ← task ↔ applications
-  chatThreads  ChatThread[]      // ← task ↔ chatThreads
+  chatThreads  ChatThread[] // ← task ↔ chatThreads
 
   // Reviews this task is related to (optional context)
   reviews Review[]
 
   // Wallet tx (publish fee, payout და ა.შ.)
   walletTransactions WalletTransaction[] @relation("TaskWalletTx")
+disputes Dispute[] @relation("TaskDisputes")
+
   @@index([status])
   @@index([status, category])
   @@index([authorId, status])
@@ -117,10 +124,10 @@ model TaskClaim {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
   @@unique([taskId, userId])
   @@index([userId])
   @@index([taskId])
-  
 }
 
 enum TaskStatus {
@@ -138,17 +145,17 @@ enum TaskWhere {
  */
 
 model TaskApplication {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
   applicantId String
-  applicant   User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  message     String   @default("")
+  applicant   User              @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  message     String            @default("")
   status      ApplicationStatus @default(PENDING)
-  createdAt   DateTime @default(now())
+  createdAt   DateTime          @default(now())
   decidedAt   DateTime?
 
-  ownerSeen   Boolean  @default(false)
+  ownerSeen   Boolean   @default(false)
   ownerSeenAt DateTime?
 
   @@unique([taskId, applicantId])
@@ -157,9 +164,7 @@ model TaskApplication {
   @@index([taskId, status])
   @@index([applicantId, status])
   @@index([status, ownerSeen])
-
 }
-
 
 enum ApplicationStatus {
   PENDING
@@ -172,59 +177,52 @@ enum ApplicationStatus {
  */
 
 model TaskEvidence {
-  id       String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  taskId   String
-  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  // Author (worker who submitted evidence)
   authorId String
-  author   User     @relation("EvidenceAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  author   User @relation("EvidenceAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
-  // Decision (client who confirms / rejects / requests fixes)
   decidedById String?
-  decidedBy   User?        @relation("EvidenceDecider", fields: [decidedById], references: [id], onDelete: SetNull)
-  status      EvidenceStatus @default(PENDING)
-  decidedAt   DateTime?
+  decidedBy   User? @relation("EvidenceDecider", fields: [decidedById], references: [id], onDelete: SetNull)
 
-  // ორივე მხარის review-ების ტრეკინგი (QoL flags)
+  status    EvidenceStatus @default(PENDING)
+  decidedAt DateTime?
+
   clientReviewed Boolean @default(false)
   workerReviewed Boolean @default(false)
-  // 🆕 Needs fixes meta
+
   needsFixesReason String?
   needsFixesAt     DateTime?
   autoApproved     Boolean @default(false)
 
-  // 🆕 resubmission chain (worker resubmits after NEEDS_FIXES)
   fixForId String?
-  fixFor   TaskEvidence? @relation("EvidenceFixFor", fields: [fixForId], references: [id], onDelete: SetNull)
+  fixFor   TaskEvidence?  @relation("EvidenceFixFor", fields: [fixForId], references: [id], onDelete: SetNull)
   fixes    TaskEvidence[] @relation("EvidenceFixFor")
 
-    // 🆕 notifications/seen flags
-  workerDecisionSeen    Boolean @default(true)  // worker sees: APPROVED / NEEDS_FIXES / EXPIRED
-  clientSystemSeen      Boolean @default(true)  // client sees: system events (EXPIRED / autoApproved)
-  workerSawClientReview Boolean @default(true)  // worker sees: client's rating of worker
-  clientSawWorkerReview Boolean @default(true)  // client sees: worker's rating of client
+  workerDecisionSeen    Boolean @default(true)
+  clientSystemSeen      Boolean @default(true)
+  workerSawClientReview Boolean @default(true)
+  clientSawWorkerReview Boolean @default(true)
 
-  // 🆕 rating prompts after expiry (no one forced; both allowed)
   clientSawRatingPrompt Boolean @default(true)
   workerSawRatingPrompt Boolean @default(true)
-  
-  // ტექსტური აღწერა
-  text     String   @default("")
 
-  // JSON string-ებად ვინახავთ URL-ების array-ს
-  photos   String   @default("[]") // string[]
-  videos   String   @default("[]") // string[]
-  files    String   @default("[]") // string[] (ZIP-ები და ა.შ.)
+  text   String @default("")
+  photos String @default("[]")
+  videos String @default("[]")
+  files  String @default("[]")
 
   createdAt DateTime @default(now())
 
-  // Reviews (ორივე მიმართულება)
   reviews Review[]
-
-  // დაკავშირებული ტრანზაქციები (პირადად payout და სხვ.)
   walletTransactions WalletTransaction[]
+
+  // ✅ back-relation ONLY
+  dispute Dispute?
+
   @@index([taskId])
   @@index([authorId])
 }
@@ -234,7 +232,7 @@ enum EvidenceStatus {
   APPROVED
   REJECTED
   NEEDS_FIXES
-  EXPIRED 
+  EXPIRED
 }
 
 /**
@@ -282,6 +280,7 @@ model ChatMessage {
 
   body      String
   createdAt DateTime @default(now())
+
   @@index([threadId, createdAt])
 }
 
@@ -310,7 +309,7 @@ model Review {
   evidence   TaskEvidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
 
   stars   Int
-  comment String   @default("")
+  comment String @default("")
 
   createdAt DateTime @default(now())
 
@@ -318,8 +317,8 @@ model Review {
 }
 
 enum ReviewRole {
-  WORKER  // შეფასება როგორც შემსრულებლის
-  CLIENT  // შეფასება როგორც დამკვეთის
+  WORKER // შეფასება როგორც შემსრულებლის
+  CLIENT // შეფასება როგორც დამკვეთის
 }
 
 /**
@@ -330,11 +329,11 @@ model WalletTransaction {
   id String @id @default(cuid())
 
   userId String
-  user   User @relation("WalletTxOwner", fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation("WalletTxOwner", fields: [userId], references: [id], onDelete: Cascade)
 
   // optional counterparty (e.g. მეორე მხარე)
   counterpartyId String?
-  counterparty   User? @relation("WalletTxCounterparty", fields: [counterpartyId], references: [id], onDelete: SetNull)
+  counterparty   User?   @relation("WalletTxCounterparty", fields: [counterpartyId], references: [id], onDelete: SetNull)
 
   // optional task / evidence context
   taskId     String?
@@ -351,13 +350,15 @@ model WalletTransaction {
   amount Int
 
   // UI helpers
-  method      String @default("") // "balance" | "card" | ...
-  description String @default("")
+  method      String   @default("") // "balance" | "card" | ...
+  description String   @default("")
+  disputeId   String?
+  dispute     Dispute? @relation(fields: [disputeId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([taskId])
   @@index([userId, status])
-
+  @@index([disputeId])
 }
 
 enum WalletTxType {
@@ -372,4 +373,68 @@ enum WalletTxStatus {
   PENDING
   FAILED
   ON_HOLD
+}
+
+enum DisputeStatus {
+  OPEN           // dispute exists and active (starter submitted)
+  WAITING_OTHER  // waiting for other side submission
+  BOTH_SUBMITTED // both submitted (optional state)
+  SENT           // sent to arbitration/admin review (locked)
+  RESOLVED       // final
+  CANCELLED      // cancelled by admin
+}
+
+model Dispute {
+  id String @id @default(cuid())
+
+  taskId String
+  task   Task @relation("TaskDisputes", fields: [taskId], references: [id], onDelete: Cascade)
+
+  // ✅ FK აქ არის და მხოლოდ აქ
+  evidenceId String @unique
+  evidence   TaskEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User @relation("DisputeClient", fields: [clientId], references: [id], onDelete: Cascade)
+
+  workerId String
+  worker   User @relation("DisputeWorker", fields: [workerId], references: [id], onDelete: Cascade)
+
+  status DisputeStatus @default(OPEN)
+
+  startedAt  DateTime @default(now())
+  deadlineAt DateTime
+
+  clientSeen Boolean @default(true)
+  workerSeen Boolean @default(true)
+
+  clientSubmitted Boolean @default(false)
+  workerSubmitted Boolean @default(false)
+
+  clientText   String @default("")
+  clientPhotos String @default("[]")
+  clientVideos String @default("[]")
+  clientFiles  String @default("[]")
+
+  workerText   String @default("")
+  workerPhotos String @default("[]")
+  workerVideos String @default("[]")
+  workerFiles  String @default("[]")
+
+  resolvedById String?
+  resolvedBy   User? @relation("DisputeResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+
+  resultText String @default("")
+  splitJson  String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  walletTransactions WalletTransaction[]
+
+  @@index([status, createdAt])
+  @@index([taskId])
+  @@index([clientId, status])
+  @@index([workerId, status])
 }

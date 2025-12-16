@@ -1,6 +1,8 @@
+
+
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarClock,
@@ -12,10 +14,30 @@ import {
   Star,
   X,
   AlertTriangle,
+  Gavel,
+  ShieldAlert,
+  UploadCloud,
 } from 'lucide-react';
 import MatrixLoader from '@/components/MatrixLoader';
 
 type Locale = 'ka' | 'en';
+
+/** ---- Dispute types (optional fields from backend; safe if missing) ---- */
+type DisputeStatus = 'NONE' | 'STARTED' | 'WAITING_OTHER' | 'BOTH_SUBMITTED' | 'SENT' | 'RESOLVED';
+
+type DisputeInfo = {
+  status: DisputeStatus;
+  startedAt: string | null; // ISO
+  deadlineAt: string | null; // ISO (optional server-provided)
+  resultText?: string | null; // admin/arb decision summary
+  resolvedAt?: string | null;
+  // "seen" flags so we can show notification dots if backend provides them
+  clientSeen?: boolean;
+  workerSeen?: boolean;
+  // submissions presence (server may send)
+  clientSubmitted?: boolean;
+  workerSubmitted?: boolean;
+} | null;
 
 type FixForInfo = {
   id: string;
@@ -58,6 +80,9 @@ type EvidenceItem = {
   workerSawRatingPrompt?: boolean;
   fixResubmittedOnTime?: boolean;
 
+  /** dispute fields (optional) */
+  dispute?: DisputeInfo;
+
   clientToWorkerReview: ReviewMini; // client rated worker
   workerToClientReview: ReviewMini; // worker rated client
 
@@ -94,6 +119,9 @@ type EvidenceItem = {
 };
 
 const HOURS_96_MS = 96 * 60 * 60 * 1000;
+
+/** Dispute reply window = 4 days */
+const HOURS_4D_MS = 96 * 60 * 60 * 1000;
 
 function formatDateTime(value: string, locale: Locale) {
   const d = new Date(value);
@@ -163,6 +191,13 @@ function StarRow({ value }: { value: number }) {
 }
 
 function statusLabel(item: EvidenceItem, isKa: boolean) {
+  if (item.dispute?.status && item.dispute.status !== 'NONE' && item.dispute.status !== 'RESOLVED') {
+    return isKa ? 'დავა დაწყებულია' : 'Dispute started';
+  }
+  if (item.dispute?.status === 'RESOLVED') {
+    return isKa ? 'დავის პასუხი მიღებულია' : 'Dispute resolved';
+  }
+
   if (item.status === 'APPROVED' && item.autoApproved) {
     return isKa
       ? 'დადასტურდა პასუხის არ გაცემის გამო'
@@ -183,6 +218,14 @@ function statusLabel(item: EvidenceItem, isKa: boolean) {
 }
 
 function statusClasses(item: EvidenceItem) {
+  // dispute overrides visual stamp
+  if (item.dispute?.status && item.dispute.status !== 'NONE' && item.dispute.status !== 'RESOLVED') {
+    return 'border-fuchsia-400/70 bg-fuchsia-400/10 text-fuchsia-200 shadow-[0_0_14px_rgba(217,70,239,0.55)]';
+  }
+  if (item.dispute?.status === 'RESOLVED') {
+    return 'border-emerald-400/70 bg-emerald-400/10 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.55)]';
+  }
+
   if (item.status === 'EXPIRED') {
     return 'border-rose-500/70 bg-rose-500/10 text-rose-300 shadow-[0_0_14px_rgba(244,63,94,0.55)]';
   }
@@ -215,6 +258,53 @@ async function markSeen(evidenceId: string, kind: string) {
       body: JSON.stringify({ kind }),
     });
   } catch {}
+}
+
+async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init);
+  const data = await res.json().catch(() => ({} as any));
+  if (!res.ok) {
+    const msg = (data as any)?.error || 'Request failed';
+    throw new Error(msg);
+  }
+  return data as T;
+}
+
+/* ---------------- Cloudinary sign+upload (same flow as submit page) ---------------- */
+
+type ResourceKind = 'image' | 'video' | 'raw';
+
+async function getSignature(kind: ResourceKind, folder: string) {
+  const res = await fetch(
+    `/api/cloudinary/sign?type=${kind}&folder=${encodeURIComponent(folder)}`,
+    { cache: 'no-store' },
+  );
+  if (!res.ok) throw new Error('sign_failed');
+  return (await res.json()) as {
+    cloudName: string;
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    folder: string;
+    resourceType: ResourceKind;
+  };
+}
+
+async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string) {
+  const sig = await getSignature(kind, folder);
+  const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloudName}/${sig.resourceType}/upload`;
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('api_key', sig.apiKey);
+  fd.append('timestamp', String(sig.timestamp));
+  fd.append('signature', sig.signature);
+  fd.append('folder', sig.folder);
+
+  const up = await fetch(endpoint, { method: 'POST', body: fd });
+  const j = await up.json();
+  if (!up.ok || !j?.secure_url) throw new Error(j?.error?.message || 'upload_failed');
+  return j.secure_url as string;
 }
 
 /* ---------------- Rating Modal (two sections) ---------------- */
@@ -575,6 +665,355 @@ function RatingModal({
   );
 }
 
+/* ---------------- Dispute Modal (Start / Respond) ---------------- */
+
+function DisputeModal({
+  locale,
+  item,
+  tab,
+  mode,
+  onClose,
+  onLocalPatch,
+}: {
+  locale: Locale;
+  item: EvidenceItem;
+  tab: 'incoming' | 'outgoing';
+  mode: 'start' | 'respond';
+  onClose: () => void;
+  onLocalPatch: (patch: Partial<EvidenceItem>) => void;
+}) {
+  const isKa = locale === 'ka';
+  const isWorker = tab === 'outgoing';
+
+  const [text, setText] = useState('');
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const keyFor = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
+
+  const onPhotosChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files ? Array.from(e.target.files) : [];
+    if (!list.length) return;
+    setPhotos((prev) => {
+      const map = new Map(prev.map((f) => [keyFor(f), f]));
+      for (const f of list) map.set(keyFor(f), f);
+      return Array.from(map.values()).slice(0, 6);
+    });
+    e.target.value = '';
+  };
+
+  const removePhoto = (idx: number) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
+
+  const onVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setVideo(f);
+    e.target.value = '';
+  };
+
+  const clearVideo = () => setVideo(null);
+
+  const onFilesChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files ? Array.from(e.target.files) : [];
+    if (!list.length) return;
+    setFiles((prev) => {
+      const map = new Map(prev.map((f) => [keyFor(f), f]));
+      for (const f of list) map.set(keyFor(f), f);
+      return Array.from(map.values());
+    });
+    e.target.value = '';
+  };
+
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  const topTitle = mode === 'start'
+    ? (isKa ? 'დავის დაწყება' : 'Start dispute')
+    : (isKa ? 'პოზიციის წარდგენა' : 'Submit your position');
+
+  const hint = mode === 'start'
+    ? (isKa
+        ? 'დაწერე მოკლედ რა გიჭირს და დაამატე მტკიცებულებები. მეორე მხარეს გაეგზავნება შეტყობინება.'
+        : 'Explain briefly and attach evidence. The other side will be notified.')
+    : (isKa
+        ? 'წარადგინე შენი პოზიცია არბიტრაჟისთვის. გაგზავნის შემდეგ ვეღარ შეცვლი.'
+        : 'Submit your position for arbitration. After sending, you cannot edit.');
+
+  const emptyErr = isKa
+    ? 'მინიმუმ ერთი ველი უნდა იყოს შევსებული: ტექსტი, ფოტო, ვიდეო ან ZIP.'
+    : 'Please provide at least one: text, photo, video or ZIP.';
+
+  async function submit() {
+    const hasText = text.trim().length > 0;
+    const hasPhotos = photos.length > 0;
+    const hasVideo = !!video;
+    const hasFiles = files.length > 0;
+
+    if (!hasText && !hasPhotos && !hasVideo && !hasFiles) {
+      setErr(emptyErr);
+      return;
+    }
+    if (busy) return;
+
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const folder = `tasky/disputes/${item.task.id}/${item.id}`;
+
+      const photoUrls: string[] = [];
+      for (const f of photos) photoUrls.push(await uploadToCloudinary(f, 'image', folder));
+
+      let videoUrl: string | null = null;
+      if (video) videoUrl = await uploadToCloudinary(video, 'video', folder);
+
+      const fileUrls: string[] = [];
+      for (const f of files) fileUrls.push(await uploadToCloudinary(f, 'raw', folder));
+
+      const res = await fetch(`/api/evidences/${item.id}/dispute`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: mode === 'start' ? 'START' : 'RESPOND',
+          role: isWorker ? 'WORKER' : 'CLIENT',
+          text: text.trim(),
+          photos: photoUrls,
+          videos: videoUrl ? [videoUrl] : [],
+          files: fileUrls,
+        }),
+      });
+
+      const j = await res.json().catch(() => ({} as any));
+      if (!res.ok) {
+        setErr(j?.error || (isKa ? 'ვერ გაიგზავნა.' : 'Failed to submit.'));
+        setBusy(false);
+        return;
+      }
+
+      // Expect backend to return updated dispute info (optional)
+      const dispute: DisputeInfo =
+        (j?.dispute as any) ??
+        ({
+          status: mode === 'start' ? 'STARTED' : 'BOTH_SUBMITTED',
+          startedAt: (item.dispute?.startedAt ?? new Date().toISOString()),
+          deadlineAt: null,
+          clientSubmitted: isWorker ? (item.dispute?.clientSubmitted ?? false) : true,
+          workerSubmitted: isWorker ? true : (item.dispute?.workerSubmitted ?? false),
+        } as any);
+
+      onLocalPatch({
+        dispute,
+      } as any);
+
+      try {
+        window.dispatchEvent(new CustomEvent('evidences-updated'));
+      } catch {}
+
+      onClose();
+    } catch (e: any) {
+      setErr(String(e?.message || e) || (isKa ? 'ქსელის შეცდომა' : 'Network error'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sendLabel = busy
+    ? isKa ? 'იგზავნება…' : 'Submitting…'
+    : (isKa ? 'გაგზავნა' : 'Submit');
+
+  return (
+    <div className="fixed inset-0 z-[85]">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={busy ? undefined : onClose} />
+
+      <div className="relative z-10 flex items-center justify-center h-full px-4">
+        <div className="card w-full max-w-[820px] p-5 md:p-6 rounded-2xl ring-1 ring-fuchsia-400/30 bg-[#0b0f16]/95">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Gavel className="w-5 h-5 text-fuchsia-300" />
+              <div className="text-lg md:text-xl font-bold">{topTitle}</div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-60 flex items-center justify-center"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="mt-2 text-sm text-white/65">{hint}</div>
+
+          <div className="mt-5 grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div className="text-xs uppercase tracking-wide text-white/50 mb-2">
+                {isKa ? 'ტექსტი' : 'Text'}
+              </div>
+              <textarea
+                className="w-full min-h-[170px] rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-white/90 outline-none focus:ring-fuchsia-400/40"
+                placeholder={isKa ? 'შენი პოზიცია / მიზეზი…' : 'Your position / reason…'}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+
+            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-xs text-white/60">
+                <ShieldAlert className="w-4 h-4 text-fuchsia-300" />
+                <span>{isKa ? 'მტკიცებულებები (არასავალდებულო)' : 'Attachments (optional)'}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs text-white/70 mb-1 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-cyan" />
+                  {isKa ? 'ფოტოები (მაქს. 6)' : 'Photos (max 6)'}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={onPhotosChange}
+                  disabled={busy}
+                  className="block w-full text-sm text-white/80
+                           file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                           file:bg-white/10 file:text-white file:font-semibold
+                           hover:file:bg-white/15 cursor-pointer bg-transparent disabled:opacity-60"
+                />
+
+                {photos.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {photos.map((f, i) => {
+                      const src = URL.createObjectURL(f);
+                      return (
+                        <div key={i} className="relative rounded-lg bg-white/5 overflow-hidden ring-1 ring-white/10">
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(i)}
+                            disabled={busy}
+                            className="absolute right-1 top-1 rounded-full bg-black/70 hover:bg-black/90 text-white text-xs px-2 py-1 disabled:opacity-60"
+                            aria-label="Remove"
+                          >
+                            ✕
+                          </button>
+                          <img
+                            src={src}
+                            alt={f.name}
+                            className="w-full h-16 object-cover"
+                            onLoad={() => URL.revokeObjectURL(src)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-white/70 mb-1 flex items-center gap-2">
+                  <Film className="w-4 h-4 text-sky-400" />
+                  {isKa ? 'ვიდეო (1)' : 'Video (1)'}
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={onVideoChange}
+                  disabled={busy}
+                  className="block w-full text-sm text-white/80
+                           file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                           file:bg-white/10 file:text-white file:font-semibold
+                           hover:file:bg-white/15 cursor-pointer bg-transparent disabled:opacity-60"
+                />
+                {video && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs">
+                    <span className="truncate max-w-[75%]">{video.name}</span>
+                    <button
+                      type="button"
+                      onClick={clearVideo}
+                      disabled={busy}
+                      className="text-xs text-red-300 hover:text-red-200 disabled:opacity-60"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-white/70 mb-1 flex items-center gap-2">
+                  <FileArchive className="w-4 h-4 text-amber-400" />
+                  {isKa ? 'ZIP / ფაილები' : 'ZIP / files'}
+                </label>
+                <input
+                  type="file"
+                  accept=".zip,.rar,.7z"
+                  multiple
+                  onChange={onFilesChange}
+                  disabled={busy}
+                  className="block w-full text-sm text-white/80
+                           file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                           file:bg-white/10 file:text-white file:font-semibold
+                           hover:file:bg-white/15 cursor-pointer bg-transparent disabled:opacity-60"
+                />
+                {files.length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs">
+                    {files.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between rounded-lg bg-black/20 ring-1 ring-white/10 px-3 py-1.5">
+                        <span className="truncate max-w-[75%]">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          disabled={busy}
+                          className="text-xs text-red-300 hover:text-red-200 disabled:opacity-60"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {err && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-red-300">
+              <AlertTriangle className="w-4 h-4" />
+              <span>{err}</span>
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="btn-hero-ghost text-sm disabled:opacity-60"
+              data-text={isKa ? 'გაუქმება' : 'Cancel'}
+            >
+              <span className="btn-text">{isKa ? 'გაუქმება' : 'Cancel'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy}
+              className="btn-hero-secondary text-sm disabled:opacity-60 relative"
+              data-text={sendLabel}
+            >
+              <span className="btn-text flex items-center gap-2">
+                <UploadCloud className="w-4 h-4" />
+                {sendLabel}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Defect Modal (Needs fixes) ---------------- */
 
 function DefectModal({
@@ -739,7 +1178,7 @@ function NeedsFixesModal({
   );
 }
 
-/* ---------------- Evidence Modal (details + client actions) ---------------- */
+/* ---------------- Evidence Modal (details + actions) ---------------- */
 
 function EvidenceModal({
   locale,
@@ -750,6 +1189,8 @@ function EvidenceModal({
   onUpdate,
   onOpenRating,
   onOpenDefect,
+  onOpenDisputeStart,
+  onOpenDisputeRespond,
 }: {
   locale: Locale;
   item: EvidenceItem;
@@ -759,12 +1200,22 @@ function EvidenceModal({
   onUpdate: (id: string, patch: Partial<EvidenceItem>) => void;
   onOpenRating: (ev: EvidenceItem) => void;
   onOpenDefect: (ev: EvidenceItem) => void;
+  onOpenDisputeStart: (ev: EvidenceItem) => void;
+  onOpenDisputeRespond: (ev: EvidenceItem) => void;
 }) {
   const isKa = locale === 'ka';
   const isIncoming = tab === 'incoming';
+  const isWorker = tab === 'outgoing';
   const [busy, setBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [showNeedsFixes, setShowNeedsFixes] = useState(false);
+
+  // second submission detection (resubmission after fixes)
+  const isSecondSubmission = Boolean(item.fixForId);
+
+  const disputeStatus = item.dispute?.status ?? 'NONE';
+  const disputeActive = disputeStatus !== 'NONE' && disputeStatus !== 'RESOLVED';
+  const disputeResolved = disputeStatus === 'RESOLVED';
 
   const confirmLabel = busy
     ? isKa
@@ -779,8 +1230,37 @@ function EvidenceModal({
   const isDoneNeedsFixes = item.status === 'NEEDS_FIXES';
   const isDoneRejected = item.status === 'REJECTED';
 
+  // Dispute countdown: 4 days after dispute started
+  const disputeCountdown = useMemo(() => {
+    if (!item.dispute?.startedAt) return { show: false, remaining: 0, label: '' };
+    if (disputeResolved) return { show: false, remaining: 0, label: '' };
+
+    const base = new Date(item.dispute.startedAt).getTime();
+    if (Number.isNaN(base)) return { show: false, remaining: 0, label: '' };
+
+    const dl = item.dispute.deadlineAt ? new Date(item.dispute.deadlineAt).getTime() : (base + HOURS_4D_MS);
+    const remaining = dl - Date.now();
+    if (remaining <= 0) return { show: false, remaining: 0, label: '' };
+
+    const label = isKa
+      ? (isWorker ? 'შენ დაგრჩა პოზიციის გაგზავნა:' : 'შენ დაგრჩა პოზიციის გაგზავნა:')
+      : (isWorker ? 'Your time to submit:' : 'Your time to submit:');
+
+    // If backend provides submitted flags, we can show the other side deadline for the user that already submitted
+    const meSubmitted = isWorker ? Boolean(item.dispute?.workerSubmitted) : Boolean(item.dispute?.clientSubmitted);
+    const otherSubmitted = isWorker ? Boolean(item.dispute?.clientSubmitted) : Boolean(item.dispute?.workerSubmitted);
+
+    const finalLabel =
+      meSubmitted && !otherSubmitted
+        ? (isKa ? 'მეორე მხარეს დარჩა პასუხის გასაცემად:' : 'Other side time to respond:')
+        : label;
+
+    return { show: true, remaining, label: finalLabel };
+  }, [item.dispute, disputeResolved, isKa, isWorker]);
+
   useEffect(() => {
     (async () => {
+      // existing seen logic
       if (tab === 'outgoing') {
         if (
           (item.status === 'APPROVED' ||
@@ -806,6 +1286,24 @@ function EvidenceModal({
           } catch {}
         }
       }
+
+      // dispute seen (optional backend flags)
+      if (item.dispute && item.dispute.status !== 'NONE') {
+        if (!isWorker && item.dispute.clientSeen === false) {
+          await markSeen(item.id, 'client_dispute');
+          onUpdate(item.id, { dispute: { ...(item.dispute as any), clientSeen: true } as any });
+          try {
+            window.dispatchEvent(new CustomEvent('evidences-updated'));
+          } catch {}
+        }
+        if (isWorker && item.dispute.workerSeen === false) {
+          await markSeen(item.id, 'worker_dispute');
+          onUpdate(item.id, { dispute: { ...(item.dispute as any), workerSeen: true } as any });
+          try {
+            window.dispatchEvent(new CustomEvent('evidences-updated'));
+          } catch {}
+        }
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -814,6 +1312,7 @@ function EvidenceModal({
     if (!isIncoming) return;
     if (busy) return;
     if (isExpired) return;
+    if (disputeActive || disputeResolved) return; // lock actions if dispute started/resolved
 
     setBusy(true);
     setActionErr(null);
@@ -854,6 +1353,7 @@ function EvidenceModal({
     if (!isIncoming) return;
     if (busy) return;
     if (isExpired) return;
+    if (disputeActive || disputeResolved) return; // lock if dispute
 
     setBusy(true);
     setActionErr(null);
@@ -887,6 +1387,26 @@ function EvidenceModal({
       setBusy(false);
     }
   }
+
+  const canShowDisputeStart =
+    isSecondSubmission &&
+    (item.status === 'PENDING') &&
+    !disputeActive &&
+    !disputeResolved;
+
+  const canShowDisputeRespond =
+    isSecondSubmission &&
+    disputeActive &&
+    // show only if my side hasn't submitted yet (if backend supplies flags)
+    ((isWorker && item.dispute?.workerSubmitted === false) ||
+      (!isWorker && item.dispute?.clientSubmitted === false) ||
+      // if flags missing, allow open respond while dispute active
+      (item.dispute?.workerSubmitted === undefined && item.dispute?.clientSubmitted === undefined));
+
+  const lockAllActions =
+    disputeResolved ||
+    (item.dispute?.status === 'SENT') ||
+    (item.dispute?.status === 'BOTH_SUBMITTED');
 
   return (
     <div className="fixed inset-0 z-50">
@@ -932,6 +1452,26 @@ function EvidenceModal({
                       : 'On-site'}
                 </span>
               </div>
+
+              {disputeActive && disputeCountdown.show && (
+                <div className="mt-3 text-xs text-white/70">
+                  <span className="text-white/50">{disputeCountdown.label}</span>{' '}
+                  <span className="font-semibold text-fuchsia-200">
+                    {fmtCountdown(disputeCountdown.remaining, isKa)}
+                  </span>
+                </div>
+              )}
+
+              {disputeResolved && item.dispute?.resultText && (
+                <div className="mt-4 rounded-2xl bg-emerald-400/10 ring-1 ring-emerald-400/30 p-4">
+                  <div className="text-xs text-emerald-200 mb-2">
+                    {isKa ? 'არბიტრაჟის პასუხი' : 'Arbitration result'}
+                  </div>
+                  <div className="text-sm text-white/85 whitespace-pre-wrap">
+                    {item.dispute.resultText}
+                  </div>
+                </div>
+              )}
             </div>
 
             {item.fixFor?.needsFixesReason && (
@@ -1117,12 +1657,35 @@ function EvidenceModal({
                         {isKa ? 'ექსკლუზიური' : 'Exclusive'}
                       </span>
                     )}
+                    {isSecondSubmission && (
+                      <span className="px-2 py-1 rounded-full border border-fuchsia-400/60 bg-fuchsia-400/10 text-fuchsia-200">
+                        {isKa ? 'მეორედ გამოგზავნილი' : 'Resubmitted'}
+                      </span>
+                    )}
+                    {disputeActive && (
+                      <span className="px-2 py-1 rounded-full border border-fuchsia-400/60 bg-fuchsia-400/10 text-fuchsia-200">
+                        {isKa ? 'დავა' : 'Dispute'}
+                      </span>
+                    )}
+                    {disputeResolved && (
+                      <span className="px-2 py-1 rounded-full border border-emerald-400/60 bg-emerald-400/10 text-emerald-200">
+                        {isKa ? 'პასუხი' : 'Resolved'}
+                      </span>
+                    )}
                   </div>
+
+                  {(disputeActive || disputeResolved) && (
+                    <div className="mt-3 text-xs text-white/65">
+                      {disputeResolved
+                        ? (isKa ? 'ინტერაქცია დასრულებულია — ელოდებით შედეგს აღარ.' : 'Interaction finished.')
+                        : (isKa ? 'დავა დაწყებულია — პოზიციების მიწოდება მიმდინარეობს.' : 'Dispute is active — submissions in progress.')}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                   <div className="text-xs text-white/60 mb-2">
-                    {isKa ? 'დამკვეთი' : 'Client'}
+                    {isKa ? (isWorker ? 'დამკვეთი' : 'დამკვეთი') : 'Client'}
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
@@ -1191,34 +1754,103 @@ function EvidenceModal({
                     </div>
                   )}
 
+                  {/* Incoming pending actions (client) */}
                   {isIncoming && item.status === 'PENDING' && (
                     <>
                       <button
                         type="button"
                         onClick={handleConfirm}
-                        disabled={busy}
+                        disabled={busy || lockAllActions}
                         className="btn-hero-secondary text-sm disabled:opacity-60"
                         data-text={confirmLabel}
                       >
                         <span className="btn-text">{confirmLabel}</span>
                       </button>
 
-                      <button
-                        type="button"
-                        disabled={busy || !canNeedsFixes}
-                        className={
-                          canNeedsFixes
-                            ? 'btn-evidence-warning text-sm disabled:opacity-60'
-                            : 'btn-evidence-warning text-sm opacity-60 cursor-not-allowed'
-                        }
-                        onClick={() => {
-                          if (!canNeedsFixes) return;
-                          setShowNeedsFixes(true);
-                        }}
-                      >
-                        <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
-                      </button>
+                      {/* First submission: can request fixes once. Second submission: show dispute instead */}
+                      {canNeedsFixes ? (
+                        <button
+                          type="button"
+                          disabled={busy || lockAllActions}
+                          className="btn-evidence-warning text-sm disabled:opacity-60"
+                          onClick={() => {
+                            if (lockAllActions) return;
+                            setShowNeedsFixes(true);
+                          }}
+                        >
+                          <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
+                        </button>
+                      ) : canShowDisputeStart ? (
+                        <button
+                          type="button"
+                          disabled={busy || lockAllActions}
+                          className="btn-hero-secondary text-sm disabled:opacity-60 relative"
+                          onClick={() => {
+                            onOpenDisputeStart(item);
+                            onClose();
+                          }}
+                        >
+                          <span className="btn-text flex items-center gap-2">
+                            <Gavel className="w-4 h-4" />
+                            {isKa ? 'დავის დაწყება' : 'Start dispute'}
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="btn-evidence-warning text-sm opacity-60 cursor-not-allowed"
+                        >
+                          <span>{isKa ? 'დახარვეზება' : 'Request fixes'}</span>
+                        </button>
+                      )}
                     </>
+                  )}
+
+                  {/* Outgoing pending actions (worker) — dispute visible only on second submission */}
+                  {isWorker && item.status === 'PENDING' && canShowDisputeStart && (
+                    <button
+                      type="button"
+                      disabled={busy || lockAllActions}
+                      className="btn-hero-secondary text-sm disabled:opacity-60 relative"
+                      onClick={() => {
+                        onOpenDisputeStart(item);
+                        onClose();
+                      }}
+                    >
+                      <span className="btn-text flex items-center gap-2">
+                        <Gavel className="w-4 h-4" />
+                        {isKa ? 'დავის დაწყება' : 'Start dispute'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* When dispute active: let each side submit their position (once) */}
+                  {canShowDisputeRespond && (
+                    <button
+                      type="button"
+                      disabled={busy || lockAllActions}
+                      className="btn-hero-secondary text-sm disabled:opacity-60 relative"
+                      onClick={() => {
+                        onOpenDisputeRespond(item);
+                        onClose();
+                      }}
+                      data-text={isKa ? 'პოზიციის წარდგენა' : 'Submit position'}
+                    >
+                      <span className="btn-text flex items-center gap-2">
+                        <UploadCloud className="w-4 h-4" />
+                        {isKa ? 'პოზიციის წარდგენა' : 'Submit position'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* If dispute is in sent/both_submitted state, lock and show waiting */}
+                  {disputeActive && !canShowDisputeRespond && (
+                    <div className="btn-hero-secondary text-sm opacity-70 cursor-default">
+                      <span>
+                        {isKa ? 'ელოდები არბიტრაჟს' : 'Waiting for arbitration'}
+                      </span>
+                    </div>
                   )}
                 </div>
               </aside>
@@ -1254,12 +1886,14 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
   const [outgoingItems, setOutgoingItems] = useState<EvidenceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const loadAbortRef = useRef<AbortController | null>(null);
 
   const items = tab === 'incoming' ? incomingItems : outgoingItems;
 
   const [selected, setSelected] = useState<EvidenceItem | null>(null);
   const [ratingTarget, setRatingTarget] = useState<EvidenceItem | null>(null);
   const [defectTarget, setDefectTarget] = useState<EvidenceItem | null>(null);
+  const [disputeTarget, setDisputeTarget] = useState<{ item: EvidenceItem; mode: 'start' | 'respond' } | null>(null);
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -1282,8 +1916,11 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
       countdownAutoApprove: isKa ? 'ავტომატური დადასტურება:' : 'Auto-approve in:',
       countdownFixesWorker: isKa ? 'შემსრულებელს დარჩა ხარვეზის გამოსასწორებლად:' : 'Worker time to fix:',
       countdownFixesYou: isKa ? 'შენ დაგრჩა ხარვეზის გამოსასწორებლად:' : 'Your time to fix:',
+      countdownDispute: isKa ? 'დავის ვადა:' : 'Dispute deadline:',
       viewRating: isKa ? 'შეფასების ნახვა' : 'View rating',
       viewDefect: isKa ? 'ხარვეზის ნახვა' : 'View defect',
+      disputeStarted: isKa ? 'დავა დაწყებულია' : 'Dispute started',
+      submitPosition: isKa ? 'პოზიციის წარდგენა' : 'Submit position',
     }),
     [isKa],
   );
@@ -1294,6 +1931,7 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
     setSelected(null);
     setRatingTarget(null);
     setDefectTarget(null);
+    setDisputeTarget(null);
     const sp = new URLSearchParams(search.toString());
     sp.set('tab', next);
     router.replace(`/${locale}/mypage/proofs?${sp.toString()}`);
@@ -1316,42 +1954,58 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
     setDefectTarget((prev) =>
       prev && prev.id === id ? ({ ...prev, ...patch } as EvidenceItem) : prev,
     );
+    setDisputeTarget((prev) =>
+      prev && prev.item.id === id ? ({ ...prev, item: { ...prev.item, ...patch } as EvidenceItem }) : prev,
+    );
   };
 
-  async function loadBothTabs(aliveRef?: { current: boolean }) {
+  async function loadBothTabs() {
+    // cancel previous request if any
+    try {
+      loadAbortRef.current?.abort();
+    } catch {}
+
+    const ac = new AbortController();
+    loadAbortRef.current = ac;
+
     setLoading(true);
     setErr(null);
 
     try {
-      const [inRes, outRes] = await Promise.all([
-        fetch(`/api/my/evidences?tab=incoming`, { cache: 'no-store' }),
-        fetch(`/api/my/evidences?tab=outgoing`, { cache: 'no-store' }),
+      const [incoming, outgoing] = await Promise.all([
+        fetchJson<EvidenceItem[]>(`/api/my/evidences?tab=incoming`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        }),
+        fetchJson<EvidenceItem[]>(`/api/my/evidences?tab=outgoing`, {
+          cache: 'no-store',
+          signal: ac.signal,
+        }),
       ]);
 
-      const inJson = await inRes.json().catch(() => null);
-      const outJson = await outRes.json().catch(() => null);
+      // if another request started after this one, ignore
+      if (loadAbortRef.current !== ac) return;
 
-      if (!inRes.ok) throw new Error((inJson as any)?.error || 'Incoming load failed');
-      if (!outRes.ok) throw new Error((outJson as any)?.error || 'Outgoing load failed');
-
-      if (aliveRef && !aliveRef.current) return;
-
-      setIncomingItems((inJson as EvidenceItem[]) || []);
-      setOutgoingItems((outJson as EvidenceItem[]) || []);
+      setIncomingItems(incoming || []);
+      setOutgoingItems(outgoing || []);
     } catch (e: any) {
-      if (aliveRef && !aliveRef.current) return;
+      // abort is not an error we should show
+      if (e?.name === 'AbortError') return;
+      if (loadAbortRef.current !== ac) return;
       setErr(e?.message || 'Error');
     } finally {
-      if (aliveRef && !aliveRef.current) return;
-      setLoading(false);
+      if (loadAbortRef.current === ac) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    const alive = { current: true };
-    loadBothTabs(alive);
+    loadBothTabs();
     return () => {
-      alive.current = false;
+      try {
+        loadAbortRef.current?.abort();
+      } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1368,6 +2022,7 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
     if (tab !== 'incoming') return false;
     if (selected.status !== 'PENDING') return false;
 
+    // if there was already NEEDS_FIXES for same task+worker, client can no longer needs-fixes again
     const already = incomingItems.some(
       (x) =>
         x.task?.id === selected.task?.id &&
@@ -1382,6 +2037,9 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
   const openRating = (ev: EvidenceItem) => setRatingTarget(ev);
   const openDefect = (ev: EvidenceItem) => setDefectTarget(ev);
 
+  const openDisputeStart = (ev: EvidenceItem) => setDisputeTarget({ item: ev, mode: 'start' });
+  const openDisputeRespond = (ev: EvidenceItem) => setDisputeTarget({ item: ev, mode: 'respond' });
+
   const goResubmit = (ev: EvidenceItem) => {
     router.push(
       `/${locale}/mypage/proofs/submit?task=${encodeURIComponent(ev.task.id)}&fixFor=${encodeURIComponent(ev.id)}`,
@@ -1390,6 +2048,15 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
 
   function countdownInfo(ev: EvidenceItem) {
     void tick;
+
+    // Dispute countdown has priority (both sides can see it)
+    if (ev.dispute?.startedAt && ev.dispute.status && ev.dispute.status !== 'NONE' && ev.dispute.status !== 'RESOLVED') {
+      const base = new Date(ev.dispute.startedAt).getTime();
+      const dl = ev.dispute.deadlineAt ? new Date(ev.dispute.deadlineAt).getTime() : (base + HOURS_4D_MS);
+      const remaining = dl - Date.now();
+      if (remaining > 0) return { show: true, label: labels.countdownDispute, remaining };
+      return { show: false, label: '', remaining: 0 };
+    }
 
     if (ev.status === 'PENDING') {
       const created = new Date(ev.createdAt).getTime();
@@ -1436,23 +2103,30 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
     return false;
   }
 
-  function hasSystemNotif(ev: EvidenceItem) {
-    if (tab === 'incoming') {
-      return (
-        (ev.status === 'APPROVED' || ev.status === 'EXPIRED') &&
-        ev.clientSystemSeen === false
-      );
-    }
+function hasSystemNotif(ev: EvidenceItem) {
+  if (tab === 'incoming') {
     return (
-      (ev.status === 'APPROVED' ||
-        ev.status === 'NEEDS_FIXES' ||
-        ev.status === 'EXPIRED') &&
-      ev.workerDecisionSeen === false
+      (ev.status === 'APPROVED' || ev.status === 'EXPIRED') &&
+      ev.clientSystemSeen === false
     );
+  }
+  return (
+    (ev.status === 'APPROVED' ||
+      ev.status === 'NEEDS_FIXES' ||
+      ev.status === 'EXPIRED') &&
+    ev.workerDecisionSeen === false
+  );
+}
+
+
+  function hasDisputeNotif(ev: EvidenceItem) {
+    if (!ev.dispute || ev.dispute.status === 'NONE') return false;
+    if (tab === 'incoming') return ev.dispute.clientSeen === false;
+    return ev.dispute.workerSeen === false;
   }
 
   function hasAnyNotif(ev: EvidenceItem) {
-    return hasSystemNotif(ev) || hasDefectNotif(ev) || hasRatingNotif(ev);
+    return hasSystemNotif(ev) || hasDefectNotif(ev) || hasRatingNotif(ev) || hasDisputeNotif(ev);
   }
 
   const incomingNotifCount = useMemo(() => {
@@ -1463,7 +2137,8 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
       const rating =
         ev.clientSawWorkerReview === false ||
         (ev.status === 'EXPIRED' && ev.clientSawRatingPrompt === false);
-      return Boolean(system || rating);
+      const dispute = ev.dispute && ev.dispute.status !== 'NONE' && ev.dispute.clientSeen === false;
+      return Boolean(system || rating || dispute);
     }).length;
   }, [incomingItems]);
 
@@ -1479,9 +2154,70 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         ev.workerSawClientReview === false ||
         (ev.status === 'EXPIRED' && ev.workerSawRatingPrompt === false);
 
-      return Boolean(decision || rating);
+      const dispute = ev.dispute && ev.dispute.status !== 'NONE' && ev.dispute.workerSeen === false;
+
+      return Boolean(decision || rating || dispute);
     }).length;
   }, [outgoingItems]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+
+      if (disputeTarget) setDisputeTarget(null);
+      else if (ratingTarget) setRatingTarget(null);
+      else if (defectTarget) setDefectTarget(null);
+      else if (selected) setSelected(null);
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, ratingTarget, defectTarget, disputeTarget]);
+
+  useEffect(() => {
+    const anyModalOpen = Boolean(selected || ratingTarget || defectTarget || disputeTarget);
+    if (!anyModalOpen) return;
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selected, ratingTarget, defectTarget, disputeTarget]);
+
+const disputeButtonLabel = (ev: EvidenceItem) => {
+  const isWorker = tab === 'outgoing';
+  const status = ev.dispute?.status ?? 'NONE';
+
+  // ✅ resolve check MUST be before narrowing/returns
+  if (status === 'RESOLVED') return isKa ? 'დავის შედეგი' : 'Dispute result';
+
+  const active = status !== 'NONE'; // (RESOLVED უკვე გავფილტრეთ ზემოთ)
+  if (!active) return labels.disputeStarted;
+
+  const meSubmitted = isWorker
+    ? Boolean(ev.dispute?.workerSubmitted)
+    : Boolean(ev.dispute?.clientSubmitted);
+
+  // const otherSubmitted = isWorker
+  //   ? Boolean(ev.dispute?.clientSubmitted)
+  //   : Boolean(ev.dispute?.workerSubmitted);
+
+  if (meSubmitted) return isKa ? 'ელოდები პასუხს' : 'Waiting';
+  return labels.submitPosition;
+};
+
+
+  const canCardSubmitPosition = (ev: EvidenceItem) => {
+    const isWorker = tab === 'outgoing';
+    const status = ev.dispute?.status ?? 'NONE';
+    if (status === 'NONE' || status === 'RESOLVED') return false;
+
+    const meSubmitted = isWorker ? ev.dispute?.workerSubmitted : ev.dispute?.clientSubmitted;
+    // if missing flags, allow open
+    if (meSubmitted === undefined) return true;
+    return meSubmitted === false;
+  };
 
   return (
     <div className="space-y-5">
@@ -1523,250 +2259,314 @@ export default function MyPageProofs({ params }: { params: { locale: Locale } })
         </div>
       ) : err ? (
         <div className="card p-5 text-sm text-red-300">{err}</div>
-      ) : empty ? (
-        <div className="card p-5 text-sm text-white/70">
-          {tab === 'incoming' ? labels.emptyIncoming : labels.emptyOutgoing}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {items.map((ev) => {
-            const cd = countdownInfo(ev);
-            const showCountdown =
-              cd.show &&
-              (ev.status === 'PENDING' || ev.status === 'NEEDS_FIXES') &&
-              cd.remaining > 0;
-            const showResubmittedMsg =
-              ev.status === 'NEEDS_FIXES' && ev.fixResubmittedOnTime;
+) : empty ? (
+  <div className="card p-5 text-sm text-white/70">
+    {tab === 'incoming' ? labels.emptyIncoming : labels.emptyOutgoing}
+  </div>
+) : (
+  <div className="space-y-4">
+    {items.map((ev) => {
+      const cd = countdownInfo(ev);
+      const showCountdown =
+        cd.show &&
+        (ev.status === 'PENDING' || ev.status === 'NEEDS_FIXES' || (ev.dispute?.status && ev.dispute.status !== 'NONE' && ev.dispute.status !== 'RESOLVED')) &&
+        cd.remaining > 0;
 
-            const showStamp = ev.status !== 'PENDING';
-            const canOpenDefectBtn = ev.status === 'NEEDS_FIXES';
-            const canOpenRatingBtn = ev.status === 'APPROVED' || ev.status === 'EXPIRED';
+      const showResubmittedMsg =
+        ev.status === 'NEEDS_FIXES' && ev.fixResubmittedOnTime;
 
-            return (
+      const disputeStatus = ev.dispute?.status ?? 'NONE';
+      const disputeActive = disputeStatus !== 'NONE' && disputeStatus !== 'RESOLVED';
+      const disputeResolved = disputeStatus === 'RESOLVED';
+
+      const showStamp =
+        ev.status !== 'PENDING' ||
+        disputeActive ||
+        disputeResolved;
+
+      const canOpenDefectBtn = ev.status === 'NEEDS_FIXES';
+      const canOpenRatingBtn = ev.status === 'APPROVED' || ev.status === 'EXPIRED';
+
+      const showDisputeActionOnCard =
+        disputeActive &&
+        canCardSubmitPosition(ev);
+
+      return (
+        <div
+          key={ev.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelected(ev)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') setSelected(ev);
+          }}
+          className="relative w-full text-left card p-5 md:p-6 hover:bg-white/[0.03] transition group cursor-pointer"
+        >
+          {hasAnyNotif(ev) && (
+            <span className="absolute top-3 right-3 w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/80" />
+          )}
+
+          {showStamp && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center pr-24 md:pr-40">
               <div
-                key={ev.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelected(ev)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') setSelected(ev);
-                }}
-                className="relative w-full text-left card p-5 md:p-6 hover:bg-white/[0.03] transition group cursor-pointer"
+                className={
+                  'px-6 py-3 rounded-full border-2 text-xs md:text-sm font-bold tracking-[0.35em] uppercase -rotate-3 ' +
+                  statusClasses(ev)
+                }
               >
-                {hasAnyNotif(ev) && (
-                  <span className="absolute top-3 right-3 w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/80" />
-                )}
+                {statusLabel(ev, isKa)}
+              </div>
+            </div>
+          )}
 
-                {showStamp && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center pr-24 md:pr-40">
-                    <div
-                      className={
-                        'px-6 py-3 rounded-full border-2 text-xs md:text-sm font-bold tracking-[0.35em] uppercase -rotate-3 ' +
-                        statusClasses(ev)
-                      }
-                    >
-                      {statusLabel(ev, isKa)}
-                    </div>
+          <div className="relative flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
+                  {ev.worker.image ? (
+                    <img
+                      src={ev.worker.image}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User2 className="w-6 h-6 text-white/70" />
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="text-xs text-white/60">
+                    {isKa ? 'შემსრულებელი' : 'Worker'}
                   </div>
-                )}
-
-                <div className="relative flex flex-col lg:flex-row gap-4">
-                  <div className="flex-1 min-w-0 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
-                        {ev.worker.image ? (
-                          <img
-                            src={ev.worker.image}
-                            alt="avatar"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User2 className="w-6 h-6 text-white/70" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="text-xs text-white/60">
-                          {isKa ? 'შემსრულებელი' : 'Worker'}
-                        </div>
-                        <div className="font-semibold truncate">
-                          {ev.worker.name || ev.worker.email || '—'}
-                        </div>
-                        {ev.worker.email && (
-                          <div className="text-xs text-white/60 truncate">
-                            {ev.worker.email}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="ml-auto text-right text-xs text-white/60">
-                        <div>{formatDateTime(ev.createdAt, locale)}</div>
-                        <div>
-                          {tab === 'incoming'
-                            ? isKa
-                              ? 'მიღებული'
-                              : 'Received'
-                            : isKa
-                              ? 'გაგზავნილი'
-                              : 'Sent'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-white/70">
-                      <StarRow value={ev.worker.ratingWorkerAvg ?? 0} />
-                      <span>
-                        {(ev.worker.ratingWorkerAvg ?? 0).toFixed(1)} / 5 •{' '}
-                        {ev.worker.ratingWorkerCount ?? 0}{' '}
-                        {isKa ? 'შეფასება' : 'reviews'}
-                      </span>
-                    </div>
-
-                    {showResubmittedMsg ? (
-                      <div className="text-xs text-white/70">
-                        <span className="text-white/50">{isKa ? 'სტატუსი:' : 'Status:'}</span>{' '}
-                        <span className="font-semibold text-emerald-300">
-                          {isKa
-                            ? 'მტკიცებულებები ხელმეორედ გაგზავნილია დროულად.'
-                            : 'Evidence was resubmitted on time.'}
-                        </span>
-                      </div>
-                    ) : showCountdown ? (
-                      <div className="text-xs text-white/70">
-                        <span className="text-white/50">{cd.label}</span>{' '}
-                        <span className="font-semibold text-sky-300">
-                          {fmtCountdown(cd.remaining, isKa)}
-                        </span>
-                      </div>
-                    ) : null}
-
-                    {ev.text && (
-                      <div className="mt-1 text-sm text-white/80 line-clamp-2 group-hover:text-white/90">
-                        {ev.text}
-                      </div>
-                    )}
+                  <div className="font-semibold truncate">
+                    {ev.worker.name || ev.worker.email || '—'}
                   </div>
-
-                  <div className="w-full lg:w-[340px] rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 flex flex-col justify-between">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs uppercase tracking-wide text-white/50">
-                          {isKa ? 'დავალება' : 'Task'}
-                        </div>
-                        <div className="font-semibold text-sm md:text-base line-clamp-2">
-                          {ev.task.title}
-                        </div>
-                      </div>
-                      <div className="ml-2 px-3 py-1 rounded-full bg-cyan/20 text-cyan text-sm font-semibold">
-                        ₾{ev.task.reward}
-                      </div>
+                  {ev.worker.email && (
+                    <div className="text-xs text-white/60 truncate">
+                      {ev.worker.email}
                     </div>
+                  )}
+                </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/70">
-                      {ev.task.deadline && (
-                        <div className="flex items-center gap-1">
-                          <CalendarClock className="w-3.5 h-3.5 text-sky-400" />
-                          <span>{formatShortDeadline(ev.task.deadline, locale)}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                        <span>
-                          {ev.task.where === 'REMOTE'
-                            ? isKa
-                              ? 'დისტანციური'
-                              : 'Remote'
-                            : isKa
-                              ? 'ადგილზე'
-                              : 'On-site'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 text-xs text-white/50">
-                      {tab === 'incoming'
-                        ? isKa
-                          ? 'შენი დავალებისთვის გამოგზავნილი.'
-                          : 'Sent to your task.'
-                        : (
-                          <>
-                            {isKa ? 'დამკვეთი: ' : 'Client: '}
-                            {ev.client.name || ev.client.email || '—'}
-                          </>
-                        )}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2 justify-end">
-                      {canOpenDefectBtn && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDefect(ev);
-                          }}
-                          className="btn-evidence-warning text-xs relative"
-                        >
-                          <span>{labels.viewDefect}</span>
-                          {hasDefectNotif(ev) && <NotifDot />}
-                        </button>
-                      )}
-
-                      {canOpenRatingBtn && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openRating(ev);
-                          }}
-                          className="btn-hero-secondary text-xs relative"
-                          data-text={labels.viewRating}
-                        >
-                          <span className="btn-text">{labels.viewRating}</span>
-                          {hasRatingNotif(ev) && <NotifDot />}
-                        </button>
-                      )}
-                    </div>
+                <div className="ml-auto text-right text-xs text-white/60">
+                  <div>{formatDateTime(ev.createdAt, locale)}</div>
+                  <div>
+                    {tab === 'incoming'
+                      ? isKa
+                        ? 'მიღებული'
+                        : 'Received'
+                      : isKa
+                        ? 'გაგზავნილი'
+                        : 'Sent'}
                   </div>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="flex items-center gap-2 text-xs text-white/70">
+                <StarRow value={ev.worker.ratingWorkerAvg ?? 0} />
+                <span>
+                  {(ev.worker.ratingWorkerAvg ?? 0).toFixed(1)} / 5 •{' '}
+                  {ev.worker.ratingWorkerCount ?? 0}{' '}
+                  {isKa ? 'შეფასება' : 'reviews'}
+                </span>
+              </div>
+
+              {showResubmittedMsg ? (
+                <div className="text-xs text-white/70">
+                  <span className="text-white/50">{isKa ? 'სტატუსი:' : 'Status:'}</span>{' '}
+                  <span className="font-semibold text-emerald-300">
+                    {isKa
+                      ? 'მტკიცებულებები ხელმეორედ გაგზავნილია დროულად.'
+                      : 'Evidence was resubmitted on time.'}
+                  </span>
+                </div>
+              ) : showCountdown ? (
+                <div className="text-xs text-white/70">
+                  <span className="text-white/50">{cd.label}</span>{' '}
+                  <span
+                    className={
+                      'font-semibold ' +
+                      (disputeActive ? 'text-fuchsia-200' : 'text-sky-300')
+                    }
+                  >
+                    {fmtCountdown(cd.remaining, isKa)}
+                  </span>
+                </div>
+              ) : null}
+
+              {ev.text && (
+                <div className="mt-1 text-sm text-white/80 line-clamp-2 group-hover:text-white/90">
+                  {ev.text}
+                </div>
+              )}
+
+              {disputeResolved && ev.dispute?.resultText?.trim() && (
+                <div className="mt-1 text-xs text-emerald-200/90 line-clamp-2">
+                  {isKa ? 'არბიტრაჟის პასუხი: ' : 'Result: '}
+                  <span className="text-white/80">{ev.dispute.resultText}</span>
+                </div>
+              )}
+
+              {showDisputeActionOnCard && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDisputeRespond(ev);
+                    }}
+                    className="btn-hero-secondary text-xs relative"
+                    data-text={labels.submitPosition}
+                  >
+                    <span className="btn-text flex items-center gap-2">
+                      <UploadCloud className="w-4 h-4" />
+                      {labels.submitPosition}
+                    </span>
+                    {hasDisputeNotif(ev) && <NotifDot />}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full lg:w-[340px] rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 flex flex-col justify-between">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs uppercase tracking-wide text-white/50">
+                    {isKa ? 'დავალება' : 'Task'}
+                  </div>
+                  <div className="font-semibold text-sm md:text-base line-clamp-2">
+                    {ev.task.title}
+                  </div>
+                </div>
+                <div className="ml-2 px-3 py-1 rounded-full bg-cyan/20 text-cyan text-sm font-semibold">
+                  ₾{ev.task.reward}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/70">
+                {ev.task.deadline && (
+                  <div className="flex items-center gap-1">
+                    <CalendarClock className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{formatShortDeadline(ev.task.deadline, locale)}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                  <span>
+                    {ev.task.where === 'REMOTE'
+                      ? isKa
+                        ? 'დისტანციური'
+                        : 'Remote'
+                      : isKa
+                        ? 'ადგილზე'
+                        : 'On-site'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 text-xs text-white/50">
+                {tab === 'incoming'
+                  ? isKa
+                    ? 'შენი დავალებისთვის გამოგზავნილი.'
+                    : 'Sent to your task.'
+                  : (
+                    <>
+                      {isKa ? 'დამკვეთი: ' : 'Client: '}
+                      {ev.client.name || ev.client.email || '—'}
+                    </>
+                  )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 justify-end">
+                {canOpenDefectBtn && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDefect(ev);
+                    }}
+                    className="btn-evidence-warning text-xs relative"
+                  >
+                    <span>{labels.viewDefect}</span>
+                    {hasDefectNotif(ev) && <NotifDot />}
+                  </button>
+                )}
+
+                {canOpenRatingBtn && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openRating(ev);
+                    }}
+                    className="btn-hero-secondary text-xs relative"
+                    data-text={labels.viewRating}
+                  >
+                    <span className="btn-text">{labels.viewRating}</span>
+                    {hasRatingNotif(ev) && <NotifDot />}
+                  </button>
+                )}
+
+                {disputeActive && (
+                  <div className="btn-hero-secondary text-xs opacity-80 cursor-default">
+                    <span>{labels.disputeStarted}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      );
+    })}
+  </div>
+)}
 
-      {selected && (
-        <EvidenceModal
-          locale={locale}
-          item={selected}
-          tab={tab}
-          canNeedsFixes={canNeedsFixesForSelected}
-          onClose={() => setSelected(null)}
-          onUpdate={handleEvidenceUpdated}
-          onOpenRating={(ev) => openRating(ev)}
-          onOpenDefect={(ev) => openDefect(ev)}
-        />
-      )}
+{selected && (
+  <EvidenceModal
+    locale={locale}
+    item={selected}
+    tab={tab}
+    canNeedsFixes={canNeedsFixesForSelected}
+    onClose={() => setSelected(null)}
+    onUpdate={handleEvidenceUpdated}
+    onOpenRating={(ev) => openRating(ev)}
+    onOpenDefect={(ev) => openDefect(ev)}
+    onOpenDisputeStart={(ev) => openDisputeStart(ev)}
+    onOpenDisputeRespond={(ev) => openDisputeRespond(ev)}
+  />
+)}
 
-      {ratingTarget && (
-        <RatingModal
-          locale={locale}
-          item={ratingTarget}
-          tab={tab}
-          onClose={() => setRatingTarget(null)}
-          onLocalPatch={(patch) => handleEvidenceUpdated(ratingTarget.id, patch)}
-        />
-      )}
+{ratingTarget && (
+  <RatingModal
+    locale={locale}
+    item={ratingTarget}
+    tab={tab}
+    onClose={() => setRatingTarget(null)}
+    onLocalPatch={(patch) => handleEvidenceUpdated(ratingTarget.id, patch)}
+  />
+)}
 
-      {defectTarget && (
-        <DefectModal
-          locale={locale}
-          item={defectTarget}
-          tab={tab}
-          onClose={() => setDefectTarget(null)}
-          onLocalPatch={(patch) => handleEvidenceUpdated(defectTarget.id, patch)}
-          onResubmit={() => goResubmit(defectTarget)}
-        />
-      )}
-    </div>
-  );
+{defectTarget && (
+  <DefectModal
+    locale={locale}
+    item={defectTarget}
+    tab={tab}
+    onClose={() => setDefectTarget(null)}
+    onLocalPatch={(patch) => handleEvidenceUpdated(defectTarget.id, patch)}
+    onResubmit={() => goResubmit(defectTarget)}
+  />
+)}
+
+{disputeTarget && (
+  <DisputeModal
+    locale={locale}
+    item={disputeTarget.item}
+    tab={tab}
+    mode={disputeTarget.mode}
+    onClose={() => setDisputeTarget(null)}
+    onLocalPatch={(patch) => handleEvidenceUpdated(disputeTarget.item.id, patch)}
+  />
+)}
+</div>
+);
 }
