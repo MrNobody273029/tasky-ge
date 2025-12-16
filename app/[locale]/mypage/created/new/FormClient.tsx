@@ -342,7 +342,7 @@ export default function FormClient({
     address?: string | null;
     exclusive?: boolean;
     proof?: string;
-    photos?: string[];            // ✅ ფოტოების ველი დრაფტიდან
+    photos?: string[];
   } | null;
 }) {
   const t = locale === "ka" ? KA : EN;
@@ -350,9 +350,12 @@ export default function FormClient({
   const params = useSearchParams();
   const draftId = params.get("draft");
 
+  // ✅ locally tracked taskId for this editor session (important for publish-fee binding)
+  const [taskId, setTaskId] = React.useState<string | null>(draftId);
+
   // ბალანსი უკვე სერვერიდან /api/my/wallet-ით
   const [balance, setBalance] = React.useState<number>(0);
-const [commissionPct, setCommissionPct] = React.useState<number>(10);
+  const [commissionPct, setCommissionPct] = React.useState<number>(10);
 
   React.useEffect(() => {
     let alive = true;
@@ -371,31 +374,32 @@ const [commissionPct, setCommissionPct] = React.useState<number>(10);
     loadBalance();
     return () => { alive = false; };
   }, []);
-React.useEffect(() => {
-  let alive = true;
 
-  async function loadMe() {
-    try {
-      const res = await fetch('/api/me', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!alive) return;
-      setCommissionPct(
-        typeof data?.commissionPct === 'number'
-          ? data.commissionPct
-          : 10,
-      );
-    } catch {
-      if (!alive) return;
-      setCommissionPct(10);
+  React.useEffect(() => {
+    let alive = true;
+
+    async function loadMe() {
+      try {
+        const res = await fetch('/api/me', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!alive) return;
+        setCommissionPct(
+          typeof data?.commissionPct === 'number'
+            ? data.commissionPct
+            : 10,
+        );
+      } catch {
+        if (!alive) return;
+        setCommissionPct(10);
+      }
     }
-  }
 
-  loadMe();
-  return () => {
-    alive = false;
-  };
-}, []);
+    loadMe();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // ---- initial (prefilled) values ----
   const [title, setTitle]       = React.useState<string>(initialDraft?.title ?? "");
@@ -427,12 +431,9 @@ React.useEffect(() => {
   const [payOpen, setPayOpen] = React.useState(false);
   const [payErr, setPayErr] = React.useState<string | null>(null);
 
-const rewardNum = Number(reward || 0);
-const fee = Math.max(
-  0,
-  Math.round((rewardNum * commissionPct) / 100),
-); // ინდივიდუალური საკომისიო (%)
-const totalToPay = Math.max(0, rewardNum + fee);
+  const rewardNum = Number(reward || 0);
+  const fee = Math.max(0, Math.round((rewardNum * commissionPct) / 100));
+  const totalToPay = Math.max(0, rewardNum + fee);
 
   const dueLabel = React.useMemo(()=>calcDueLabel(deadline||null, t),[deadline, t]);
 
@@ -450,10 +451,8 @@ const totalToPay = Math.max(0, rewardNum + fee);
   async function uploadAllTaskPhotos(files: File[]): Promise<string[]> {
     if (!files?.length) return [];
 
-    // 0%-დან დავიწყოთ
     setUploadProgress(0);
 
-    // მოვითხოვოთ სერვერიდან ხელმოწერა + cloud info
     const signRes = await fetch("/api/upload/sign", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -492,7 +491,6 @@ const totalToPay = Math.max(0, rewardNum + fee);
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error?.message || "Upload failed");
 
-      // ერთი ფოტოს წარმატებით დასრულების მერე ვანახლებთ progress-ს
       completed += 1;
       const pct = Math.round((completed / total) * 100);
       setUploadProgress(pct);
@@ -503,9 +501,7 @@ const totalToPay = Math.max(0, rewardNum + fee);
     return Promise.all(uploads);
   }
 
-
-
-    function removeFile(idx:number){
+  function removeFile(idx:number){
     setFiles(prev=>prev.filter((_,i)=>i!==idx));
   }
 
@@ -522,85 +518,90 @@ const totalToPay = Math.max(0, rewardNum + fee);
 
   const optionStyle = { backgroundColor:"#000", color:"#fff" } as const;
 
+  // ✅ upsert helper (no redirects, returns id). uploadPhotos default true.
+  async function upsertTask(
+    status: "draft" | "published",
+    opts?: { uploadPhotos?: boolean }
+  ): Promise<{ id: string }> {
+    const uploadPhotos = opts?.uploadPhotos !== false;
+
+    let newPhotoUrls: string[] = [];
+
+    if (uploadPhotos && files.length > 0) {
+      setUploadingPhotos(true);
+      setUploadProgress(0);
+
+      newPhotoUrls = await uploadAllTaskPhotos(files).catch((e) => {
+        throw new Error(e?.message || "Photo upload failed");
+      });
+
+      setUploadingPhotos(false);
+      setUploadProgress(null);
+    }
+
+    const allPhotos = uploadPhotos ? [...existingPhotos, ...newPhotoUrls] : [...existingPhotos];
+
+    const payload = {
+      locale,
+      title,
+      desc,
+      category,
+      skill,
+      reward: Number(reward),
+      deadline: deadline ? new Date(deadline).toISOString() : null,
+      where,
+      address: where === "onsite" ? (address || null) : null,
+      exclusive,
+      status,
+      proof,
+      photos: JSON.stringify(allPhotos),
+    };
+
+    let id = taskId || "";
+
+    if (id) {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "Request failed");
+      }
+      return { id };
+    }
+
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || "Request failed");
+    }
+    const data = (await res.json()) as { id: string };
+    id = data.id;
+
+    setTaskId(id);
+    return { id };
+  }
+
   async function saveTask(status: "draft" | "published") {
     try {
       setErrorMsg(null);
       setSaving(status === "draft" ? "draft" : "publish");
 
-      let newPhotoUrls: string[] = [];
-
-      // 1) ფოტოების ატვირთვა (თუ არის არჩეული)
-      if (files.length > 0) {
-        setUploadingPhotos(true);
-        setUploadProgress(0);
-
-        newPhotoUrls = await uploadAllTaskPhotos(files).catch((e) => {
-          throw new Error(e?.message || "Photo upload failed");
-        });
-
-        // წარმატებით დასრულების შემდეგ
-        setUploadingPhotos(false);
-        setUploadProgress(null);
-      }
-
-      // 2) უკვე არსებული + ახალი ფოტოები ერთად
-      const allPhotos = [...existingPhotos, ...newPhotoUrls];
-
-      // 3) payload
-      const payload = {
-        locale,
-        title,
-        desc,
-        category,
-        skill,
-        reward: Number(reward),
-        deadline: deadline ? new Date(deadline).toISOString() : null,
-        where,
-        address: where === "onsite" ? (address || null) : null,
-        exclusive,
-        status,
-        proof,
-        photos: JSON.stringify(allPhotos),
-      };
-
-      let id = "";
-
-      if (draftId) {
-        const res = await fetch(`/api/tasks/${draftId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j?.error || "Request failed");
-        }
-        id = draftId;
-      } else {
-        const res = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j?.error || "Request failed");
-        }
-        const data = (await res.json()) as { id: string };
-        id = data.id;
-      }
+      const { id } = await upsertTask(status, { uploadPhotos: true });
 
       alert(status === "draft" ? t.savedDraftOk : t.publishedOk);
-try {
-  window.dispatchEvent(new Event('tasky:tasks-updated'));
-} catch {}
+      try { window.dispatchEvent(new Event('tasky:tasks-updated')); } catch {}
 
       if (status === "draft") {
         router.push(`/${locale}/mypage/created?tab=drafts`);
       } else {
-        try {
-          localStorage.setItem("tasky.openTask", id);
-        } catch {}
+        try { localStorage.setItem("tasky.openTask", id); } catch {}
         router.push(`/${locale}?task=${id}`);
       }
     } catch (err: any) {
@@ -610,7 +611,6 @@ try {
       setSaving("idle");
     }
   }
-
 
   // ----- Payment actions -----
   function openPayModal(){
@@ -629,6 +629,10 @@ try {
     setSaving("publish");
 
     try {
+      // ✅ 1) ensure we have a taskId WITHOUT uploading photos yet
+      const { id } = await upsertTask("draft", { uploadPhotos: false });
+
+      // ✅ 2) pay publish fee bound to taskId
       const res = await fetch("/api/my/wallet/publish-fee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -636,6 +640,7 @@ try {
           amount: totalToPay,
           method: "balance",
           taskTitle: title || (locale === "ka" ? "დავალება" : "Task"),
+          taskId: id, // ✅ CRITICAL
         }),
       });
 
@@ -656,6 +661,8 @@ try {
       }
 
       setPayOpen(false);
+
+      // ✅ 3) now publish (uploads photos once + PUT by taskId)
       await saveTask("published");
     } catch (err: any) {
       setPayErr(err?.message || "Payment failed");
@@ -668,6 +675,8 @@ try {
     setSaving("publish");
 
     try {
+      const { id } = await upsertTask("draft", { uploadPhotos: false });
+
       const res = await fetch("/api/my/wallet/publish-fee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -675,6 +684,7 @@ try {
           amount: totalToPay,
           method: "card",
           taskTitle: title || (locale === "ka" ? "დავალება" : "Task"),
+          taskId: id, // ✅ CRITICAL
         }),
       });
 
@@ -698,24 +708,21 @@ try {
     }
   }
 
-return (
-  <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* უკან დაბრუნება */}
-<button
-  type="button"
-  onClick={() => router.back()}
-  className="btn-hero-ghost btn-topbar-solid text-sm flex items-center gap-2 px-4 py-2 rounded-xl"
->
-  <span>←</span>
-  <span>{locale === "ka" ? "უკან" : "Back"}</span>
-</button>
-
-
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="btn-hero-ghost btn-topbar-solid text-sm flex items-center gap-2 px-4 py-2 rounded-xl"
+      >
+        <span>←</span>
+        <span>{locale === "ka" ? "უკან" : "Back"}</span>
+      </button>
 
       <h1 className="text-3xl font-bold">{t.pageTitle}</h1>
 
       <div className="grid lg:grid-cols-3 gap-6">
-
         {/* LEFT: form */}
         <form
           className="lg:col-span-2 card p-6 space-y-4"
@@ -725,7 +732,6 @@ return (
             openPayModal();
           }}
         >
-
           <HoloInput
             id="task-title"
             label={t.title}
@@ -734,269 +740,244 @@ return (
             disabled={saving !== "idle"}
           />
 
-                  <HoloTextarea
-                    id="task-desc"
-                    label={t.desc}
-                    value={desc}
-                    onChange={setDesc}
-                    disabled={saving !== "idle"}
-                    minHeight={160}
-                  />
-
+          <HoloTextarea
+            id="task-desc"
+            label={t.desc}
+            value={desc}
+            onChange={setDesc}
+            disabled={saving !== "idle"}
+            minHeight={160}
+          />
 
           <div className="grid md:grid-cols-3 gap-4">
-<div>
-  <label className="block text-sm text-white/70 mb-1">{t.category}</label>
-  <HoloStaticBox>
-    <select
-      className="w-full h-[3.5rem] bg-black/70 text-white px-4
-                 border-none rounded-none outline-none"
-      value={category}
-      onChange={(e)=>setCategory(e.target.value)}
-      required
-    >
-      {t.opt.cat.map(c=> (
-        <option key={c} style={optionStyle}>{c}</option>
-      ))}
-    </select>
-  </HoloStaticBox>
-</div>
-
-
-<div>
-  <label className="block text-sm text-white/70 mb-1">{t.skill}</label>
-  <HoloStaticBox>
-    <select
-      className="w-full h-[3.5rem] bg-black/70 text-white px-4
-                 border-none rounded-none outline-none"
-      value={skill}
-      onChange={(e)=>setSkill(e.target.value)}
-      required
-    >
-      {t.opt.skill.map(s=> (
-        <option key={s} style={optionStyle}>{s}</option>
-      ))}
-    </select>
-  </HoloStaticBox>
-</div>
             <div>
-  <label className="block text-sm text-white/70 mb-1">
-    {t.reward}
-  </label>
+              <label className="block text-sm text-white/70 mb-1">{t.category}</label>
+              <HoloStaticBox>
+                <select
+                  className="w-full h-[3.5rem] bg-black/70 text-white px-4 border-none rounded-none outline-none"
+                  value={category}
+                  onChange={(e)=>setCategory(e.target.value)}
+                  required
+                >
+                  {t.opt.cat.map(c=> (
+                    <option key={c} style={optionStyle}>{c}</option>
+                  ))}
+                </select>
+              </HoloStaticBox>
+            </div>
 
-  <HoloInput
-    id="task-reward"
-    label=""              // აქ ცარიელი სტრინგი დავტოვოთ
-    type="number"
-    value={reward}
-    onChange={setReward}
-    disabled={saving !== "idle"}
-  />
-</div>
+            <div>
+              <label className="block text-sm text-white/70 mb-1">{t.skill}</label>
+              <HoloStaticBox>
+                <select
+                  className="w-full h-[3.5rem] bg-black/70 text-white px-4 border-none rounded-none outline-none"
+                  value={skill}
+                  onChange={(e)=>setSkill(e.target.value)}
+                  required
+                >
+                  {t.opt.skill.map(s=> (
+                    <option key={s} style={optionStyle}>{s}</option>
+                  ))}
+                </select>
+              </HoloStaticBox>
+            </div>
 
-
+            <div>
+              <label className="block text-sm text-white/70 mb-1">{t.reward}</label>
+              <HoloInput
+                id="task-reward"
+                label=""
+                type="number"
+                value={reward}
+                onChange={setReward}
+                disabled={saving !== "idle"}
+              />
+            </div>
           </div>
 
-<div className="grid md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm text-white/70 mb-1">{t.deadline}</label>
-    <HoloStaticBox>
-      <input
-        type="date"
-        className="w-full h-[3.5rem] bg-black/70 text-white px-4
-                   border-none rounded-none outline-none"
-        value={deadline}
-        onChange={(e)=>setDeadline(e.target.value)}
-        required
-      />
-    </HoloStaticBox>
-  </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-white/70 mb-1">{t.deadline}</label>
+              <HoloStaticBox>
+                <input
+                  type="date"
+                  className="w-full h-[3.5rem] bg-black/70 text-white px-4 border-none rounded-none outline-none"
+                  value={deadline}
+                  onChange={(e)=>setDeadline(e.target.value)}
+                  required
+                />
+              </HoloStaticBox>
+            </div>
 
-  <div>
-    <label className="block text-sm text-white/70 mb-1">{t.location}</label>
-    <HoloStaticBox>
-      <select
-        className="w-full h-[3.5rem] bg-black/70 text-white px-4
-                   border-none rounded-none outline-none"
-        value={where}
-        onChange={(e)=>setWhere(e.target.value as "remote"|"onsite")}
-      >
-        <option value="remote" style={optionStyle}>{t.remote}</option>
-        <option value="onsite" style={optionStyle}>{t.onsite}</option>
-      </select>
-    </HoloStaticBox>
-  </div>
-</div>
+            <div>
+              <label className="block text-sm text-white/70 mb-1">{t.location}</label>
+              <HoloStaticBox>
+                <select
+                  className="w-full h-[3.5rem] bg-black/70 text-white px-4 border-none rounded-none outline-none"
+                  value={where}
+                  onChange={(e)=>setWhere(e.target.value as "remote"|"onsite")}
+                >
+                  <option value="remote" style={optionStyle}>{t.remote}</option>
+                  <option value="onsite" style={optionStyle}>{t.onsite}</option>
+                </select>
+              </HoloStaticBox>
+            </div>
+          </div>
 
-
-                {where === "onsite" && (
-                  <HoloInput
-                    id="task-address"
-                    label={t.address}
-                    value={address}
-                    onChange={setAddress}
-                    disabled={saving !== "idle"}
-                  />
-                )}
-
+          {where === "onsite" && (
+            <HoloInput
+              id="task-address"
+              label={t.address}
+              value={address}
+              onChange={setAddress}
+              disabled={saving !== "idle"}
+            />
+          )}
 
           <div>
             <label className="block text-sm text-white/70 mb-1">{t.execType}</label>
             <div className="flex flex-wrap gap-2">
-              {/* არაექსკლუზიური */}
-          <button
-            type="button"
-            onClick={() => setExclusive(false)}
-            className={`${!exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
-            disabled={saving !== "idle"}
-            data-text={t.multi}
-          >
-            <span className="btn-text">{t.multi}</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setExclusive(false)}
+                className={`${!exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
+                disabled={saving !== "idle"}
+                data-text={t.multi}
+              >
+                <span className="btn-text">{t.multi}</span>
+              </button>
 
-
-              {/* ექსკლუზიური */}
-          <button
-            type="button"
-            onClick={() => setExclusive(true)}
-            className={`${exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
-            disabled={saving !== "idle"}
-            data-text={t.exclusive}
-          >
-            <span className="btn-text">{t.exclusive}</span>
-          </button>
-
+              <button
+                type="button"
+                onClick={() => setExclusive(true)}
+                className={`${exclusive ? "btn-tab-active" : "btn-hero-ghost"} text-sm disabled:opacity-60`}
+                disabled={saving !== "idle"}
+                data-text={t.exclusive}
+              >
+                <span className="btn-text">{t.exclusive}</span>
+              </button>
             </div>
           </div>
 
-<div>
-  <label className="block text-sm text-white/70 mb-1">{t.photos}</label>
+          <div>
+            <label className="block text-sm text-white/70 mb-1">{t.photos}</label>
 
-  {/* Neon circular upload button + hint */}
-  <div className="mt-2 flex items-center gap-4">
-    <div className="photo-upload-circle">
-      {/* SVG ზემოთ – მხოლოდ ვიზუალი */}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="1em"
-        height="1em"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        viewBox="0 0 24 24"
-        strokeWidth="2"
-        fill="none"
-        stroke="currentColor"
-        className="photo-upload-icon"
-        aria-hidden="true"
-      >
-        <polyline points="16 16 12 12 8 16" />
-        <line x1="12" y1="12" x2="12" y2="21" />
-        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-        <polyline points="16 16 12 12 8 16" />
-      </svg>
+            <div className="mt-2 flex items-center gap-4">
+              <div className="photo-upload-circle">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="1em"
+                  height="1em"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  fill="none"
+                  stroke="currentColor"
+                  className="photo-upload-icon"
+                  aria-hidden="true"
+                >
+                  <polyline points="16 16 12 12 8 16" />
+                  <line x1="12" y1="12" x2="12" y2="21" />
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                  <polyline points="16 16 12 12 8 16" />
+                </svg>
 
-      {/* რეალური file input – ზედა გამჭვირვალე ფენა */}
-      <input
-        id="task-photos"
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={onFileChange}
-        disabled={saving !== "idle"}
-        className="photo-upload-input"
-        aria-label={t.photos}
-        title={t.photos}
-      />
-    </div>
-
-    <div className="text-xs text-white/50">
-      {t.photosHint}
-    </div>
-  </div>
-
-  {/* არსებული (DB-დან მოტანილი) ფოტოები */}
-  {existingPhotos.length > 0 && (
-    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-      {existingPhotos.map((url, i) => (
-        <div
-          key={`exist-${i}`}
-          className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
-          style={{ height: 120 }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (saving !== "idle") return;
-              setExistingPhotos(prev => prev.filter((_, idx) => idx !== i));
-            }}
-            className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
-            aria-label="Remove"
-            title={locale === "ka" ? "წაშლა" : "Remove"}
-            disabled={saving !== "idle"}
-          >
-            ✕
-          </button>
-          <img
-            src={url}
-            alt={`photo-${i + 1}`}
-            className="max-h-full max-w-full object-contain"
-          />
-        </div>
-      ))}
-    </div>
-  )}
-
-  {/* ახლად არჩეული ფაილები (ადგილობრივიდან) */}
-  {files.length > 0 && (
-    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-      {files.map((f, i) => {
-        const src = URL.createObjectURL(f);
-        return (
-          <div
-            key={i}
-            className="relative rounded-lg bg:white/5 p-2 flex items-center justify-center"
-            style={{ height: 120 }}
-          >
-            <button
-              type="button"
-              onClick={() => removeFile(i)}
-              className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
-              aria-label="Remove"
-              title={locale === "ka" ? "წაშლა" : "Remove"}
-              disabled={saving !== "idle"}
-            >
-              ✕
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt={f.name}
-              className="max-h-full max-w-full object-contain"
-              onLoad={() => URL.revokeObjectURL(src)}
-            />
-          </div>
-        );
-      })}
-    </div>
-  )}
-</div>
-
-
-
-                <HoloTextarea
-                  id="task-proof"
-                  label={t.proof}
-                  value={proof}
-                  onChange={setProof}
+                <input
+                  id="task-photos"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={onFileChange}
                   disabled={saving !== "idle"}
-                  minHeight={110}
+                  className="photo-upload-input"
+                  aria-label={t.photos}
+                  title={t.photos}
                 />
+              </div>
 
+              <div className="text-xs text-white/50">
+                {t.photosHint}
+              </div>
+            </div>
+
+            {existingPhotos.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                {existingPhotos.map((url, i) => (
+                  <div
+                    key={`exist-${i}`}
+                    className="relative rounded-lg bg-white/5 p-2 flex items-center justify-center"
+                    style={{ height: 120 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (saving !== "idle") return;
+                        setExistingPhotos(prev => prev.filter((_, idx) => idx !== i));
+                      }}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
+                      aria-label="Remove"
+                      title={locale === "ka" ? "წაშლა" : "Remove"}
+                      disabled={saving !== "idle"}
+                    >
+                      ✕
+                    </button>
+                    <img
+                      src={url}
+                      alt={`photo-${i + 1}`}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {files.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                {files.map((f, i) => {
+                  const src = URL.createObjectURL(f);
+                  return (
+                    <div
+                      key={i}
+                      className="relative rounded-lg bg:white/5 p-2 flex items-center justify-center"
+                      style={{ height: 120 }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs px-2 py-1"
+                        aria-label="Remove"
+                        title={locale === "ka" ? "წაშლა" : "Remove"}
+                        disabled={saving !== "idle"}
+                      >
+                        ✕
+                      </button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt={f.name}
+                        className="max-h-full max-w-full object-contain"
+                        onLoad={() => URL.revokeObjectURL(src)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <HoloTextarea
+            id="task-proof"
+            label={t.proof}
+            value={proof}
+            onChange={setProof}
+            disabled={saving !== "idle"}
+            minHeight={110}
+          />
 
           {errorMsg && <div className="text-red-400 text-sm">{errorMsg}</div>}
 
           <div className="flex gap-3 pt-2">
-            {/* Draft */}
             <button
               type="button"
               onClick={() => saveTask("draft")}
@@ -1004,54 +985,40 @@ return (
               disabled={saving !== "idle"}
               data-text={draftLabel}
             >
-              <span className="btn-text">
-                {draftLabel}
-              </span>
+              <span className="btn-text">{draftLabel}</span>
             </button>
 
-
-            {/* Publish */}
             <button
               type="submit"
               className="btn-hero-primary text-sm disabled:opacity-60"
               disabled={saving !== "idle"}
               data-text={publishLabel}
             >
-              <span className="btn-text">
-                {publishLabel}
-              </span>
+              <span className="btn-text">{publishLabel}</span>
             </button>
-
           </div>
 
-       {/* ===== Upload progress overlay ===== */}
-      {uploadingPhotos && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center">
-          {/* dark blur background */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          {uploadingPhotos && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+              <div className="relative card px-6 py-5 w-[min(420px,92vw)] space-y-4 text-center">
+                <div className="text-sm text-white/70">
+                  {locale === "ka" ? "მიმდინარეობს ფოტოების ატვირთვა" : "Uploading photos"}
+                </div>
 
-          {/* center card */}
-          <div className="relative card px-6 py-5 w-[min(420px,92vw)] space-y-4 text-center">
-            <div className="text-sm text-white/70">
-              {locale === "ka"
-                ? "მიმდინარეობს ფოტოების ატვირთვა"
-                : "Uploading photos"}
+                <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden shadow-[0_0_20px_rgba(34,211,238,0.4)]">
+                  <div
+                    className="h-full bg-[#00e5ff] shadow-[0_0_20px_rgba(0,229,255,0.9)] transition-[width] duration-200 ease-out"
+                    style={{ width: `${uploadProgress ?? 0}%` }}
+                  />
+                </div>
+
+                <div className="text-xs text-white/60">
+                  {uploadProgress ?? 0}%
+                </div>
+              </div>
             </div>
-
-            <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden shadow-[0_0_20px_rgba(34,211,238,0.4)]">
-  <div
-    className="h-full bg-[#00e5ff] shadow-[0_0_20px_rgba(0,229,255,0.9)] transition-[width] duration-200 ease-out"
-    style={{ width: `${uploadProgress ?? 0}%` }}
-              />
-            </div>
-
-            <div className="text-xs text-white/60">
-              {uploadProgress ?? 0}% 
-            </div>
-          </div>
-        </div>
-      )}
-
+          )}
         </form>
 
         {/* RIGHT: live preview */}
@@ -1102,15 +1069,14 @@ return (
             )}
 
             <div className="mt-4">
-            <button
-              className="btn-hero-secondary text-sm"
-              type="button"
-              aria-disabled="true"
-              data-text={t.viewClaim}
-            >
-              <span className="btn-text">{t.viewClaim}</span>
-            </button>
-
+              <button
+                className="btn-hero-secondary text-sm"
+                type="button"
+                aria-disabled="true"
+                data-text={t.viewClaim}
+              >
+                <span className="btn-text">{t.viewClaim}</span>
+              </button>
             </div>
           </div>
         </aside>
@@ -1128,71 +1094,65 @@ return (
                 <div className="text-white/70">{t.reward}</div>
                 <div className="text-lg font-semibold">₾{Math.max(0, rewardNum)}</div>
               </div>
-             <div className="bg-white/5 rounded-lg p-3">
-  <div className="text-white/70">
-    {t.platformFee}{' '}
-    <span className="text-xs text-white/50">
-      ({commissionPct}%)
-    </span>
-  </div>
-  <div className="text-lg font-semibold">₾{fee}</div>
-</div>
-
+              <div className="bg-white/5 rounded-lg p-3">
+                <div className="text-white/70">
+                  {t.platformFee}{' '}
+                  <span className="text-xs text-white/50">
+                    ({commissionPct}%)
+                  </span>
+                </div>
+                <div className="text-lg font-semibold">₾{fee}</div>
+              </div>
             </div>
-<div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
-  <div className="text-white/70">
-    {t.totalToPay}{' '}
-    <span className="text-xs">
-      ({t.feeNote} {commissionPct}%)
-    </span>
-  </div>
-  <div className="text-xl font-semibold">₾{totalToPay}</div>
-</div>
 
+            <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+              <div className="text-white/70">
+                {t.totalToPay}{' '}
+                <span className="text-xs">
+                  ({t.feeNote} {commissionPct}%)
+                </span>
+              </div>
+              <div className="text-xl font-semibold">₾{totalToPay}</div>
+            </div>
 
             <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
               <div className="text-white/70">{t.currentBalance}</div>
               <div className="text-lg font-semibold">₾{balance}</div>
             </div>
 
+            {payErr && <div className="text-red-400 text-sm">{payErr}</div>}
 
-{payErr && <div className="text-red-400 text-sm">{payErr}</div>}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setPayOpen(false)}
+                disabled={saving !== "idle"}
+                className="btn-modal-close text-sm disabled:opacity-60"
+                data-text={t.cancel}
+              >
+                <span className="btn-text">{t.cancel}</span>
+              </button>
 
-<div className="flex items-center justify-end gap-3 pt-1">
-  {/* Cancel – იგივე, რაც modal close ღილაკი */}
-  <button
-    type="button"
-    onClick={() => setPayOpen(false)}
-    disabled={saving !== "idle"}
-    className="btn-modal-close text-sm disabled:opacity-60"
-    data-text={t.cancel}
-  >
-    <span className="btn-text">{t.cancel}</span>
-  </button>
+              <button
+                type="button"
+                onClick={payWithCard}
+                disabled={saving !== "idle"}
+                className="btn-hero-secondary text-sm disabled:opacity-60"
+                data-text={t.payWithCard}
+              >
+                <span className="btn-text">{t.payWithCard}</span>
+              </button>
 
-  {/* Pay by card – გლიჩიანი ცისფერი */}
-  <button
-    type="button"
-    onClick={payWithCard}
-    disabled={saving !== "idle"}
-    className="btn-hero-secondary text-sm disabled:opacity-60"
-    data-text={t.payWithCard}
-  >
-    <span className="btn-text">{t.payWithCard}</span>
-  </button>
-
-  {/* Pay with balance – გლიჩიანი main CTA */}
-  <button
-    type="button"
-    onClick={payWithBalance}
-    disabled={saving !== "idle"}
-    className="btn-hero-primary text-sm disabled:opacity-60"
-    data-text={t.payWithBalance}
-  >
-    <span className="btn-text">{t.payWithBalance}</span>
-  </button>
-</div>
-
+              <button
+                type="button"
+                onClick={payWithBalance}
+                disabled={saving !== "idle"}
+                className="btn-hero-primary text-sm disabled:opacity-60"
+                data-text={t.payWithBalance}
+              >
+                <span className="btn-text">{t.payWithBalance}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

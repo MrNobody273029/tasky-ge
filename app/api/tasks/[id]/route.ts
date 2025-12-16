@@ -249,7 +249,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             ? 'en'
             : 'ka';
 
-    // ✅ invalidate MyPage created list
     revalidatePath(`/${pageLocale}/mypage/created`);
     revalidatePath(`/${pageLocale}`);
 
@@ -259,6 +258,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'update_failed' }, { status: 400 });
   }
 }
+
 /* -------------------- PATCH /api/tasks/:id -------------------- */
 /** მხოლოდ ავტორს შეუძლია deadline-ის გახანგრძლივება (მინიმუმ ხვალ). */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -281,7 +281,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const body = (await req.json().catch(() => ({}))) as any;
 
-    // allow only deadline updates here
     if (body.deadline === undefined) {
       return NextResponse.json({ error: 'missing_deadline' }, { status: 400 });
     }
@@ -289,7 +288,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     let nextDeadline: Date | null = null;
 
     if (!body.deadline) {
-      // optional: allow null (თუ საერთოდ გინდა, შეგიძლია ეს დაბლოკო)
       nextDeadline = null;
     } else {
       const d = new Date(body.deadline);
@@ -310,7 +308,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const pageLocale = updated.locale === 'en' ? 'en' : 'ka';
 
-    // ✅ task lists/pages refresh
     revalidatePath(`/${pageLocale}/tasky`);
     revalidatePath(`/${pageLocale}/mypage/created`);
     revalidatePath(`/${pageLocale}`);
@@ -335,6 +332,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
  * Safety:
  * - block delete if there is any evidence (PENDING/NEEDS_FIXES/APPROVED)
  * - block delete if there is any APPROVED application (exclusive winner)
+ * - block delete if there are PENDING applications (exclusive ongoing)
  * - block delete if there are claims (non-exclusive taken)
  * Refund:
  * - if there is a PUBLISH_FEE tx for this task (negative amount), create a one-time refund tx (positive).
@@ -365,14 +363,17 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: 'cannot_delete_with_evidence' }, { status: 409 });
     }
 
-    // block if approved application exists (exclusive)
+    // ✅ block if applications are in-progress on exclusive tasks (pending or approved)
     if (task.exclusive) {
-      const approvedApp = await prisma.taskApplication.findFirst({
-        where: { taskId: task.id, status: 'APPROVED' },
+      const blockingApp = await prisma.taskApplication.findFirst({
+        where: {
+          taskId: task.id,
+          status: { in: ['PENDING', 'APPROVED'] },
+        },
         select: { id: true },
       });
-      if (approvedApp) {
-        return NextResponse.json({ error: 'cannot_delete_assigned_task' }, { status: 409 });
+      if (blockingApp) {
+        return NextResponse.json({ error: 'cannot_delete_with_applications' }, { status: 409 });
       }
     }
 

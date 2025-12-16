@@ -130,8 +130,8 @@ const dict = {
     deleting: "იშლება…",
     deleteConfirm:
       "დარწმუნებული ხართ თუ არა რომ გნებავთ წაშლა?\nწაშლის შემთხვევაში თანხა დაგიბრუნდებათ ბალანსზე",
-    deleteBlocked:
-      "წაშლა ვერ მოხერხდა: დავალებაზე არსებობს აქტიური პროცესი (აღება/მტკიცებულებები/აპლიკაციები).",
+      deleteBlocked:
+        "ამ დავალების წაშლა ვერ მოხერხდა — მიმდინარეობს აქტიური პროცესი (მტკიცებულებები / განაცხადი / აღება). დასრულებამდე წაშლა შეუძლებელია.",
 
     approvalReceived: "თანხმობა მიღებულია",
 
@@ -206,8 +206,8 @@ const dict = {
     deleting: "Deleting…",
     deleteConfirm:
       "Are you sure you want to delete?\nIf deleted, the amount will be returned to your balance.",
-    deleteBlocked:
-      "Delete failed: there is an active process (claims/evidence/applications) on this task.",
+      deleteBlocked:
+        "You can’t delete this task — there is an active process (evidence / applications / claims). Deletion is blocked until it finishes.",
 
     approvalReceived: "Approval received",
 
@@ -746,16 +746,16 @@ const showOwnerExpiredControls = !!data?.isMine && expired;
       if (!r.ok) {
         const code = String(j?.error || "delete_failed");
         if (
-          code === "has_claims" ||
-          code === "has_active_evidences" ||
-          code === "has_applications" ||
-          code === "has_approved_application" ||
-          code === "has_approved_evidence"
+          code === 'cannot_delete_taken_task' ||
+          code === 'cannot_delete_with_evidence' ||
+          code === 'cannot_delete_assigned_task' ||
+          code === 'cannot_delete_with_applications'
         ) {
           setErr(t.deleteBlocked);
         } else {
           setErr(code);
         }
+
         setDeleting(false);
         return;
       }
