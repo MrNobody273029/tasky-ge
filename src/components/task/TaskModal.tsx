@@ -319,12 +319,17 @@ export default function TaskModal({
   taskId,
   onClose,
   readOnly = false,
+  initialTask = null,
+  initialOwner = null,
 }: {
   open: boolean;
   taskId: string | null;
   onClose: () => void;
   readOnly?: boolean;
+  initialTask?: TaskResp | null;
+  initialOwner?: OwnerInfo | null;
 }) {
+
   const params = useParams<{ locale?: string }>();
   const locale = (params?.locale === "en" ? "en" : "ka") as "ka" | "en";
   const t = dict[locale];
@@ -372,7 +377,7 @@ export default function TaskModal({
   const [applyErr, setApplyErr] = useState<string | null>(null);
   const [applyDone, setApplyDone] = useState<{ threadId: string } | null>(null);
 
-  const [evidenceLoading, setEvidenceLoading] = useState(false);
+const [evidenceLoading, setEvidenceLoading] = useState(!readOnly);
 
   const [deleting, setDeleting] = useState(false);
 
@@ -423,7 +428,7 @@ export default function TaskModal({
     setEvidenceApproved(false);
     setEvidenceStatus("NONE");
     setNeedsFixesEvidenceId(null);
-    setEvidenceLoading(true);
+setEvidenceLoading(!readOnly);
 
     setDeleting(false);
 
@@ -435,48 +440,56 @@ export default function TaskModal({
     setLoading(true);
   }, [open, taskId]);
 
-  // load outgoing evidences (worker)
-  useEffect(() => {
-    if (!open || !taskId) return;
-    let alive = true;
+useEffect(() => {
+  if (readOnly) return;
+  if (!open || !taskId) return;
 
-    setEvidenceLoading(true);
+  let alive = true;
+  setEvidenceLoading(true);
 
-    fetch(`/api/my/evidences?tab=outgoing`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: OutgoingEvidenceMini[]) => {
-        if (!alive) return;
+  fetch(`/api/my/evidences?tab=outgoing`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : []))
+    .then((list: OutgoingEvidenceMini[]) => {
+      if (!alive) return;
 
-        const mine = Array.isArray(list) ? list.filter((ev) => ev?.task?.id === taskId) : [];
-        const latest =
-          mine
-            .slice()
-            .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0] || null;
+      const mine = Array.isArray(list) ? list.filter((ev) => ev?.task?.id === taskId) : [];
+      const latest =
+        mine.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0] || null;
 
-        const st = (latest?.status || "NONE") as any;
-        setEvidenceStatus(st);
+      const st = (latest?.status || "NONE") as any;
+      setEvidenceStatus(st);
+      setEvidenceApproved(st === "APPROVED");
+      setNeedsFixesEvidenceId(st === "NEEDS_FIXES" && latest ? latest.id : null);
 
-        setEvidenceApproved(st === "APPROVED");
-        setNeedsFixesEvidenceId(st === "NEEDS_FIXES" && latest ? latest.id : null);
+      setEvidenceLoading(false);
+    })
+    .catch(() => {
+      if (!alive) return;
+      setEvidenceApproved(false);
+      setEvidenceStatus("NONE");
+      setNeedsFixesEvidenceId(null);
+      setEvidenceLoading(false);
+    });
 
-        setEvidenceLoading(false);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setEvidenceApproved(false);
-        setEvidenceStatus("NONE");
-        setNeedsFixesEvidenceId(null);
-        setEvidenceLoading(false);
-      });
+  return () => {
+    alive = false;
+  };
+}, [open, taskId, readOnly]);
 
-    return () => {
-      alive = false;
-    };
-  }, [open, taskId]);
 
   // load task
   useEffect(() => {
     if (!open || !taskId) return;
+      // ✅ ADMIN VIEW: use prefetched task, skip /api/tasks fetch
+  if (readOnly && initialTask && initialTask.id === taskId) {
+    setData(initialTask);
+    setHasTaken(false);
+    setAppStatus("NONE");
+    setThreadId(null);
+    setLoading(false);
+    return;
+  }
+
     let alive = true;
 
     setErr(null);
@@ -523,6 +536,12 @@ export default function TaskModal({
 
   // owner info
   useEffect(() => {
+      // ✅ ADMIN VIEW: use prefetched owner, skip /api/users fetch
+  if (readOnly && initialOwner) {
+    setOwner(initialOwner);
+    return;
+  }
+
     let alive = true;
     async function loadOwner() {
       if (!open || !data?.authorId) return;
@@ -572,13 +591,14 @@ export default function TaskModal({
   if (!open) return null;
 
   const mismatch = !!data && !!taskId && data.id !== taskId;
-  if (loading || evidenceLoading || mismatch) {
-    return (
-      <div className="fixed inset-0 z-[2147483648]">
-        <MatrixLoader />
-      </div>
-    );
-  }
+if (loading || (!readOnly && evidenceLoading) || mismatch) {
+  return (
+    <div className="fixed inset-0 z-[2147483648]">
+      <MatrixLoader />
+    </div>
+  );
+}
+
 
   // ✅ server-first expired, fallback to client calc
   const expired = Boolean(data?.isExpired ?? isExpiredTask(data?.deadline ?? null));

@@ -206,6 +206,7 @@ model TaskEvidence {
   clientSystemSeen      Boolean @default(true)
   workerSawClientReview Boolean @default(true)
   clientSawWorkerReview Boolean @default(true)
+clientEvidenceSeen Boolean @default(false)
 
   clientSawRatingPrompt Boolean @default(true)
   workerSawRatingPrompt Boolean @default(true)

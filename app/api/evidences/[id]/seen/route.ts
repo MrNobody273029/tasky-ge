@@ -37,6 +37,14 @@ export async function POST(
       await prisma.taskEvidence.update({ where: { id: evidenceId }, data: { clientSystemSeen: true } });
       return NextResponse.json({ ok: true });
     }
+if (kind === 'client_evidence_open') {
+  if (!isClient) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  await prisma.taskEvidence.update({
+    where: { id: evidenceId },
+    data: { clientEvidenceSeen: true },
+  });
+  return NextResponse.json({ ok: true });
+}
 
     if (kind === 'worker_client_review') {
       if (!isWorker) return NextResponse.json({ error: 'forbidden' }, { status: 403 });

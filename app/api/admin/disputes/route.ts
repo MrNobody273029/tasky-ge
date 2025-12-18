@@ -37,27 +37,49 @@ export async function GET(req: NextRequest) {
     const q = (searchParams.get('q') || '').trim();
     const statusRaw = (searchParams.get('status') || '').trim().toUpperCase();
     const status = ALLOWED_STATUSES.has(statusRaw) ? statusRaw : '';
-
     const take = Math.min(200, Math.max(10, Number(searchParams.get('take') || 80)));
 
-    const where: any = {};
-    if (status) where.status = status;
+    /**
+     * ✅ HARD GUARANTEE (what you asked):
+     * - Active disputes: ONLY when BOTH submitted AND status in [BOTH_SUBMITTED, SENT]
+     * - Done disputes: [RESOLVED, CANCELLED]
+     * - OPEN / WAITING_OTHER never returns (unless they are explicitly RESOLVED/CANCELLED, which they aren't)
+     */
+    const baseWhere: any = {
+      OR: [
+        { status: 'RESOLVED' },
+        { status: 'CANCELLED' },
+        {
+          status: { in: ['BOTH_SUBMITTED', 'SENT'] },
+          clientSubmitted: true,
+          workerSubmitted: true,
+        },
+      ],
+    };
+
+    // optional explicit status filter (still respects the rule above for active statuses)
+    if (status) {
+      baseWhere.AND = [{ status }];
+    }
 
     if (q) {
-      where.OR = [
-        { id: { contains: q, mode: 'insensitive' } },
-        { taskId: { contains: q, mode: 'insensitive' } },
-        { evidenceId: { contains: q, mode: 'insensitive' } },
-        { task: { title: { contains: q, mode: 'insensitive' } } },
-        { client: { email: { contains: q, mode: 'insensitive' } } },
-        { worker: { email: { contains: q, mode: 'insensitive' } } },
-        { client: { name: { contains: q, mode: 'insensitive' } } },
-        { worker: { name: { contains: q, mode: 'insensitive' } } },
-      ];
+      baseWhere.AND = baseWhere.AND || [];
+      baseWhere.AND.push({
+        OR: [
+          { id: { contains: q, mode: 'insensitive' } },
+          { taskId: { contains: q, mode: 'insensitive' } },
+          { evidenceId: { contains: q, mode: 'insensitive' } },
+          { task: { title: { contains: q, mode: 'insensitive' } } },
+          { client: { email: { contains: q, mode: 'insensitive' } } },
+          { worker: { email: { contains: q, mode: 'insensitive' } } },
+          { client: { name: { contains: q, mode: 'insensitive' } } },
+          { worker: { name: { contains: q, mode: 'insensitive' } } },
+        ],
+      });
     }
 
     const rows = await prisma.dispute.findMany({
-      where,
+      where: baseWhere,
       orderBy: [{ status: 'asc' }, { startedAt: 'desc' }],
       take,
       include: {
@@ -80,7 +102,6 @@ export async function GET(req: NextRequest) {
             authorId: true,
           },
         },
-
         evidence: {
           select: {
             id: true,
@@ -119,10 +140,8 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-
         client: { select: { id: true, name: true, email: true, phone: true, image: true, commissionPct: true } },
         worker: { select: { id: true, name: true, email: true, phone: true, image: true, commissionPct: true } },
-
         resolvedBy: { select: { id: true, name: true, email: true } },
       },
     });
@@ -139,7 +158,6 @@ export async function GET(req: NextRequest) {
       clientSubmitted: Boolean(d.clientSubmitted),
       workerSubmitted: Boolean(d.workerSubmitted),
 
-      // dispute reason / submissions
       clientText: d.clientText || '',
       workerText: d.workerText || '',
       clientPhotos: safeJsonArr(d.clientPhotos),

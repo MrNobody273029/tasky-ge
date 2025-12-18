@@ -29,7 +29,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const outcome = String(body?.outcome || '').toUpperCase() as Outcome;
     const resultText = String(body?.resultText || '').trim().slice(0, 8000);
 
-    // SPLIT inputs (percent based)
     const workerPctRaw = Number(body?.workerPct ?? NaN);
     const clientPctRaw = Number(body?.clientPct ?? NaN);
 
@@ -38,7 +37,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'invalid_outcome' }, { status: 400 });
     }
 
-    // load dispute + task + users (we need reward + commissionPct)
     const d = await prisma.dispute.findUnique({
       where: { id: disputeId },
       include: {
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'invalid_reward' }, { status: 409 });
     }
 
-    // commission (client-side). assumption: client already paid reward + commission earlier
     const commissionPct = clampInt(Number(d.client?.commissionPct ?? 10), 0, 100);
     const commission = Math.floor((reward * commissionPct) / 100);
     const totalPaid = reward + commission;
@@ -64,14 +61,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let workerAmount = 0;
     let clientAmount = 0;
 
+    // ✅ RULES (როგორც შენ თქვი):
+    // - commission + reward ერთად ბრუნდება დამკვეთს მხოლოდ მაშინ, თუ CLIENT მოიგებს
+    // - SPLIT-ზე იყოფა მხოლოდ reward; commission არ ემატება დაბრუნებას
+    // - WORKER-ზე reward მთლიანად მიდის worker-ზე; client-ს არ უნდა დაუბრუნდეს reward (commission-ს დაბრუნება შეგიძლია ჩათვალო როგორც "არ დაიკარგოს fee")
     if (outcome === 'WORKER') {
       workerAmount = reward;
-      clientAmount = commission; // return commission back to client (so fee is not lost on arbitration)
+      clientAmount = commission; // fee back (optional policy: keep fee or refund — შენს ძველ ლოგიკას ვიტოვებ)
     } else if (outcome === 'CLIENT') {
       workerAmount = 0;
-      clientAmount = totalPaid; // full refund incl commission
+      clientAmount = totalPaid; // ✅ full refund incl commission ONLY here
     } else {
-      // SPLIT
       const workerPct = clampInt(workerPctRaw, 0, 100);
       const clientPct = clampInt(clientPctRaw, 0, 100);
       if (workerPct + clientPct !== 100) {
@@ -79,8 +79,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       workerAmount = Math.floor((reward * workerPct) / 100);
-      const clientRewardBack = reward - workerAmount;
-      clientAmount = clientRewardBack + commission; // always return commission
+      clientAmount = reward - workerAmount; // ✅ split ONLY reward
+      // ❌ commission NOT returned on split
     }
 
     const splitJson = JSON.stringify({
@@ -95,15 +95,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       clientPct: outcome === 'SPLIT' ? clampInt(clientPctRaw, 0, 100) : null,
     });
 
-    // write everything atomically + create wallet txs
     await prisma.$transaction(async (tx) => {
       const fresh = await tx.dispute.findUnique({ where: { id: disputeId }, select: { status: true } });
       if (!fresh) throw new Error('not_found');
       if (fresh.status === 'RESOLVED') return;
       if (fresh.status === 'CANCELLED') throw new Error('locked');
 
-      // create wallet transactions (credit)
-      // NOTE: This assumes funds are held/managed elsewhere; here we only record results.
       if (workerAmount > 0) {
         await tx.walletTransaction.create({
           data: {
