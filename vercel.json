@@ -1,0 +1,18 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-approve-evidences",
+      "schedule": "*/10 * * * *",
+      "headers": {
+        "x-cron-secret": "@cron_secret"
+      }
+    },
+    {
+      "path": "/api/cron/auto-resolve-disputes",
+      "schedule": "*/10 * * * *",
+      "headers": {
+        "x-cron-secret": "@cron_secret"
+      }
+    }
+  ]
+}
