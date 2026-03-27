@@ -175,36 +175,56 @@ const mounted = useMounted();
 
         let count = 0;
 
-        for (const it of incoming) {
-          const status = String(it?.status || '');
-          if (status === 'PENDING') count++;
+for (const it of incoming) {
+  const status = String(it?.status || '');
 
-          if (
-            (status === 'APPROVED' || status === 'EXPIRED') &&
-            it?.clientSystemSeen === false
-          )
-            count++;
+  // ✅ PENDING მხოლოდ მაშინ როცა dispute არ არის და evidence არ არის ნანახი
+  if (
+    status === 'PENDING' &&
+    (!it?.dispute || it.dispute.status === 'NONE') &&
+    it?.clientEvidenceSeen !== true
+  ) {
+    count++;
+  }
 
-          if (it?.clientSawWorkerReview === false) count++;
+  // ✅ DISPUTE unread (ეს საერთოდ გაკლდა)
+  if (it?.dispute && it.dispute.clientSeen === false) {
+    count++;
+  }
 
-          if (status === 'EXPIRED' && it?.clientSawRatingPrompt === false) count++;
-        }
+  if (
+    (status === 'APPROVED' || status === 'EXPIRED') &&
+    it?.clientSystemSeen === false
+  ) {
+    count++;
+  }
 
-        for (const it of outgoing) {
-          const status = String(it?.status || '');
+  if (it?.clientSawWorkerReview === false) count++;
 
-          if (
-            (status === 'APPROVED' ||
-              status === 'NEEDS_FIXES' ||
-              status === 'EXPIRED') &&
-            it?.workerDecisionSeen === false
-          )
-            count++;
+  if (status === 'EXPIRED' && it?.clientSawRatingPrompt === false) count++;
+}
 
-          if (it?.workerSawClientReview === false) count++;
+for (const it of outgoing) {
+  const status = String(it?.status || '');
 
-          if (status === 'EXPIRED' && it?.workerSawRatingPrompt === false) count++;
-        }
+  // ✅ DISPUTE unread (ეს საერთოდ არ გქონდა)
+  if (it?.dispute && it.dispute.workerSeen === false) {
+    count++;
+  }
+
+  if (
+    (status === 'APPROVED' ||
+      status === 'NEEDS_FIXES' ||
+      status === 'EXPIRED') &&
+    it?.workerDecisionSeen === false
+  ) {
+    count++;
+  }
+
+  if (it?.workerSawClientReview === false) count++;
+
+  if (status === 'EXPIRED' && it?.workerSawRatingPrompt === false) count++;
+}
 
         if (!stop) setEvCount(count);
       } catch {

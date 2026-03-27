@@ -1,10 +1,5 @@
-import { redirect } from 'next/navigation';
+// app/[locale]/mypage/page.tsx
 
-export default function MyPageIndex({
-  params,
-}: {
-  params: { locale: 'ka' | 'en' };
-}) {
-  // პირდაპირ Published ტაბზე გადავდივართ
-  redirect(`/${params.locale}/mypage/created?tab=published`);
+export default function MyPageIndex() {
+  return null;
 }

@@ -64,15 +64,12 @@ function parseJsonArr(str: string) {
   }
 }
 
-/** full details (attachments/text) with anti-peek */
-function mapDisputeDetails(d: any, viewerRole: "CLIENT" | "WORKER", isAdmin: boolean) {
+/** full details (attachments/text) */
+function mapDisputeDetails(d: any, _viewerRole: "CLIENT" | "WORKER", isAdmin: boolean) {
   const info = mapDisputeInfo(d);
 
   const clientCanReveal = isAdmin || d.clientSubmitted;
   const workerCanReveal = isAdmin || d.workerSubmitted;
-
-  const viewerSubmitted = viewerRole === "CLIENT" ? d.clientSubmitted : d.workerSubmitted;
-  const allowOtherSide = isAdmin || viewerSubmitted; // anti-peek: you see other only after you submit
 
   return {
     ...info,
@@ -97,8 +94,7 @@ function mapDisputeDetails(d: any, viewerRole: "CLIENT" | "WORKER", isAdmin: boo
         }
       : { submitted: false, text: "", photos: [], videos: [], files: [] },
 
-    // If viewer hasn't submitted yet, hide other side content
-    hideOtherSide: !allowOtherSide,
+    hideOtherSide: false,
   };
 }
 
@@ -133,14 +129,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const role: "CLIENT" | "WORKER" = isClient ? "CLIENT" : "WORKER";
     const details = mapDisputeDetails(d, role, isAdmin);
 
-    // anti-peek enforcement: hide other side content if needed
-    if (details.hideOtherSide && !isAdmin) {
-      if (role === "CLIENT") {
-        details.worker = { submitted: Boolean(d.workerSubmitted), text: "", photos: [], videos: [], files: [] };
-      } else {
-        details.client = { submitted: Boolean(d.clientSubmitted), text: "", photos: [], videos: [], files: [] };
-      }
-    }
 
     return NextResponse.json({ ok: true, dispute: details }, { status: 200 });
   } catch (e) {
@@ -288,12 +276,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const willBoth =
       (isClient ? true : Boolean(existing.clientSubmitted)) &&
       (isWorker ? true : Boolean(existing.workerSubmitted));
-
     const updated = await prisma.dispute.update({
       where: { evidenceId },
       data: {
         ...patch,
-        status: willBoth ? ("BOTH_SUBMITTED" as const) : ("WAITING_OTHER" as const),
+        status: willBoth ? ("SENT" as const) : ("WAITING_OTHER" as const),
       },
     });
 

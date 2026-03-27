@@ -37,34 +37,35 @@ export async function GET(req: NextRequest) {
       try { photos = JSON.parse(e.photos || '[]'); } catch {}
       try { videos = JSON.parse(e.videos || '[]'); } catch {}
       try { files = JSON.parse(e.files || '[]'); } catch {}
+const raw = (e as any).dispute;
 
-      const dispute = (e as any).dispute
-        ? {
-            status:
-              (e as any).dispute.status === 'RESOLVED' ? 'RESOLVED'
-              : (e as any).dispute.status === 'SENT' ? 'SENT'
-              : (e as any).dispute.status === 'BOTH_SUBMITTED' ? 'BOTH_SUBMITTED'
-              : (e as any).dispute.status === 'WAITING_OTHER' ? 'WAITING_OTHER'
-              : (e as any).dispute.status === 'OPEN' ? 'OPEN'
-              : 'OPEN', // ✅ (STARTED აღარ გვინდა UI ტიპებთან გასასწორებლად)
+const clientSubmitted = raw ? Boolean(raw.clientSubmitted) : false;
+const workerSubmitted = raw ? Boolean(raw.workerSubmitted) : false;
+const dispute = raw
+  ? {
+      status:
+        raw.status === 'RESOLVED' ? 'RESOLVED'
+        : raw.status === 'SENT' ? 'SENT'
+        : raw.status === 'BOTH_SUBMITTED' ? 'BOTH_SUBMITTED'
+        : raw.status === 'WAITING_OTHER' ? 'WAITING_OTHER'
+        : raw.status === 'OPEN' ? 'OPEN'
+        : 'OPEN',
 
-            startedAt: (e as any).dispute.startedAt?.toISOString?.() ?? null,
-            deadlineAt: (e as any).dispute.deadlineAt?.toISOString?.() ?? null,
+      startedAt: raw.startedAt?.toISOString?.() ?? null,
+      deadlineAt: raw.deadlineAt?.toISOString?.() ?? null,
 
-            // ✅ ეს აკლდა (arb split info)
-            splitJson: (e as any).dispute.splitJson || null,
+      splitJson: raw.splitJson || null,
+      resultText: raw.resultText || null,
+      resolvedAt: raw.resolvedAt ? raw.resolvedAt.toISOString() : null,
 
-            resultText: (e as any).dispute.resultText || null,
-            resolvedAt: (e as any).dispute.resolvedAt
-              ? (e as any).dispute.resolvedAt.toISOString()
-              : null,
+      clientSeen: Boolean(raw.clientSeen),
+      workerSeen: Boolean(raw.workerSeen),
 
-            clientSeen: Boolean((e as any).dispute.clientSeen),
-            workerSeen: Boolean((e as any).dispute.workerSeen),
-            clientSubmitted: Boolean((e as any).dispute.clientSubmitted),
-            workerSubmitted: Boolean((e as any).dispute.workerSubmitted),
-          }
-        : null;
+      // ✅ ეს ორი აკლდა და ზუსტად ეს გიტეხავს UI-ს
+      clientSubmitted: Boolean(raw.clientSubmitted),
+      workerSubmitted: Boolean(raw.workerSubmitted),
+    }
+  : null;
 
       const clientToWorker =
         e.reviews.find((r) => r.role === 'WORKER' && r.toUserId === e.authorId) || null;
@@ -94,7 +95,9 @@ export async function GET(req: NextRequest) {
         needsFixesAt: e.needsFixesAt ? e.needsFixesAt.toISOString() : null,
         autoApproved: Boolean(e.autoApproved),
         dispute,
-
+        
+        clientSubmitted,
+        workerSubmitted,
         // ✅ new field for UI
         fixResubmittedOnTime,
 

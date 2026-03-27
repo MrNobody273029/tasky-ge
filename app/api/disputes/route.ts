@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
         resolvedAt: d.resolvedAt ? d.resolvedAt.toISOString() : null,
         resultText: d.resultText || "",
         splitJson: d.splitJson,
+        clientSeen: d.clientSeen,
+        workerSeen: d.workerSeen,
         task: d.task ? { id: d.task.id, title: d.task.title, reward: d.task.reward } : null,
         evidence: d.evidence
           ? { id: d.evidence.id, status: d.evidence.status, createdAt: d.evidence.createdAt.toISOString() }
