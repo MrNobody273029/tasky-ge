@@ -108,7 +108,7 @@ export default function LoginPage({
         next.startsWith('/') &&
         !next.includes('/auth/');
 
-      const target = isSafeNext ? next : `/${locale}/mypage`;
+      const target = isSafeNext ? next : `/${locale}/mypage/created?tab=published`;
 
       r.replace(target);
     } catch {
