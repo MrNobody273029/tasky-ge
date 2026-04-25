@@ -18,7 +18,41 @@ type AdminUserRow = {
 };
 
 export default function AdminUsersPage() {
-  const { locale } = useParams() as { locale: string };
+  const { locale } = useParams() as { locale: 'ka' | 'en' };
+  const isKa = locale === 'ka';
+
+  const t = isKa
+    ? {
+        title: 'Admin — მომხმარებლები',
+        hint: 'აქ ჩანს ყველა მომხმარებელი, მათი ბალანსი/აქტივობა და საკომისიო (%).',
+        loading: 'იტვირთება მომხმარებლების სია...',
+        errorPrefix: 'შეცდომა სიის მიღებისას:',
+        colUser: 'მომხმარებელი',
+        colContact: 'კონტაქტი',
+        colJoined: 'დარეგისტრირდა',
+        colPosted: 'დადებული',
+        colTaken: 'აღებული',
+        colCommission: 'საკომისიო',
+        colProfile: 'პროფილი',
+        profile: 'პროფილი',
+        empty: 'მომხმარებლების სია ცარიელია.',
+      }
+    : {
+        title: 'Admin — Users',
+        hint: 'All users, their activity and commission rate (%).',
+        loading: 'Loading users...',
+        errorPrefix: 'Error loading list:',
+        colUser: 'User',
+        colContact: 'Contact',
+        colJoined: 'Joined',
+        colPosted: 'Posted',
+        colTaken: 'Taken',
+        colCommission: 'Commission',
+        colProfile: 'Profile',
+        profile: 'Profile',
+        empty: 'No users found.',
+      };
+
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,29 +81,24 @@ export default function AdminUsersPage() {
     }
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
+
+  const dateLocale = isKa ? 'ka-GE' : 'en-US';
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-semibold">Admin — მომხმარებლები</h1>
+      <h1 className="text-3xl font-semibold">{t.title}</h1>
 
-      <div className="card p-4 text-sm text-white/70">
-        აქ ჩანს ყველა მომხმარებელი, მათი ბალანსი/აქტივობა და საკომისიო (%).
-        შემდგომში აქედან გადავხვტებით დეტალურ ანალიტიკაზე.
-      </div>
+      <div className="card p-4 text-sm text-white/70">{t.hint}</div>
 
       {loading && (
-        <div className="card p-6 text-sm text-white/60">
-          იტვირთება მომხმარებლების სია...
-        </div>
+        <div className="card p-6 text-sm text-white/60">{t.loading}</div>
       )}
 
       {error && !loading && (
         <div className="card p-4 text-sm text-red-400">
-          შეცდომა სიის მიღებისას: {error}
+          {t.errorPrefix} {error}
         </div>
       )}
 
@@ -78,20 +107,19 @@ export default function AdminUsersPage() {
           <table className="min-w-full text-sm border-collapse">
             <thead className="bg-white/5 text-xs uppercase tracking-wide text-white/60">
               <tr>
-                <th className="px-4 py-3 text-left">მომხმარებელი</th>
-                <th className="px-4 py-3 text-left">კონტაქტი</th>
-                <th className="px-4 py-3 text-left">დარეგისტრირდა</th>
-                <th className="px-4 py-3 text-right">დადებული</th>
-                <th className="px-4 py-3 text-right">აღებული</th>
-                <th className="px-4 py-3 text-right">საკომისიო</th>
-                <th className="px-4 py-3 text-right">პროფილი</th>
+                <th className="px-4 py-3 text-left">{t.colUser}</th>
+                <th className="px-4 py-3 text-left">{t.colContact}</th>
+                <th className="px-4 py-3 text-left">{t.colJoined}</th>
+                <th className="px-4 py-3 text-right">{t.colPosted}</th>
+                <th className="px-4 py-3 text-right">{t.colTaken}</th>
+                <th className="px-4 py-3 text-right">{t.colCommission}</th>
+                <th className="px-4 py-3 text-right">{t.colProfile}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {users.map((u) => {
-                const created = new Date(u.createdAt).toLocaleDateString('ka-GE');
-                const initial =
-                  (u.name?.[0] || u.email?.[0] || '?').toUpperCase();
+                const created = new Date(u.createdAt).toLocaleDateString(dateLocale);
+                const initial = (u.name?.[0] || u.email?.[0] || '?').toUpperCase();
 
                 return (
                   <tr key={u.id} className="hover:bg-white/[0.03] transition-colors">
@@ -100,11 +128,7 @@ export default function AdminUsersPage() {
                         <div className="h-9 w-9 rounded-full bg-white/10 overflow-hidden flex items-center justify-center text-xs font-semibold">
                           {u.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={u.image}
-                              alt={u.name || u.email}
-                              className="h-full w-full object-cover"
-                            />
+                            <img src={u.image} alt={u.name || u.email} className="h-full w-full object-cover" />
                           ) : (
                             <span>{initial}</span>
                           )}
@@ -113,9 +137,7 @@ export default function AdminUsersPage() {
                           <span className="font-medium text-white">
                             {u.name || u.email.split('@')[0]}
                           </span>
-                          <span className="text-xs text-white/50">
-                            {u.email}
-                          </span>
+                          <span className="text-xs text-white/50">{u.email}</span>
                         </div>
                       </div>
                     </td>
@@ -126,28 +148,17 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-xs text-white/70">
-                      {created}
-                    </td>
-
-                    <td className="px-4 py-3 text-right text-xs">
-                      {u.tasksPosted}
-                    </td>
-
-                    <td className="px-4 py-3 text-right text-xs">
-                      {u.tasksTaken}
-                    </td>
-
-                    <td className="px-4 py-3 text-right text-xs">
-                      {u.commissionPct}%
-                    </td>
+                    <td className="px-4 py-3 text-xs text-white/70">{created}</td>
+                    <td className="px-4 py-3 text-right text-xs">{u.tasksPosted}</td>
+                    <td className="px-4 py-3 text-right text-xs">{u.tasksTaken}</td>
+                    <td className="px-4 py-3 text-right text-xs">{u.commissionPct}%</td>
 
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/${locale}/admin/users/${u.id}`}
                         className="inline-flex items-center rounded-full border border-cyan-400/60 px-3 py-1 text-xs text-cyan-300 hover:bg-cyan-400/10 transition"
                       >
-                        პროფილი
+                        {t.profile}
                       </Link>
                     </td>
                   </tr>
@@ -156,11 +167,8 @@ export default function AdminUsersPage() {
 
               {users.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-6 text-center text-sm text-white/50"
-                  >
-                    მომხმარებლების სია ცარიელია.
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-white/50">
+                    {t.empty}
                   </td>
                 </tr>
               )}

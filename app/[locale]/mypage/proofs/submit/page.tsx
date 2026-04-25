@@ -34,7 +34,12 @@ async function getSignature(kind: ResourceKind, folder: string) {
   };
 }
 
-async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string) {
+async function uploadToCloudinary(
+  file: File,
+  kind: ResourceKind,
+  folder: string,
+  onProgress?: (pct: number) => void,
+): Promise<string> {
   const sig = await getSignature(kind, folder);
   const endpoint = `https://api.cloudinary.com/v1_1/${sig.cloudName}/${sig.resourceType}/upload`;
   const fd = new FormData();
@@ -44,10 +49,30 @@ async function uploadToCloudinary(file: File, kind: ResourceKind, folder: string
   fd.append('signature', sig.signature);
   fd.append('folder', sig.folder);
 
-  const up = await fetch(endpoint, { method: 'POST', body: fd });
-  const j = await up.json();
-  if (!up.ok || !j?.secure_url) throw new Error(j?.error?.message || 'upload_failed');
-  return j.secure_url as string;
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', endpoint);
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      try {
+        const j = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && j?.secure_url) {
+          resolve(j.secure_url as string);
+        } else {
+          reject(new Error(j?.error?.message || 'upload_failed'));
+        }
+      } catch {
+        reject(new Error('upload_failed'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('network_error'));
+    xhr.onabort = () => reject(new Error('aborted'));
+    xhr.send(fd);
+  });
 }
 
 export default function ProofSubmitPage({ params }: { params: { locale: Locale } }) {
@@ -79,6 +104,10 @@ const taskId = taskFromQuery;
       send: isKa ? 'მტკიცებულების გაგზავნა' : 'Send evidence',
       sending: isKa ? 'იგზავნება…' : 'Sending…',
       cancel: isKa ? 'გამოსვლა' : 'Back',
+      uploading: isKa ? 'იტვირთება' : 'Uploading',
+      photo: isKa ? 'ფოტო' : 'Photo',
+      video: isKa ? 'ვიდეო' : 'Video',
+      file: isKa ? 'ფაილი' : 'File',
       fixesBlockTitle: isKa ? 'დამკვეთის წარდგენილი ხარვეზი:' : 'Client requested fixes:',
       noFixText: isKa ? 'ხარვეზის ტექსტი ვერ მოიძებნა.' : 'Fix reason not found.',
     }),
@@ -110,6 +139,7 @@ const taskId = taskFromQuery;
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ label: string; pct: number } | null>(null);
 
   const keyFor = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
 
@@ -170,13 +200,26 @@ const taskId = taskFromQuery;
       const folder = `tasky/evidences/${taskId}`;
 
       const photoUrls: string[] = [];
-      for (const f of photos) photoUrls.push(await uploadToCloudinary(f, 'image', folder));
+      for (let i = 0; i < photos.length; i++) {
+        const label = `${t.photo} ${i + 1}/${photos.length}`;
+        setUploadStatus({ label, pct: 0 });
+        photoUrls.push(await uploadToCloudinary(photos[i], 'image', folder, (pct) => setUploadStatus({ label, pct })));
+      }
 
       let videoUrl: string | null = null;
-      if (video) videoUrl = await uploadToCloudinary(video, 'video', folder);
+      if (video) {
+        setUploadStatus({ label: t.video, pct: 0 });
+        videoUrl = await uploadToCloudinary(video, 'video', folder, (pct) => setUploadStatus({ label: t.video, pct }));
+      }
 
       const fileUrls: string[] = [];
-      for (const f of files) fileUrls.push(await uploadToCloudinary(f, 'raw', folder));
+      for (let i = 0; i < files.length; i++) {
+        const label = `${t.file} ${i + 1}/${files.length}`;
+        setUploadStatus({ label, pct: 0 });
+        fileUrls.push(await uploadToCloudinary(files[i], 'raw', folder, (pct) => setUploadStatus({ label, pct })));
+      }
+
+      setUploadStatus(null);
 
       const qs = new URLSearchParams();
       qs.set('fixFor', fixFor || '');
@@ -205,6 +248,7 @@ const taskId = taskFromQuery;
 
       router.push(`/${locale}/mypage/proofs?tab=outgoing`);
     } catch (e: any) {
+      setUploadStatus(null);
       setError(e?.message || 'Network error');
       setBusy(false);
     }
@@ -342,6 +386,21 @@ const taskId = taskFromQuery;
             </div>
           )}
         </div>
+
+        {uploadStatus && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-white/70">
+              <span>{t.uploading}: {uploadStatus.label}</span>
+              <span>{uploadStatus.pct}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-fuchsia-500 transition-all duration-100"
+                style={{ width: `${uploadStatus.pct}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-1 flex items-center gap-2 text-sm text-red-300">

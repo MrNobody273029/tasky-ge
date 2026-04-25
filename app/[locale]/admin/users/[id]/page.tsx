@@ -89,6 +89,8 @@ const [pctSavedMsg, setPctSavedMsg] = useState<string | null>(null);
           takenPending: "ელოდება დამკვეთის დასტურს",
           takenRejected: "მოთხოვნა უარყოფილია",
           takenApproved: "დადასტურებულია",
+          commissionMustBeNumber: "საკომისიო უნდა იყოს რიცხვი",
+          commissionSaved: "საკომისიო წარმატებით შეიცვალა",
         }
       : {
           pageTitle: "Admin — User",
@@ -100,6 +102,8 @@ const [pctSavedMsg, setPctSavedMsg] = useState<string | null>(null);
           takenPending: "Waiting for client's approval",
           takenRejected: "Application rejected",
           takenApproved: "Approved",
+          commissionMustBeNumber: "Commission must be a number",
+          commissionSaved: "Commission updated successfully",
         };
 
   useEffect(() => {
@@ -142,7 +146,7 @@ async function saveCommission() {
   if (!user) return;
   const val = Number(commissionDraft);
   if (!Number.isFinite(val)) {
-    setErr('საკომისიო უნდა იყოს რიცხვი');
+    setErr(t.commissionMustBeNumber);
     return;
   }
   setSavingPct(true);
@@ -165,7 +169,7 @@ async function saveCommission() {
         : prev,
     );
     setErr(null);
-    setPctSavedMsg('საკომისიო წარმატებით შეიცვალა'); // ✅ success მესიჯი
+    setPctSavedMsg(t.commissionSaved);
   } catch (e: any) {
     setErr(e?.message || 'Save failed');
     setPctSavedMsg(null);

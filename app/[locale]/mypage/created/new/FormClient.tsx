@@ -1086,7 +1086,7 @@ export default function FormClient({
       {payOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={()=>setPayOpen(false)} />
-          <div className="relative card p-6 w-[min(520px,92vw)] space-y-4">
+          <div className="relative bg-[#0b0f16]/95 ring-1 ring-white/10 rounded-2xl p-6 w-[min(520px,92vw)] space-y-4">
             <div className="text-xl font-semibold">{t.payTitle}</div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">

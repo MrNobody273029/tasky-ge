@@ -9,6 +9,9 @@ import {
   MessageSquare,
   MoreVertical,
   Star,
+  CheckCircle2,
+  ClipboardCheck,
+  Wrench,
 } from 'lucide-react';
 import MatrixLoader from '@/components/MatrixLoader';
 
@@ -23,8 +26,12 @@ type ThreadItem = {
   updatedAt?: string;
   canWrite?: boolean;
   isFavorite?: boolean;
-  blocked?: boolean; // 🆕 ეს დავამატოთ
+  blocked?: boolean;
+  isOwner?: boolean;
+  exclusive?: boolean;
 };
+
+type PendingEvidence = { id: string; status: string; createdAt: string };
 
 type MessageItem = {
   id: string;
@@ -35,23 +42,6 @@ type MessageItem = {
   _local?: boolean;
   _error?: boolean;
 };
-
-function getUidFromCookie(): string {
-  try {
-    const m = document.cookie.match(/(?:^|;\s*)x-user-id=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
-  } catch {
-    return '';
-  }
-}
-function getEmailFromCookie(): string {
-  try {
-    const m = document.cookie.match(/(?:^|;\s*)email=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
-  } catch {
-    return '';
-  }
-}
 
 /* ---------- localStorage helpers (favorites + hidden) ---------- */
 
@@ -91,13 +81,18 @@ const dict = {
     inputPlaceholder: 'შეიყვანე ტექსტი…',
     send: 'გაგზავნა',
     hint: 'Enter – გაგზავნა • Shift+Enter – ახალი ხაზი',
-    locked:
-      'მოთხოვნა გაუქმებულია. ამ დავალებაზე ჩატი აღარ არის ხელმისაწვდომი.',
+    locked: 'მოთხოვნა გაუქმებულია. ამ დავალებაზე ჩატი აღარ არის ხელმისაწვდომი.',
     menuFavorite: 'ფავორიტად მონიშვნა',
     menuUnfavorite: 'ფავორიტიდან ამოშლა',
     menuDelete: 'ჩატის დამალვა',
-    menuDeleteConfirm:
-      'დარწმუნებული ხარ, რომ გინდა ამ ჩატის დამალვა? ახალი შეტყობინების მიღებისას ის ისევ გამოჩნდება.',
+    menuDeleteConfirm: 'დარწმუნებული ხარ, რომ გინდა ამ ჩატის დამალვა? ახალი შეტყობინების მიღებისას ის ისევ გამოჩნდება.',
+    evidencePending: 'შემსრულებელმა მტკიცებულება გამოაგზავნა — განხილვა საჭიროა',
+    evidenceConfirm: 'დამტკიცება',
+    evidenceNeedsFixes: 'ხარვეზი',
+    evidenceConfirmed: 'მტკიცებულება დამტკიცებულია. გადახდა ჩაირიცხა.',
+    fixesPlaceholder: 'აღწერე რა უნდა გამოასწოროს შემსრულებელმა…',
+    fixesSend: 'ხარვეზის გაგზავნა',
+    fixesCancel: 'გაუქმება',
   },
   en: {
     header: 'Chat',
@@ -113,8 +108,14 @@ const dict = {
     menuFavorite: 'Mark as favorite',
     menuUnfavorite: 'Remove from favorites',
     menuDelete: 'Hide chat',
-    menuDeleteConfirm:
-      'Hide this chat? It will reappear if you receive a new message.',
+    menuDeleteConfirm: 'Hide this chat? It will reappear if you receive a new message.',
+    evidencePending: 'Worker submitted evidence — review required',
+    evidenceConfirm: 'Confirm',
+    evidenceNeedsFixes: 'Request fixes',
+    evidenceConfirmed: 'Evidence confirmed. Payment released.',
+    fixesPlaceholder: 'Describe what the worker needs to fix…',
+    fixesSend: 'Send fixes request',
+    fixesCancel: 'Cancel',
   },
 } as const;
 
@@ -152,10 +153,17 @@ export default function ChatModal({
   const listRef = useRef<HTMLDivElement | null>(null);
   const pollRef = useRef<number | null>(null);
   const threadPollRef = useRef<number | null>(null);
+  const activeThreadRef = useRef<ThreadItem | null>(null);
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const openSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  const [pendingEvidence, setPendingEvidence] = useState<PendingEvidence | null>(null);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [needsFixesMode, setNeedsFixesMode] = useState(false);
+  const [fixesReason, setFixesReason] = useState('');
+  const [confirmSuccess, setConfirmSuccess] = useState(false);
 
   // props-ით მოსული threadId თუ შეიცვალა — გადაერთე
   useEffect(() => {
@@ -233,6 +241,8 @@ export default function ChatModal({
           canWrite,
           isFavorite: fav.has(raw.id),
           blocked: raw.blocked ?? blockedFromStatus,
+          isOwner: !!raw.isOwner,
+          exclusive: !!raw.exclusive,
         };
 
         const isHidden = hidden.has(raw.id);
@@ -269,15 +279,8 @@ export default function ChatModal({
     setLoadingMsgs(true);
     setMsgsErr(null);
     try {
-      const uid = getUidFromCookie();
-      const email = getEmailFromCookie();
-
       const r = await fetch(`/api/chats/${id}/messages?limit=50&markRead=1`, {
         cache: 'no-store',
-        headers: {
-          'x-user-id': uid || '',
-          'x-email': email || '',
-        },
       });
 
       if (!r.ok) throw new Error('msgs_failed');
@@ -289,11 +292,10 @@ export default function ChatModal({
         authorId: m.authorId,
         body: m.body,
         createdAt: m.createdAt,
-        isMine: uid === m.authorId,
+        isMine: m.isMine ?? false,
       }));
 
       setMsgs(mapped);
-      scrollToBottom();
 
       // თრედების სიაში უნკითხავი განულდეს
       setThreads((prev) =>
@@ -329,16 +331,9 @@ export default function ChatModal({
     scrollToBottom();
 
     try {
-      const uid = getUidFromCookie();
-      const email = getEmailFromCookie();
-
       const r = await fetch(`/api/chats/${activeId}/messages`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-user-id': uid || '',
-          'x-email': email || '',
-        },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ body: text }),
       });
 
@@ -430,6 +425,55 @@ export default function ChatModal({
     setMenuOpenId(null);
   }
 
+  /* ---------- Evidence review (owner in exclusive task) ---------- */
+
+  async function loadPendingEvidence(taskId: string) {
+    try {
+      const r = await fetch(`/api/tasks/${taskId}/evidence`, { cache: 'no-store' });
+      if (!r.ok) { setPendingEvidence(null); return; }
+      const j = await r.json();
+      setPendingEvidence(j.evidence ?? null);
+    } catch {
+      setPendingEvidence(null);
+    }
+  }
+
+  async function handleEvidenceConfirm() {
+    if (!pendingEvidence || evidenceBusy) return;
+    setEvidenceBusy(true);
+    try {
+      const r = await fetch(`/api/evidences/${pendingEvidence.id}/confirm`, { method: 'POST' });
+      if (!r.ok) throw new Error('confirm_failed');
+      setPendingEvidence(null);
+      setConfirmSuccess(true);
+      setTimeout(() => setConfirmSuccess(false), 5000);
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setEvidenceBusy(false);
+    }
+  }
+
+  async function handleEvidenceNeedsFixes() {
+    if (!pendingEvidence || evidenceBusy || !fixesReason.trim()) return;
+    setEvidenceBusy(true);
+    try {
+      const r = await fetch(`/api/evidences/${pendingEvidence.id}/needs-fixes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: fixesReason.trim() }),
+      });
+      if (!r.ok) throw new Error('needs_fixes_failed');
+      setPendingEvidence(null);
+      setNeedsFixesMode(false);
+      setFixesReason('');
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setEvidenceBusy(false);
+    }
+  }
+
   /* ---------- Effects ---------- */
 
   // გახსნისას — ჩავტვირთოთ თრედები
@@ -467,14 +511,37 @@ export default function ChatModal({
     }
   }, [open]);
 
+  // keep ref in sync so polling interval can read current thread without stale closure
+  useEffect(() => {
+    activeThreadRef.current = activeThread;
+  }, [activeThread]);
+
+  // evidence panel reset on thread switch
+  useEffect(() => {
+    setPendingEvidence(null);
+    setNeedsFixesMode(false);
+    setFixesReason('');
+    setConfirmSuccess(false);
+    if (!activeId) return;
+    const th = threads.find((t) => t.id === activeId);
+    if (th?.isOwner && th.exclusive) {
+      void loadPendingEvidence(th.taskId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
   // აქტიური თრედის შეცვლაზე — ჩავტვირთოთ მესიჯები
   useEffect(() => {
     if (!open || !activeId) return;
     void loadMessages(activeId);
 
-    // მესიჯების პოლინგი
+    // მესიჯების პოლინგი (+ evidence panel თუ owner + exclusive)
     pollRef.current = window.setInterval(() => {
       loadMessages(activeId).catch(() => {});
+      const th = activeThreadRef.current;
+      if (th?.isOwner && th.exclusive) {
+        loadPendingEvidence(th.taskId).catch(() => {});
+      }
     }, 10000);
 
     return () => {
@@ -763,6 +830,67 @@ if (loadingThreads && threads.length === 0) {
                   </>
                 )}
               </div>
+
+              {/* Evidence review panel (owner only, exclusive tasks) */}
+              {(pendingEvidence || confirmSuccess) && (
+                <div className="border-t border-white/10 px-3 py-2">
+                  {confirmSuccess ? (
+                    <div className="flex items-center gap-2 text-emerald-300 text-sm py-1">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>{t.evidenceConfirmed}</span>
+                    </div>
+                  ) : needsFixesMode ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={fixesReason}
+                        onChange={(e) => setFixesReason(e.target.value)}
+                        placeholder={t.fixesPlaceholder}
+                        rows={3}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 ring-1 ring-white/10 text-sm outline-none focus:ring-amber-400/40 resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleEvidenceNeedsFixes}
+                          disabled={!fixesReason.trim() || evidenceBusy}
+                          className="btn-evidence-warning text-xs disabled:opacity-60"
+                        >
+                          <span>{t.fixesSend}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setNeedsFixesMode(false); setFixesReason(''); }}
+                          className="btn-hero-secondary text-xs"
+                        >
+                          <span className="btn-text">{t.fixesCancel}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ClipboardCheck className="w-4 h-4 text-sky-300 shrink-0" />
+                      <span className="text-xs text-white/70 flex-1 min-w-0">{t.evidencePending}</span>
+                      <button
+                        type="button"
+                        onClick={handleEvidenceConfirm}
+                        disabled={evidenceBusy}
+                        className="btn-hero-primary text-xs disabled:opacity-60"
+                      >
+                        <span className="btn-text">{t.evidenceConfirm}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNeedsFixesMode(true)}
+                        disabled={evidenceBusy}
+                        className="btn-evidence-warning text-xs disabled:opacity-60"
+                      >
+                        <Wrench className="w-3.5 h-3.5 inline mr-1" />
+                        <span>{t.evidenceNeedsFixes}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Composer / locked notice */}
               <div className="p-3 border-t border-white/10">

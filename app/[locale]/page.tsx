@@ -261,14 +261,24 @@ export default function Home({ params }: { params: { locale: Locale } }) {
             type="button"
             onClick={handleInstallClick}
             className="btn-hero-secondary w-full sm:w-auto"
-            data-text={params.locale === "ka" ? "დააინსტალირე Tasky" : "Install Tasky"}
+            data-text={params.locale === "ka" ? "დааინსტალირე Tasky" : "Install Tasky"}
           >
             <span className="btn-text">
-              {params.locale === "ka" ? "დააინსტალირე Tasky" : "Install Tasky"}
+              {params.locale === "ka" ? "დааინსტალირე Tasky" : "Install Tasky"}
             </span>
           </button>
 
           </div>
+
+          {/* How it works link */}
+          <Link
+            href={`/${params.locale}/how-it-works`}
+            onClick={playNav}
+            className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-cyan-400 transition-colors group"
+          >
+            <span className="w-4 h-4 rounded-full ring-1 ring-white/30 group-hover:ring-cyan-400/60 flex items-center justify-center text-[10px] font-bold transition-colors">?</span>
+            {params.locale === 'ka' ? 'როგორ მუშაობს?' : 'How does it work?'}
+          </Link>
 
         </div>
 

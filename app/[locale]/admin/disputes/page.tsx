@@ -201,8 +201,7 @@ function InfoLine({ icon, text }: { icon: React.ReactNode; text: string }) {
 
 type ViewerItem =
   | { kind: 'photo'; src: string }
-  | { kind: 'video'; src: string }
-  | { kind: 'file'; src: string };
+  | { kind: 'video'; src: string };
 
 function fileNameFromUrl(u: string) {
   try {
@@ -286,17 +285,15 @@ function Attachments({
           </div>
           <div className="space-y-1 text-sm">
             {files.map((u, i) => (
-              <button
+              <a
                 key={u + i}
-                type="button"
-                onClick={() => setViewer({ kind: 'file', src: u })}
-                className="w-full text-left rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 px-3 py-2 text-sm text-white/85 transition"
-                title={locale === 'ka' ? 'ფაილის გახსნა' : 'Open file'}
+                href={u}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 px-3 py-2 text-sm text-cyan-300 hover:text-cyan-200 transition break-all"
               >
-                <span className="underline text-cyan-300 hover:text-cyan-200 break-all">
-                  {fileNameFromUrl(u) || `File #${i + 1}`}
-                </span>
-              </button>
+                {fileNameFromUrl(u) || `File #${i + 1}`}
+              </a>
             ))}
           </div>
         </div>
@@ -315,15 +312,8 @@ function Attachments({
           <div className="w-full max-w-6xl">
             {viewer.kind === 'photo' ? (
               <img src={viewer.src} alt="attachment" className="w-full max-h-[85vh] object-contain rounded-2xl bg-black/20" />
-            ) : viewer.kind === 'video' ? (
-              <video src={viewer.src} controls playsInline className="w-full max-h-[85vh] rounded-2xl bg-black" />
             ) : (
-              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-white/85">
-                <div className="mb-2 font-semibold">{locale === 'ka' ? 'ფაილი' : 'File'}</div>
-                <a className="underline text-cyan-300 hover:text-cyan-200" href={viewer.src} target="_blank" rel="noreferrer">
-                  {locale === 'ka' ? 'ახალ ტაბში გახსნა' : 'Open in new tab'}
-                </a>
-              </div>
+              <video src={viewer.src} controls playsInline className="w-full max-h-[85vh] rounded-2xl bg-black" />
             )}
           </div>
         </div>

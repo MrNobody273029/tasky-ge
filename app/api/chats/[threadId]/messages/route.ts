@@ -86,8 +86,13 @@ export async function GET(req: Request, { params }: { params: { threadId: string
 
     const nextCursor = items.length === limit ? items[items.length - 1].id : undefined;
 
-    // ვაბრუნებთ ქრონოლოგიურად ზრდადს (უმეტესად UI-სთვის მოსახერხებელია)
-    const normalized = [...items].reverse();
+    const normalized = [...items].reverse().map((m) => ({
+      id: m.id,
+      authorId: m.authorId,
+      body: m.body,
+      createdAt: m.createdAt,
+      isMine: m.authorId === user.id,
+    }));
 
     return NextResponse.json({ items: normalized, nextCursor }, { status: 200 });
   } catch (e) {

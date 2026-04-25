@@ -1,35 +1,26 @@
 'use client';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import HoloLogoSVG from '@/components/TaskyLogoDraw';            // <- შეცვალე ბილიკი საჭიროებისამებრ
 import TaskModal from '@/components/task/TaskModal';            // <- იგივე
-
-type TaskListItem = { id: string; status: 'DRAFT' | 'PUBLISHED' };
 
 export default function LogoWithModalTrigger() {
   const [open, setOpen] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [resetTick, setResetTick] = useState(0);
 
-  const pickRandom = useCallback(<T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)], []);
-
   const onExplode = useCallback(async () => {
-    // სცადე გამოიტანო ნებისმიერი გამოქვეყნებული დავალება
     try {
-      const r = await fetch('/api/tasks?status=PUBLISHED&limit=200', { cache: 'no-store' });
-      if (!r.ok) throw new Error('Failed to fetch tasks');
-      const list = (await r.json()) as TaskListItem[];
-      const published = list.filter(t => t.status === 'PUBLISHED');
-      const chosen = pickRandom(published);
-      if (!chosen) throw new Error('No published tasks');
-      setTaskId(chosen.id);
+      const r = await fetch('/api/tasks/random-published', { cache: 'no-store' });
+      if (!r.ok) throw new Error('No tasks');
+      const { id } = await r.json() as { id: string };
+      setTaskId(id);
       setOpen(true);
     } catch (e) {
-      // ფოლბექი: თუ API ვერ იმუშავა, გახსენი მოდალი null-ზე (შენი TaskModal null-ზე არაფერს გამოიტანს)
       console.error(e);
       setTaskId(null);
       setOpen(true);
     }
-  }, [pickRandom]);
+  }, []);
 
   const handleClose = useCallback(() => {
     setOpen(false);

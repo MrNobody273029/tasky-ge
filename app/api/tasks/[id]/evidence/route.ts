@@ -5,6 +5,31 @@ import { ensureUserFromReq } from '@/lib/auth';
 import { promises as fs } from 'fs';
 import path from 'path';
 
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await ensureUserFromReq(req);
+    if (!user) return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+
+    const task = await prisma.task.findUnique({
+      where: { id: params.id },
+      select: { id: true, authorId: true },
+    });
+    if (!task) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    if (task.authorId !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+
+    const evidence = await prisma.taskEvidence.findFirst({
+      where: { taskId: task.id, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true, createdAt: true },
+    });
+
+    return NextResponse.json({ evidence: evidence ?? null });
+  } catch (e) {
+    console.error('GET /api/tasks/[id]/evidence error:', e);
+    return NextResponse.json({ error: 'server_error' }, { status: 500 });
+  }
+}
+
 const HOURS_96_MS = 96 * 60 * 60 * 1000;
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {

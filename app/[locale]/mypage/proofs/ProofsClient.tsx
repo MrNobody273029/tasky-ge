@@ -359,6 +359,23 @@ function statusClasses(item: EvidenceItem) {
   }
 }
 
+function statusBorderClass(item: EvidenceItem) {
+  if (item.dispute?.status && item.dispute.status !== 'NONE' && item.dispute.status !== 'RESOLVED' && item.dispute.status !== 'CANCELLED')
+    return 'ring-1 ring-fuchsia-400/50';
+  if (item.dispute?.status === 'RESOLVED')
+    return 'ring-1 ring-emerald-400/40';
+  if (item.status === 'EXPIRED')
+    return 'ring-1 ring-rose-500/50';
+  if (item.status === 'APPROVED' && item.autoApproved)
+    return 'ring-1 ring-sky-400/50';
+  switch (item.status) {
+    case 'APPROVED':   return 'ring-1 ring-emerald-400/50';
+    case 'NEEDS_FIXES': return 'ring-1 ring-amber-400/50';
+    case 'REJECTED':   return 'ring-1 ring-rose-400/50';
+    default: return '';
+  }
+}
+
 function NotifDot() {
   return (
     <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/80" />
@@ -2128,12 +2145,12 @@ const allowConfirmDuringDispute =
                   )}
 
                   {/* Incoming pending actions (client) */}
-{isIncoming && item.status === 'PENDING' && (
+{isIncoming && item.status === 'PENDING' && !(disputeActive && !allowConfirmDuringDispute) && (
   <>
     <button
       type="button"
       onClick={handleConfirm}
-      disabled={busy || (lockAllActions && !allowConfirmDuringDispute)}
+      disabled={busy || lockAllActions}
       className="btn-hero-secondary text-sm disabled:opacity-60"
       data-text={confirmLabel}
     >
@@ -2172,23 +2189,6 @@ const allowConfirmDuringDispute =
 )}
 
 
-                  {/* Outgoing pending actions (worker) — dispute visible only on second submission */}
-                  {isWorker && item.status === 'PENDING' && canShowDisputeStart && (
-                    <button
-                      type="button"
-                      disabled={busy || lockAllActions}
-                      className="btn-hero-secondary text-sm disabled:opacity-60 relative"
-                      onClick={() => {
-                        onOpenDisputeStart(item);
-                        onClose();
-                      }}
-                    >
-                      <span className="btn-text flex items-center gap-2">
-                        <Gavel className="w-4 h-4" />
-                        {isKa ? 'დავის დაწყება' : 'Start dispute'}
-                      </span>
-                    </button>
-                  )}
 
 
 
@@ -2733,11 +2733,8 @@ const showCountdown =
       const canOpenDefectBtn = ev.status === 'NEEDS_FIXES';
 
 const canOpenRatingBtn =
-  (ev.dispute?.status === 'NONE' || !ev.dispute) &&
-  (
-    ev.status === 'APPROVED' ||
-    ev.status === 'EXPIRED'
-  );
+  !disputeActive &&
+  (ev.status === 'APPROVED' || ev.status === 'EXPIRED' || disputeResolved);
 const mySubmitted =
   tab === 'outgoing'
     ? ev.dispute?.workerSubmitted === true
@@ -2753,7 +2750,7 @@ const mySubmitted =
           onKeyDown={(e) => {
             if (e.key === 'Enter') setSelected(ev);
           }}
-          className="relative w-full text-left card p-5 md:p-6 hover:bg-white/[0.03] transition group cursor-pointer"
+          className={`relative w-full text-left card p-5 md:p-6 hover:bg-white/[0.03] transition group cursor-pointer ${statusBorderClass(ev)}`}
         >
           {hasAnyNotif(ev) && (
             <span className="absolute top-3 right-3 w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/80" />

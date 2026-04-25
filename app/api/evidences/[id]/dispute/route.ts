@@ -155,6 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         id: true,
         taskId: true,
         authorId: true, // worker
+        status: true,
         task: { select: { authorId: true } }, // client
       },
     });
@@ -202,6 +203,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (action === "START") {
       if (existing) {
         return NextResponse.json({ ok: true, dispute: mapDisputeInfo(existing) }, { status: 200 });
+      }
+
+      if (ev.status !== "PENDING") {
+        return NextResponse.json({ error: "evidence_not_pending" }, { status: 409 });
       }
 
       const deadlineAt = new Date(Date.now() + FOUR_DAYS_MS);

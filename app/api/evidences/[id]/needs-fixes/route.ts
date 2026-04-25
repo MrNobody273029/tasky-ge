@@ -45,20 +45,24 @@ export async function POST(
     });
     if (already) return NextResponse.json({ error: 'needs_fixes_once' }, { status: 409 });
 
-    await prisma.taskEvidence.update({
-      where: { id: evidenceId },
-      data: {
-        status: 'NEEDS_FIXES',
-        decidedById: user.id,
-        decidedAt: new Date(),
-        needsFixesAt: new Date(),
-        needsFixesReason: reason.slice(0, 2000),
+    await prisma.$transaction(async (tx) => {
+      await tx.taskEvidence.update({
+        where: { id: evidenceId },
+        data: {
+          status: 'NEEDS_FIXES',
+          decidedById: user.id,
+          decidedAt: new Date(),
+          needsFixesAt: new Date(),
+          needsFixesReason: reason.slice(0, 2000),
+          workerDecisionSeen: false,
+        },
+      });
 
-        // 🆕 worker notification: client requested fixes
-        workerDecisionSeen: false,
-
-        // needs-fixes timer is now active (UI reads needsFixesAt)
-      },
+      // notify worker via chat unread badge
+      await tx.chatThread.updateMany({
+        where: { taskId: evidence.taskId, applicantId: evidence.authorId },
+        data: { hasUnreadForApplicant: true },
+      });
     });
 
     return NextResponse.json({ ok: true, status: 'NEEDS_FIXES' }, { status: 200 });

@@ -70,6 +70,12 @@ export async function POST(
           });
         }
       }
+
+      // notify worker via chat unread badge
+      await tx.chatThread.updateMany({
+        where: { taskId: evidence.taskId, applicantId: evidence.authorId },
+        data: { hasUnreadForApplicant: true },
+      });
     });
 
     return NextResponse.json({ ok: true, status: 'APPROVED' }, { status: 200 });

@@ -79,6 +79,7 @@ export async function GET(req: Request) {
         taskId: t.taskId,
         taskTitle: t.task.title,
         exclusive: t.task.exclusive,
+        isOwner: iAmOwner,
         appStatus,
         canWrite,
         blocked,
