@@ -2,17 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/auto-approve-evidences",
-      "schedule": "0 2 * * *",
-      "headers": {
-        "x-cron-secret": "@cron_secret"
-      }
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/auto-resolve-disputes",
-      "schedule": "0 2 * * *",
-      "headers": {
-        "x-cron-secret": "@cron_secret"
-      }
+      "schedule": "0 2 * * *"
     }
   ]
 }
